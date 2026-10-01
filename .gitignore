@@ -1,0 +1,10 @@
+# 客人／救回的專案資料，不上傳
+救回的專案/
+*.json
+
+# 本機設定與系統檔
+.claude/
+.env
+Thumbs.db
+.DS_Store
+desktop.ini
