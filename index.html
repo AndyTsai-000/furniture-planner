@@ -5845,15 +5845,15 @@ async function pickSaveFile(p) {                                        // 選�
   try { return await window.showSaveFilePicker({ suggestedName: p.fileName || fileBase() + '.json', types: JSON_TYPES }); } catch (e) { return null; }
 }
 $('#ioDl').onclick = async e => {
-  const p = curProject();
+  const p = curProject(), btn = e.currentTarget;                        // 先記住按鈕：等待存檔後 e.currentTarget 會變成空的
   if (canFS && p) {                                                     // 選位置存檔，並記住這個檔案給「儲存舊檔」
     const h = await pickSaveFile(p); if (!h) return;
     save(); p.updated = Date.now(); persist();
-    if (await writeHandle(h, projectCode())) { await fhSet(p.id, h); p.fileName = h.name; markSaved(); flash(e.currentTarget, '已存檔 ✓'); }
+    if (await writeHandle(h, projectCode())) { await fhSet(p.id, h); p.fileName = h.name; markSaved(); flash(btn, '已存到 ' + h.name + ' ✓'); }
     return;
   }
   const name = fileBase() + '.json';
-  if (await saveFile(name, ioJson || $('#ioCode').value, e.currentTarget)) { if (p) p.fileName = name; markSaved(); }   // 記住檔名，之後「儲存舊檔」直接用
+  if (await saveFile(name, ioJson || $('#ioCode').value, btn)) { if (p) p.fileName = name; markSaved(); }   // 記住檔名，之後「儲存舊檔」直接用
 };
 async function openWithPicker() {                                       // 開啟 .json（記住檔案，之後「儲存舊檔」直接寫回它）
   let h; try { [h] = await window.showOpenFilePicker({ types: JSON_TYPES }); } catch (e) { return; }
