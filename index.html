@@ -5433,7 +5433,8 @@ function renderPanel() {
       ${dimRow(o, 'd', '深', Math.max(T.d * 2.5, 200) | 0)}
       ${dimRow(o, 'h', '高', T.flat ? 5 : Math.max(T.h * 1.8, R().h) | 0)}
       <button class="link" data-act="reset">↺ 恢復預設尺寸</button>`)}
-      ${grp('style', '款式與材質', `${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
+      ${T.person ? visOpts(o).map(gp => grp('p-' + gp.key, gp.label, `<div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`)).join('') : ''}
+      ${T.person ? '' : grp('style', '款式與材質', `${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
       ${visOpts(o).map(gp => `<h4>${gp.label}</h4><div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`).join('')}
       ${isCab(T) || T.acc ? `<button class="btn xraybtn${sysOpts.inside ? ' on' : ''}" data-act="inside">${sysOpts.inside ? '◫ 透視中（點一下恢復門片）' : '◫ 透視櫃體，查看櫃內配件'}</button>` : ''}
       ${T.acc && hostCab(o) ? `<h4>櫃內位置（cm）</h4><div class="grid2"><label class="mini"><span>距櫃內左側</span>${numIn('item', o.id, 'cabx', 'step="0.5" min="0"')}</label><label class="mini"><span>離地高度</span>${numIn('item', o.id, 'elev', 'min="0"')}</label></div><div class="muted" style="font-size:12px;margin:4px 0 6px">${T.acc === 'mid' ? '也可以直接在畫面上左右拖曳中立板，兩側的層板、抽屜會自動改寬度貼齊。' : '也可以直接在畫面上上下拖曳調整高度（開啟「透視櫃體」比較好點選）。'}</div>` : ''}
