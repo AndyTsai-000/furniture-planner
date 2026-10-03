@@ -3110,8 +3110,9 @@ const SC_FINISH = { key: 'finish', label: '門片表面', list: [opt('wood', '�
 const SC_BODY = { key: 'bodyfin', label: '櫃體表面', list: [opt('plain', '素面'), opt('wood', '木紋')] };
 const SC_SHELF = { key: 'shelves', label: '內建層板數', list: numList(0, 6, ' 片').map(o => ({ ...o, name: '層板 ' + o.name })) };
 const SC_DRAWER = { key: 'drawers', label: '外抽屜數', list: numList(0, 4, ' 個').map(o => ({ ...o, name: '外抽 ' + o.name })) };
+const SC_IDRAWER = { key: 'idrawers', label: '內抽屜數', list: numList(0, 4, ' 個').map(o => ({ ...o, name: '內抽 ' + o.name })) };   // 門片裡面的抽屜（每一格各放這麼多個）
 const SC_ROD = { key: 'rod', label: '內建吊衣桿', list: [opt('yes', '有吊衣桿'), opt('no', '無吊衣桿')] };
-const SC_OPTS = [SC_DOOR, SC_HANDLE, SC_FINISH, SC_BODY, SC_SHELF, SC_DRAWER];
+const SC_OPTS = [SC_DOOR, SC_HANDLE, SC_FINISH, SC_BODY, SC_SHELF, SC_DRAWER, SC_IDRAWER];
 const SC_DECO = { key: 'deco', label: '拉門飾條', list: [opt('none', '無'), opt('stripe', '黑玻飾條')] };
 const SC_THICK = { key: 'thick', label: '板材厚度', list: [opt('0.8', '8mm'), opt('1.8', '18mm'), opt('2.5', '25mm')] };
 const SC_BACK = { key: 'backt', label: '背板厚度', list: [opt('0.8', '8mm'), opt('1.8', '18mm'), opt('2.5', '25mm')] };
@@ -3544,7 +3545,7 @@ function genInterior(cab) {
     state.items.push(it); buildItem(it); setCabLocal(cab, it, lx, lz);
   };
   G.spans.forEach((sp, i) => { if (i) mk('scAccMid', sp.x0 - t / 2, -1.5, t, d - 3, Math.round((H - 2 * t) * 10) / 10, E + y0 + t); });
-  let shelfTop = yB;
+  let shelfTop = yB, shelfBot = yA;
   if (cab.rod === 'yes') {
     const hat = yB - 30;
     for (const sp of G.spans) {
@@ -3553,8 +3554,19 @@ function genInterior(cab) {
     }
     shelfTop = hat - 110;
   }
-  if (shelves && shelfTop - yA > 20) for (const sp of G.spans) for (let k = 1; k <= shelves; k++) {
-    const y = yA + (shelfTop - yA) * k / (shelves + 1);
+  // 內抽屜：疊在外抽屜上方（門片裡面），每一格各放；放不下就少放幾個，層板排在內抽屜上面
+  const IH = 18, IG = 2, room = (cab.rod === 'yes' ? yB - 30 - 60 : yB) - yA;   // 有吊衣桿時上面留 60cm 掛衣服
+  const idr = T.drawerFull && drawers ? 0 : Math.max(0, Math.min(parseInt(cab.idrawers || 0, 10) || 0, Math.floor((room - 4) / (IH + IG))));
+  if (idr) {
+    for (const sp of G.spans) for (let k = 0; k < idr; k++) {
+      if (niches.some(([a, b]) => yA + k * (IH + IG) + IH > a - 2 && yA + k * (IH + IG) < b + 2)) continue;
+      mk('scAccDrawer', sp.cx, -1, Math.round((sp.cw - 1) * 10) / 10, Math.max(10, d - 6), IH, E + yA + 1 + k * (IH + IG));
+    }
+    shelfBot = yA + 1 + idr * (IH + IG);
+    if (cab.rod === 'yes') shelfTop = Math.max(shelfTop, shelfBot);       // 內抽屜比較高時，層板區不會被擠成負的
+  }
+  if (shelves && shelfTop - shelfBot > 20) for (const sp of G.spans) for (let k = 1; k <= shelves; k++) {
+    const y = shelfBot + (shelfTop - shelfBot) * k / (shelves + 1);
     if (niches.some(([a, b]) => y > a - 2 && y < b + 2)) continue;
     mk('scAccShelf', sp.cx, -1.5, Math.round((sp.cw - 0.4) * 10) / 10, d - 5, t, E + y - t / 2);
   }
@@ -3792,7 +3804,7 @@ function applyDefaults(it, T) {
   return it;
 }
 // 無門的系統櫃不顯示把手、門片表面
-const visOpts = it => optsOf(TYPES[it.type]).filter(g => !(it.door === 'open' && (g.key === 'handle' || g.key === 'finish')) && !(g.key === 'deco' && it.door !== 'slide') && !(g.key === 'arm' && it.type === 'baysofa' && it.style !== 'bay'));
+const visOpts = it => optsOf(TYPES[it.type]).filter(g => !(it.door === 'open' && (g.key === 'handle' || g.key === 'finish')) && !(g.key === 'deco' && it.door !== 'slide') && !(g.key === 'arm' && it.type === 'baysofa' && it.style !== 'bay') && !(g.key === 'idrawers' && TYPES[it.type].drawerFull));   // 整面都是外抽屜的櫃子沒有內抽屜
 const styleName = it => visOpts(it).map(g => optEntry(it, g).name).join('・');
 function colorLabel(it, n) {
   const T = TYPES[it.type]; let lbl = T['c' + n] || null;
@@ -5009,7 +5021,7 @@ function doAct(a, arg, key) {
       else for (const { o: x } of accInside(o) || []) if (['shelf', 'divider', 'mid'].includes(TYPES[x.type].acc)) { setT(x); buildItem(x); } // 櫃內層板一起換厚度
     }
     buildItem(o); fitItem(o);
-    if (o.interior && ['shelves', 'rod', 'drawers'].includes(key)) genInterior(o);  // 內部格局改了才重新排
+    if (o.interior && ['shelves', 'rod', 'drawers', 'idrawers'].includes(key)) genInterior(o);  // 內部格局改了才重新排
     else followCab(o);
     renderPanel(); renderThickDef(); updateOverlay(); commit(); return;
   }
