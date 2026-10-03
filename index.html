@@ -3321,6 +3321,11 @@ function partName(k, custom) {                                          // custo
   let m = /^f(\d+)-(\d+)$/.exec(k); if (m) return custom ? `第 ${+m[1] + 1} 格抽屜面板 ${+m[2] + 1}` : `抽屜面板 ${+m[1] + 1}-${+m[2] + 1}`;
   m = /^d(\d+)-(\d+)$/.exec(k); if (m) return custom ? `第 ${+m[1] + 1} 格門片 ${+m[2] + 1}` : `門片 ${+m[2] + 1}` + (+m[1] ? `（第 ${+m[1] + 1} 段）` : '');
   if (/^rail/.test(k)) return '上軌道';
+  m = /^mid(\d+)$/.exec(k); if (m) return `中立板 ${+m[1]}`;
+  m = /^s(\d+)-(\d+)$/.exec(k); if (m) return `第 ${+m[1] + 1} 格層板 ${+m[2] + 1}`;
+  m = /^hat(\d+)$/.exec(k); if (m) return `第 ${+m[1] + 1} 格帽架層板`;
+  m = /^rod(\d+)$/.exec(k); if (m) return `第 ${+m[1] + 1} 格吊衣桿`;
+  m = /^dz(\d+)$/.exec(k); if (m) return `第 ${+m[1] + 1} 格抽屜上蓋板`;
   return k;
 }
 const partKeys = it => { const g = objById.get(it.id), out = []; if (g) for (const m of g.children) { const k = m.userData.part; if (k && !out.includes(k)) out.push(k); } for (const k of Object.keys(it.parts || {})) if (it.parts[k].hide && !out.includes(k)) out.push(k); return out; };
@@ -3329,7 +3334,7 @@ const CC_DOORS = [opt('swing', '開門'), opt('glass', '玻璃門'), opt('none',
 const CC_BASE = { key: 'base', label: '底座', list: [opt('kick', '踢腳板'), opt('floor', '落地'), opt('float', '懸空 15cm')] };
 const CC_TOP = { key: 'top', label: '檯面', list: [opt('none', '無檯面', { c3: null }), opt('stone', '石材檯面', { c3: '檯面顏色' })] };
 const CC_OPTS = [CC_BASE, CC_TOP, SC_HANDLE, SC_FINISH, SC_BODY];
-const ccDefCol = (T, i) => ({ wd: 0, door: 'swing', sh: T.h > 150 ? 4 : 1, dr: 0, rod: 0, ...((T.defCols || [])[i] || {}) });
+const ccDefCol = (T, i) => T.empty ? { wd: 0, door: 'none', sh: 0, dr: 0, rod: 0 } : ({ wd: 0, door: 'swing', sh: T.h > 150 ? 4 : 1, dr: 0, rod: 0, ...((T.defCols || [])[i] || {}) });   // 空櫃體：新增的格子也是空的
 function ccCols(it) {
   const T = TYPES[it.type];
   if (!Array.isArray(it.cols) || !it.cols.length) it.cols = Array.from({ length: (T.defCols || []).length || Math.max(1, Math.round(it.w / 60)) }, (_, i) => ccDefCol(T, i));
@@ -3364,7 +3369,7 @@ function buildCustomCab(it) {
   const Hd = mat('#9a9da2', 0.3, 0.8), dark = mat('#3b3632', 0.85);
   const bd = d - 2, bz = -1, zf = d / 2 - 0.9, inside = sysOpts.inside;
   let pk = null, pn = 0; const part = k => { if (pk) for (let i = pn; i < g.children.length; i++) g.children[i].userData.part = pk; pn = g.children.length; pk = k; };
-  const done = () => { part(null); cabParts(it, g, new Map([[DoorM, c => fin === 'plain' ? mat(c, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, c)], [BodyM, c => bf === 'plain' ? mat(c, 0.75) : surfMat('wood', c)], [dark, c => mat(c, 0.85)]])); return g; };
+  const done = () => { part(null); cabParts(it, g, new Map([[DoorM, c => fin === 'plain' ? mat(c, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, c)], [BodyM, c => bf === 'plain' ? mat(c, 0.75) : surfMat('wood', c)], [dark, c => mat(c, 0.85)], [Hd, c => mat(c, 0.3, 0.8)]])); return g; };
   part('kick');
   if ((it.base || 'kick') === 'kick') B(g, w - 4, 8, d - 8, 0, 4, -3, dark);   // 踢腳板
   for (const s of [-1, 1]) { part(s < 0 ? 'L' : 'R'); B(g, t, H, bd, s * (w / 2 - t / 2), y0 + H / 2, bz, BodyM); }
@@ -3372,20 +3377,23 @@ function buildCustomCab(it) {
   part('bottom'); B(g, w - 2 * t, t, bd, 0, y0 + t / 2, bz, BodyM);
   part('back'); B(g, w - 2 * t, H - 2 * t, backOf(it), 0, y0 + H / 2, -d / 2 + backOf(it) / 2, BodyM);
   part(null);
-  G.spans.forEach((sp, i) => { if (i) B(g, t, H - 2 * t, bd - 1, sp.x0 - t / 2, y0 + H / 2, bz - 0.5, BodyM); });
+  G.spans.forEach((sp, i) => { if (i) { part('mid' + i); B(g, t, H - 2 * t, bd - 1, sp.x0 - t / 2, y0 + H / 2, bz - 0.5, BodyM); } });
+  part(null);
   const yB = hb - t;
-  for (const sp of G.spans) {
-    const { c, cx, cw, dr } = sp, yA = sp.zoneTop + (dr ? t : 0);
-    if (dr) B(g, cw, t, bd - 1, cx, sp.zoneTop + t / 2, bz - 0.5, BodyM);
+  for (const sp of G.spans) {                                           // 櫃內的板子、吊衣桿也各自有名稱，可以個別選取修改
+    const { c, cx, cw, dr } = sp, yA = sp.zoneTop + (dr ? t : 0), ci = sp.i;
+    if (dr) { part('dz' + ci); B(g, cw, t, bd - 1, cx, sp.zoneTop + t / 2, bz - 0.5, BodyM); }
     let shelfTop = yB;
     if (c.rod) {
       const hat = Math.max(yA + 40, yB - 30);
-      if (hat < yB - 5) B(g, cw - 0.4, t, bd - 3, cx, hat, bz - 0.5, BodyM);
+      if (hat < yB - 5) { part('hat' + ci); B(g, cw - 0.4, t, bd - 3, cx, hat, bz - 0.5, BodyM); }
+      part('rod' + ci);
       const r = C(g, 1.2, 1.2, cw - 1, cx, hat - 6, bz, Hd, 12); r.rotation.z = Math.PI / 2;
       shelfTop = Math.max(yA, hat - 110);
     }
     const sh = c.sh || 0;
-    if (sh && shelfTop - yA > 15) for (let k = 1; k <= sh; k++) B(g, cw - 0.4, t, bd - 3, cx, yA + (shelfTop - yA) * k / (sh + 1), bz - 0.5, BodyM);
+    if (sh && shelfTop - yA > 15) for (let k = 1; k <= sh; k++) { part('s' + ci + '-' + (k - 1)); B(g, cw - 0.4, t, bd - 3, cx, yA + (shelfTop - yA) * k / (sh + 1), bz - 0.5, BodyM); }
+    part(null);
   }
   if (it.top === 'stone') { part('counter'); B(g, w + 1, 4, d + 1, 0, h - 2, 0, topMat({ topmat: 'slate', color: it.color3 || '#e9e6e1' })); part(null); }
   if (inside) return done();
@@ -3739,6 +3747,7 @@ const TYPES = {
   scWardBack:  { name: '衣櫃背櫃',   cat: '系統櫃', sub: '衣櫃', w: 180, d: 60, h: 40, elev: 200, color: '#e9e4da', color2: '#f1ebe1', c1: '門片顏色', c2: '櫃體顏色', build: buildSysCab, upper: true, wall: true, backOf: '衣櫃', opts: SC_OPTS, def: { door: 'swing', handle: 'push', finish: 'wood', shelves: '0', drawers: '0' } },
   scCustom:    { name: '自訂高櫃',   cat: '系統櫃', sub: '自訂櫃體', w: 120, d: 60, h: 240, color: '#e9e4da', color2: '#f1ebe1', color3: '#e9e6e1', c1: '門片顏色', c2: '櫃體顏色', build: buildCustomCab, custom: true, wall: true, opts: CC_OPTS, def: { base: 'kick', top: 'none', handle: 'bar', finish: 'wood' }, defCols: [{ rod: 1, sh: 1, dr: 2 }, { sh: 5 }] },
   scCustomLow: { name: '自訂矮櫃',   cat: '系統櫃', sub: '自訂櫃體', w: 150, d: 45, h: 90, color: '#c49a6c', color2: '#f1ebe1', color3: '#e9e6e1', c1: '門片顏色', c2: '櫃體顏色', build: buildCustomCab, custom: true, wall: true, opts: CC_OPTS, def: { base: 'kick', top: 'none', handle: 'groove', finish: 'wood' }, defCols: [{ sh: 1 }, { door: 'none', sh: 1 }, { dr: 3, sh: 0 }] },
+  scCustomEmpty: { name: '空櫃體（無門無配件）', cat: '系統櫃', sub: '自訂櫃體', w: 80, d: 40, h: 200, color: '#e9e4da', color2: '#f1ebe1', color3: '#e9e6e1', c1: '門片顏色', c2: '櫃體顏色', build: buildCustomCab, custom: true, empty: true, wall: true, opts: CC_OPTS, def: { base: 'kick', top: 'none', handle: 'bar', finish: 'wood' }, defCols: [{ door: 'none', sh: 0, dr: 0, rod: 0 }] },
   scCustomUp:  { name: '自訂吊櫃',   cat: '系統櫃', sub: '自訂櫃體', w: 120, d: 35, h: 70, elev: 170, color: '#e9e4da', color2: '#f1ebe1', color3: '#e9e6e1', c1: '門片顏色', c2: '櫃體顏色', build: buildCustomCab, custom: true, wall: true, opts: CC_OPTS, def: { base: 'floor', top: 'none', handle: 'push', finish: 'plain' }, defCols: [{ sh: 1 }, { sh: 1, door: 'none' }] },
   scAccShelf:  { name: '層板',       cat: '系統櫃', sub: '配件', w: 58, d: 35, h: 1.8, color: '#f1ebe1', color2: '#b8bcc0', c1: '板材顏色', c2: null, build: buildScAcc, acc: 'shelf', noHit: true },
   scAccMid:    { name: '中立板',     cat: '系統櫃', sub: '配件', w: 1.8, d: 55, h: 200, color: '#f1ebe1', color2: '#b8bcc0', c1: '板材顏色', c2: null, build: buildScAcc, acc: 'mid', noHit: true },
@@ -5214,7 +5223,7 @@ function doAct(a, arg, key) {
   }
   if ((a === 'ccount' || a === 'ccol') && sel && sel.k === 'item') {
     const o = getItem(sel.id), cols = ccCols(o);
-    if (a === 'ccount') { const n = +arg; while (cols.length < n) cols.push(ccDefCol({ h: o.h }, 99)); cols.length = n; }
+    if (a === 'ccount') { const n = +arg; while (cols.length < n) cols.push(ccDefCol({ h: o.h, empty: TYPES[o.type].empty }, 99)); cols.length = n; }
     else {
       const [i, f] = key.split(':'), c = cols[+i]; if (!c) return;
       if (f === 'door') c.door = arg;
