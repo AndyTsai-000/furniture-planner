@@ -4797,9 +4797,40 @@ function addSofaSet(pos) {
   if (innerWidth <= 900) $('#side').classList.remove('open');
 }
 function duplicate(it) {
-  const c = { ...JSON.parse(JSON.stringify(it)), id: state.nextId++, x: it.x + 25, z: it.z + 25 };
-  const inner = isCab(TYPES[it.type]) ? accInside(it) : null;
-  state.items.push(c); buildItem(c); fitItem(c);
+  const T = TYPES[it.type], cab = T.acc ? hostCab(it) : null;
+  const c = { ...JSON.parse(JSON.stringify(it)), id: state.nextId++ };
+  if (cab) {                                                            // 櫃內配件：留在同一座櫃子裡、對齊原本那一件，之後可以自由拖曳調整
+    delete c.auto; delete c.rel; c.host = cab.id;                       // 複製出來的算使用者自己加的（改內建層板數時不會被清掉）
+    state.items.push(c); buildItem(c);
+    const G = cabGeo(cab), t = G.t, E = cab.elev || 0, k = T.acc, L = cabLocal(cab, it);
+    if (k === 'mid' || k === 'divider') {                               // 直立的板：往旁邊 30cm（右邊放不下就放左邊）
+      const lim = cab.w / 2 - t - c.w / 2, lx = L.lx + 30 <= lim ? L.lx + 30 : L.lx - 30;
+      setCabLocal(cab, c, clamp(lx, -lim, lim), L.lz);
+    } else {                                                            // 層板、抽屜、拉籃、吊衣桿：同一格往上放（上面放不下就往下）
+      const lo = E + G.base + t, hi = Math.max(lo, E + G.hb - t - c.h), step = c.h + (k === 'shelf' ? 30 : k === 'rod' ? 40 : 2);
+      const taken = e => state.items.some(o => o !== c && TYPES[o.type].acc && hostCab(o) === cab && Math.abs(cabLocal(cab, o).lx - L.lx) < Math.min(o.w, c.w) / 2 && e < o.elev + o.h + 0.5 && e + c.h > o.elev - 0.5);
+      let e = null;
+      for (let n = 1; n < 12 && e === null; n++) for (const v of [it.elev + n * step, it.elev - n * step]) if (v >= lo - 0.1 && v <= hi + 0.1 && !taken(v)) { e = v; break; }
+      c.elev = Math.round(clamp(e === null ? it.elev + step : e, lo, hi) * 10) / 10;
+      setCabLocal(cab, c, L.lx, L.lz);
+    }
+    select('item', c.id); commit(); return;
+  }
+  // 一般品項：貼在原品項旁邊並對齊（同方向、同深度），省去再移動的時間；依序試右、左、前、後，放得下又不重疊就用
+  const inner = isCab(T) ? accInside(it) : null;
+  state.items.push(c); buildItem(c);
+  const r = it.rot * deg, cs = Math.cos(r), sn = Math.sin(r), free = !T.flat && !T.noHit;
+  const others = free ? state.items.filter(o => o !== c && o !== it && !TYPES[o.type].flat && !TYPES[o.type].noHit && !TYPES[o.type].acc).map(o => itemBox(o)) : [];
+  let ok = false, inRoom = null;
+  for (const [lx, lz] of [[it.w, 0], [-it.w, 0], [0, it.d], [0, -it.d]]) {
+    const x = Math.round((it.x + lx * cs - lz * sn) * 10) / 10, z = Math.round((it.z + lx * sn + lz * cs) * 10) / 10;
+    c.x = x; c.z = z; fitItem(c);
+    if (Math.abs(c.x - x) > 0.6 || Math.abs(c.z - z) > 0.6) continue;   // 超出房間
+    if (!inRoom) inRoom = { x, z };
+    const bx = itemBox(c).expandByScalar(-0.6);
+    if (!others.some(q => q.intersectsBox(bx))) { ok = true; break; }
+  }
+  if (!ok) { if (inRoom) { c.x = inRoom.x; c.z = inRoom.z; } else { c.x = it.x + 25; c.z = it.z + 25; } fitItem(c); }   // 四邊都放不下：放在旁邊（可能重疊，會以紅框提醒）
   for (const { o } of inner || []) {                                         // 櫃內配件一起複製
     const a = { ...JSON.parse(JSON.stringify(o)), id: state.nextId++, x: o.x + (c.x - it.x), z: o.z + (c.z - it.z) };
     if (o.auto === it.id) a.auto = c.id; else { delete a.auto; a.host = c.id; }
