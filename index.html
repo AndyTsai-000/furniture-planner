@@ -3509,6 +3509,21 @@ function slideAcc(c, o, lx, links) {
   }
 }
 // 系統櫃內部（中立板、層板、帽架、吊衣桿）拆成可移動的配件，auto 記住屬於哪座櫃子
+// 修復舊資料：櫃內配件被留在櫃體外面（先前「先選牆再加櫃體」時櫃體搬走、配件沒跟上，分開的位置還被存了下來）→ 排回櫃內
+function fixStrayParts() {
+  let n = 0;
+  for (const c of [...state.items]) {
+    if (!TYPES[c.type] || !isCab(TYPES[c.type])) continue;
+    const r = c.rot * deg, cs = Math.cos(r), sn = Math.sin(r);
+    const stray = state.items.filter(o => TYPES[o.type].acc && (o.auto === c.id || o.host === c.id)).filter(o => { const ox = o.x - c.x, oz = o.z - c.z; return Math.abs(ox * cs + oz * sn) > c.w / 2 + 2 || Math.abs(-ox * sn + oz * cs) > c.d / 2 + 2; });
+    if (!stray.length) continue;
+    n++;
+    if (stray.some(o => o.auto === c.id)) genInterior(c);               // 自動產生的層板、抽屜、吊衣桿：重新排一次
+    for (const o of stray) if (o.host === c.id && state.items.includes(o)) { delete o.rel; o.rot = c.rot; fitAccessoryInto(o, c); buildItem(o); }   // 自己加的配件：放回這座櫃子
+  }
+  if (n) syncRel();
+  return n;
+}
 function dropAuto(cab) {
   for (const o of state.items) if (o.auto === cab.id) { const g = objById.get(o.id); if (g) { furnGroup.remove(g); disposeObj(g); objById.delete(o.id); } }
   state.items = state.items.filter(o => o.auto !== cab.id);
@@ -4632,7 +4647,8 @@ function addItem(type, pos) {
   applyDefaults(it, T);
   if (isCab(T)) { it.thick = sysOpts.thick; it.backt = sysOpts.backt; if (sysOpts.color) it.color = sysOpts.color; if (sysOpts.color2) it.color2 = sysOpts.color2; }
   if (T.acc) { // 系統櫃配件放進選取中的櫃子，或拖放到的那座櫃子
-    const cab = pos ? cabAt(pos) : selCab();
+    const cabs = state.items.filter(c => isCab(TYPES[c.type]));
+    const cab = pos ? cabAt(pos) : selCab() || (selWall && cabs.filter(c => c.pwall === selWall).pop()) || cabs.pop();   // 沒選櫃子：放進選取牆面上的櫃子，否則最後加的那座
     if (cab) { fitAccessoryInto(it, cab); it.host = cab.id; pos = { x: it.x, z: it.z }; if (!sysOpts.inside) setInside(true); } // 自動透視，才看得到放進去的配件
   }
   if (T.backOf) { // 衣櫃背櫃：放在選取中衣櫃的上方，並排的衣櫃會一起蓋住，做成一整條長櫃
@@ -5620,7 +5636,7 @@ function loadSpaceData(data) {
   Object.assign(state, blankSpace(), data);
   state.items = (state.items || []).filter(i => TYPES[i.type]);
   for (const i of state.items) if (RENAMED[i.name]) i.name = RENAMED[i.name];
-  sel = null; rebuildAll(); fitCamera(); resetHistory();
+  sel = null; rebuildAll(); fixStrayParts(); fitCamera(); resetHistory();
 }
 let delArmed = false;
 function renderSpaces() {
@@ -6254,6 +6270,7 @@ function buildSpaceGroup(sp) {                                          // 用�
   objById.clear();
   buildRoom(); buildStructs();
   for (const it of state.items) buildItem(it);
+  fixStrayParts();
   const G = new THREE.Group(), take = grp => { while (grp.children.length) { const c = grp.children[0]; grp.remove(c); G.add(c); } };
   const wl = walls.map(w => ({ ...w })), wm = wallMat.clone(); wm.userData.own = true;
   const lamps = state.items.filter(it => LAMP_T.has(it.type)).map(it => ({ type: it.type, g: objById.get(it.id) })).filter(x => x.g);
