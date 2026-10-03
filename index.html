@@ -415,7 +415,8 @@ body.present.presset #rpanel{display:block}
       <div class="checks" style="margin:0 0 10px"><label><input type="checkbox" id="sysInside"> 透視櫃內（隱藏門片）</label></div>
       <div class="grp" data-g="y-def"><button type="button" class="grpH" data-grp="y-def">預設板材與顏色</button><div class="grpB">
       <div class="ccrow" style="align-items:center;margin-bottom:6px"><span>板材厚度</span><div class="stylechips" id="thickDef"></div></div>
-      <div class="ccrow" style="align-items:center;margin-bottom:10px"><span>背板厚度</span><div class="stylechips" id="backDef"></div></div>
+      <div class="ccrow" style="align-items:center;margin-bottom:6px"><span>背板厚度</span><div class="stylechips" id="backDef"></div></div>
+      <div class="ccrow" style="align-items:center;margin-bottom:10px"><span>門片厚度</span><div class="stylechips" id="doorDef"></div></div>
       <div id="scColDef"></div>
       </div></div>
       <div class="grp" data-g="y-lib"><button type="button" class="grpH" data-grp="y-lib">櫃體與配件</button><div class="grpB">
@@ -3144,10 +3145,12 @@ const SC_DECO = { key: 'deco', label: '拉門飾條', list: [opt('none', '無'),
 const SC_THICK = { key: 'thick', label: '板材厚度', list: [opt('0.8', '8mm'), opt('1.8', '18mm'), opt('2.5', '25mm')] };
 const SC_BACK = { key: 'backt', label: '背板厚度', list: [opt('0.8', '8mm'), opt('1.8', '18mm'), opt('2.5', '25mm')] };
 const backOf = it => parseFloat(it && it.backt) || 0.8;              // 背板厚度（cm），預設 8mm
+const SC_DOORT = { key: 'doort', label: '門片厚度', list: [opt('0.8', '8mm'), opt('1.8', '18mm'), opt('2.5', '25mm')] };
+const doorOf = it => parseFloat(it && it.doort) || 1.8;             // 門片、抽屜面板厚度（cm），預設 18mm
 const thickOf = it => parseFloat(it && it.thick) || 1.8;              // 櫃體、層板的板材厚度（cm）
 const SC_SW = [['#f4f3ef', '雪白'], ['#ece6da', '暖白'], ['#e3dccd', '米白'], ['#cfcdc8', '淺灰'], ['#a9a7a2', '水泥灰'], ['#5b5d60', '石墨灰'], ['#2c2c2e', '霧黑'],
   ['#dcc29a', '北美楓木'], ['#d8c3a2', '白橡木'], ['#c9a77c', '淺橡木'], ['#a8764a', '柚木'], ['#7a5538', '胡桃木'], ['#5d4331', '深木紋'], ['#4e3627', '黑胡桃']];   // 系統板材常用色
-const sysOpts = { inside: false, thick: '1.8', backt: '0.8' };                          // 透視櫃內：隱藏門片
+const sysOpts = { inside: false, thick: '1.8', backt: '0.8', doort: '1.8' };                          // 透視櫃內：隱藏門片
 function buildSysCab(it) {
   const g = new THREE.Group(), { w, d, h } = it, T = TYPES[it.type] || {};
   let pk = null, pn = 0; const part = k => { if (pk) for (let i = pn; i < g.children.length; i++) g.children[i].userData.part = pk; pn = g.children.length; pk = k; };   // 之後建出來的板子都算這個部位
@@ -3159,7 +3162,7 @@ function buildSysCab(it) {
   const Hd = mat('#9a9da2', 0.3, 0.8), dark = mat('#3b3632', 0.85);
   let door = it.door || 'swing'; const handle = it.handle || 'bar';
   const shelves = parseInt(it.shelves || 0, 10), drawers = parseInt(it.drawers || 0, 10), rod = it.rod === 'yes';
-  const bd = d - 2, bz = -1, zf = d / 2 - 0.9, inside = sysOpts.inside;
+  const DT = doorOf(it), bd = d - 2, bz = -1, zf = d / 2 - DT / 2, inside = sysOpts.inside;   // DT：門片、抽屜面板厚度
   const done = () => { part(null); cabParts(it, g, new Map([[DoorM, c => fin === 'plain' ? mat(c, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, c)], [BodyM, c => bf === 'plain' ? mat(c, 0.75) : surfMat('wood', c)], [dark, c => mat(c, 0.85)]])); return g; };
   part('kick');
   if (kick) B(g, w - 4, kick, d - 8, 0, kick / 2, -3, dark);                         // 踢腳板
@@ -3201,7 +3204,7 @@ function buildSysCab(it) {
   if (T.sink) {                                                     // 水槽與龍頭
     const sw = Math.min(w - 16, 72), sd = Math.min(d - 16, 44);
     B(g, sw, 0.5, sd, 0, h + 0.2, 1, St); B(g, sw - 5, 0.3, sd - 5, 0, h + 0.5, 1, mat('#5d6166', 0.3, 0.8));
-    const fz = 1 - sd / 2 - 5; C(g, 1.5, 1.8, 28, 0, h + 14, fz, St, 16);
+    const fz = 1 - sd / 2 - 5; C(g, 1.5, DT, 28, 0, h + 14, fz, St, 16);
     const sp = C(g, 1.1, 1.1, 18, 0, h + 27, fz + 8, St, 12); sp.rotation.x = Math.PI / 2;
   }
   if (T.hob) {                                                      // 嵌入式爐台（黑玻璃面板＋爐圈）
@@ -3219,7 +3222,7 @@ function buildSysCab(it) {
   for (let c = 0; c < nCol; c++) for (let k = 0; k < drawers; k++) {
     const x = -w / 2 + fw * (c + 0.5), y = y0 + drH * (k + 0.5);
     part('f' + c + '-' + k);
-    B(g, fw - 0.4, drH - 0.4, 1.8, x, y, zf, DoorM);
+    B(g, fw - 0.4, drH - 0.4, DT, x, y, zf, DoorM);
     if (handle === 'bar') hBar(x, y + drH * 0.22, Math.min(20, fw * 0.4));
     else if (handle === 'groove') B(g, fw - 0.4, 0.8, 0.3, x, y + drH / 2 - 0.8, d / 2 + 0.05, dark);
   }
@@ -3241,7 +3244,7 @@ function buildSysCab(it) {
     };
     if (T.blind && door === 'swing') {                               // 轉角櫃：左側封板、右側一扇門
       const bw = w * 0.45, dw = w - bw, x = -w / 2 + bw + dw / 2;
-      part('d' + zi + '-0'); B(g, bw - 0.4, DH - 0.4, 1.8, -w / 2 + bw / 2, cy, zf, DoorM); part('d' + zi + '-1'); B(g, dw - 0.4, DH - 0.4, 1.8, x, cy, zf, DoorM); vHandle(x, -1, dw); part(null); continue;
+      part('d' + zi + '-0'); B(g, bw - 0.4, DH - 0.4, DT, -w / 2 + bw / 2, cy, zf, DoorM); part('d' + zi + '-1'); B(g, dw - 0.4, DH - 0.4, DT, x, cy, zf, DoorM); vHandle(x, -1, dw); part(null); continue;
     }
     if (door === 'swing' || door === 'glass') {
       const nd = Math.max(1, Math.round(w / 45)), dw = w / nd;
@@ -3250,10 +3253,10 @@ function buildSysCab(it) {
         part('d' + zi + '-' + i);
         if (door === 'glass') {
           const f = 4;
-          B(g, dw - 0.4, f, 1.8, x, yE - f / 2 - 0.2, zf, DoorM); B(g, dw - 0.4, f, 1.8, x, yD + f / 2 + 0.2, zf, DoorM);
-          for (const s of [-1, 1]) B(g, f, DH - 0.4, 1.8, x + s * (dw / 2 - f / 2 - 0.2), cy, zf, DoorM);
+          B(g, dw - 0.4, f, DT, x, yE - f / 2 - 0.2, zf, DoorM); B(g, dw - 0.4, f, DT, x, yD + f / 2 + 0.2, zf, DoorM);
+          for (const s of [-1, 1]) B(g, f, DH - 0.4, DT, x + s * (dw / 2 - f / 2 - 0.2), cy, zf, DoorM);
           glassPane(g, dw - 2 * f, DH - 2 * f, 0.5, x, cy, zf);
-        } else B(g, dw - 0.4, DH - 0.4, 1.8, x, cy, zf, DoorM);
+        } else B(g, dw - 0.4, DH - 0.4, DT, x, cy, zf, DoorM);
         vHandle(x, side, dw);
       }
     } else if (door === 'slide') {
@@ -3263,7 +3266,7 @@ function buildSysCab(it) {
       for (let i = 0; i < np; i++) {
         const x = -w / 2 + step * (i + 0.5), z = i % 2 ? d / 2 - 1 : d / 2 - 3.4;
         part('d' + zi + '-' + i);
-        B(g, pw, DH - 3, 1.8, x, yD + (DH - 3) / 2, z, DoorM);
+        B(g, pw, DH - 3, DT, x, yD + (DH - 3) / 2, z, DoorM);
         for (const e of [-1, 1]) B(g, 0.4, DH - 3, 0.3, x + e * (pw / 2 - 0.2), yD + (DH - 3) / 2, z + 0.95, dark);
         if (it.deco === 'stripe') B(g, pw - 0.8, Math.max(4, DH * 0.055), 0.3, x, yD + DH * 0.3, z + 1, mat('#16181b', 0.12, 0.2)); // 黑玻飾條
         if (handle !== 'push') B(g, 1.4, Math.min(60, DH * 0.5), 0.4, x + (i % 2 ? -1 : 1) * (pw / 2 - 3), yD + DH * 0.5, z + 1.05, handle === 'bar' ? Hd : dark);
@@ -3272,7 +3275,7 @@ function buildSysCab(it) {
       for (let c = 0; c < nCol; c++) {
         const x = -w / 2 + fw * (c + 0.5);
         part('d' + zi + '-' + c);
-        B(g, fw - 0.4, DH - 0.4, 1.8, x, cy, zf, DoorM);
+        B(g, fw - 0.4, DH - 0.4, DT, x, cy, zf, DoorM);
         const y = T.upper ? yD + 3 : yE - 3;
         if (handle === 'bar') hBar(x, y, Math.min(30, fw * 0.5));
         else if (handle === 'groove') B(g, fw - 0.4, 0.8, 0.3, x, y, d / 2 + 0.05, dark);
@@ -3370,7 +3373,7 @@ function buildCustomCab(it) {
   const DoorM = fin === 'plain' ? mat(it.color, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, it.color);
   const BodyM = bf === 'plain' ? mat(it.color2, 0.75) : surfMat('wood', it.color2);
   const Hd = mat('#9a9da2', 0.3, 0.8), dark = mat('#3b3632', 0.85);
-  const DT = 1.8, bd = d - 2, bz = -1, zf = d / 2 - DT / 2, inside = sysOpts.inside;   // DT：門片、抽屜面板厚度 1.8cm（所有系統櫃一致）
+  const DT = doorOf(it), bd = d - 2, bz = -1, zf = d / 2 - DT / 2, inside = sysOpts.inside;   // DT：門片、抽屜面板厚度
   let pk = null, pn = 0; const part = k => { if (pk) for (let i = pn; i < g.children.length; i++) g.children[i].userData.part = pk; pn = g.children.length; pk = k; };
   const done = () => { part(null); cabParts(it, g, new Map([[DoorM, c => fin === 'plain' ? mat(c, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, c)], [BodyM, c => bf === 'plain' ? mat(c, 0.75) : surfMat('wood', c)], [dark, c => mat(c, 0.85)], [Hd, c => mat(c, 0.3, 0.8)]])); return g; };
   part('kick');
@@ -4810,7 +4813,7 @@ function addItem(type, pos) {
   const onWall = !pos && !sel && selWall && !T.acc && !T.person && !T.ceil && !T.flat ? selWall : null;   // 先選了牆面再加品項 → 直接掛到／靠到那面牆
   const it = { id: state.nextId++, type, name: T.name, w: T.w, d: T.d, h: T.h, color: T.color, color2: T.color2, rot: 0, elev: T.elev || 0, x: 0, z: 0 };
   applyDefaults(it, T);
-  if (isCab(T)) { it.thick = sysOpts.thick; it.backt = sysOpts.backt; if (sysOpts.color) it.color = sysOpts.color; if (sysOpts.color2) it.color2 = sysOpts.color2; }
+  if (isCab(T)) { it.thick = sysOpts.thick; it.backt = sysOpts.backt; it.doort = sysOpts.doort; if (sysOpts.color) it.color = sysOpts.color; if (sysOpts.color2) it.color2 = sysOpts.color2; }
   if (T.acc) { // 系統櫃配件放進選取中的櫃子，或拖放到的那座櫃子
     const cabs = state.items.filter(c => isCab(TYPES[c.type]));
     const cab = pos ? cabAt(pos) : selCab() || (selWall && cabs.filter(c => c.pwall === selWall).pop()) || cabs.pop();   // 沒選櫃子：放進選取牆面上的櫃子，否則最後加的那座
@@ -5594,7 +5597,7 @@ $('#libSearch').addEventListener('input', e => { libQuery = e.target.value; rend
 for (const T of Object.values(TYPES)) {                         // 每個系統櫃、層板類配件都能選板材厚度
   if (!isCab(T) && !['shelf', 'divider', 'mid'].includes(T.acc)) continue;
   if (T.build === buildSysCab) T.opts = [...(T.opts || []), SC_DECO];
-  if (isCab(T)) { T.opts = [...(T.opts || []), SC_THICK, SC_BACK]; T.def = { ...(T.def || {}), thick: '1.8', backt: '0.8' }; }
+  if (isCab(T)) { T.opts = [...(T.opts || []), SC_THICK, SC_BACK, SC_DOORT]; T.def = { ...(T.def || {}), thick: '1.8', backt: '0.8', doort: '1.8' }; }
   else { T.opts = [...(T.opts || []), SC_THICK]; T.def = { ...(T.def || {}), thick: '1.8' }; }
 }
 TYPES.scWardSlide.def = { ...TYPES.scWardSlide.def, deco: 'stripe' };   // 參考實品：拉門中段黑玻飾條
@@ -5663,8 +5666,16 @@ function renderThickDef() {
   $('#thickDef').innerHTML = SC_THICK.list.map(o => `<button class="chip${o.id === v ? ' on' : ''}" data-thk="${o.id}">${o.name}</button>`).join('');
   const bv = cur ? cur.backt || '0.8' : sysOpts.backt;
   $('#backDef').innerHTML = SC_BACK.list.map(o => `<button class="chip${o.id === bv ? ' on' : ''}" data-bk="${o.id}">${o.name}</button>`).join('');
+  const dv = cur ? cur.doort || '1.8' : sysOpts.doort;
+  $('#doorDef').innerHTML = SC_DOORT.list.map(o => `<button class="chip${o.id === dv ? ' on' : ''}" data-dt="${o.id}">${o.name}</button>`).join('');
   renderScColor();
 }
+$('#doorDef').addEventListener('click', e => {                         // 門片厚度：有選取櫃子就改那座，沒選就設定之後新加入的櫃子
+  const b = e.target.closest('[data-dt]'); if (!b) return;
+  const cur = sel && sel.k === 'item' && isCab(TYPES[getItem(sel.id)?.type]) ? getItem(sel.id) : null;
+  if (cur) doAct('opt', b.dataset.dt, 'doort'); else sysOpts.doort = b.dataset.dt;
+  renderThickDef();
+});
 $('#backDef').addEventListener('click', e => {
   const b = e.target.closest('[data-bk]'); if (!b) return;
   const cur = sel && sel.k === 'item' && isCab(TYPES[getItem(sel.id)?.type]) ? getItem(sel.id) : null;
