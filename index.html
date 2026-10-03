@@ -427,8 +427,8 @@ body.rmode #side,body.rmode #panel{display:none}
     <div class="stylechips" data-rk="path"><button class="chip" data-v="orbit">環繞一圈</button><button class="chip" data-v="sway">左右擺動</button></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">起點</div>
     <div class="stylechips" data-rk="start"><button class="chip" data-v="cur">目前視角</button><button class="chip" data-v="front">正面</button><button class="chip" data-v="left">左前角</button><button class="chip" data-v="right">右前角</button><button class="chip" data-v="back">後方</button></div>
-    <div id="rCamRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">相機高度</div>
-    <div class="stylechips" data-rk="cam"><button class="chip" data-v="eye">人眼高度</button><button class="chip" data-v="high">高處往下看</button></div></div>
+    <div id="rCamRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">拍攝方式（整個空間＝從外面繞著拍，看得到全部家具）</div>
+    <div class="stylechips" data-rk="cam"><button class="chip" data-v="out">整個空間</button><button class="chip" data-v="eye">人眼高度</button><button class="chip" data-v="high">高處往下看</button></div></div>
     <div id="rDirRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">環繞方向</div>
     <div class="stylechips" data-rk="dir"><button class="chip" data-v="right">往右繞</button><button class="chip" data-v="left">往左繞</button></div></div>
     <div id="rWalkRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">人物</div>
@@ -3748,7 +3748,7 @@ vp.prepend(renderer.domElement);
 $('#loading').remove();
 const labelR = new CSS2DRenderer({ element: $('#labels') });
 const MG = { on: false, groups: [], drag: null };                     // 空間合併狀態
-const RM = { on: false, busy: false, anim: null, out: null, light: 'natural', lens: 'std', size: '1920x1080', path: 'orbit', start: 'cur', cam: 'eye', dir: 'right', dur: '10', vres: '1080', expo: 1, walk: 'off' }; // 渲染模式狀態
+const RM = { on: false, busy: false, anim: null, out: null, light: 'natural', lens: 'std', size: '1920x1080', path: 'orbit', start: 'cur', cam: 'out', dir: 'right', dur: '10', vres: '1080', expo: 1, walk: 'off' }; // 渲染模式狀態
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#ebe8e2');
@@ -4377,6 +4377,7 @@ function loop() {
     if (MG.on) mergeCutaway(false);
   }
   for (const c of structGroup.children) if (c.userData.wall) { const wl = walls.find(x => x.key === c.userData.wall); c.visible = wl ? wl.m.visible : true; }
+  for (const s of state.structs) if (s.kind === 'beam') { const m = structById.get(s.id); if (m) m.visible = !RM.on || view !== '3d' || ceilGroup.visible; }   // 渲染時從天花板上方往下看：樑跟著天花板一起隱藏，才不會擋住家具
   if (RM.on) { drawRender(); return; }
   renderer.render(scene, camera);
   labelR.render(scene, camera);
@@ -6426,38 +6427,57 @@ function applyLight() {
 }
 function setLens(l) { RM.lens = l; persp.fov = l === 'wide' ? 64 : rBase.fov; persp.updateProjectionMatrix(); syncChips(); }
 const OUT_DIR = { 'o-f': [0, 1], 'o-b': [0, -1], 'o-l': [-1, 0], 'o-r': [1, 0], 'o-fl': [-1, 1], 'o-fr': [1, 1], 'o-bl': [-1, -1], 'o-br': [1, -1] };
-function rAngleOut(k) {                                                 // 整個空間：從外面斜上方往內看，剛好把整個空間放進輸出範圍；靠鏡頭的外牆與天花板自動不顯示
-  const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
-  const [dx, dz] = OUT_DIR[k], n = Math.hypot(dx, dz), ux = dx / n, uz = dz / n, pitch = 36 * deg;
-  setLens('std');
-  const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
-  const rx = -uz, rz = ux, cp = Math.cos(pitch), sp = Math.sin(pitch), ty = h * 0.42;      // 鏡頭的右方向；看向空間中心偏下
-  let dist = 0;                                                         // 讓空間的八個角都落在畫面內所需的距離
+function outFit(B, h, ux, uz, vHalf, hHalf, pitch, ty) {             // 從 (ux, uz) 方向斜上方看，讓空間的八個角都落在畫面內所需的距離
+  const rx = -uz, rz = ux, cp = Math.cos(pitch), sp = Math.sin(pitch); let dist = 0;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [0, h]) {
     const px = sx * B.w / 2, pz = sz * B.d / 2, py = y - ty;
     const right = px * rx + pz * rz, along = px * ux + pz * uz;        // along：朝鏡頭方向的水平距離
     const upv = py * cp - along * sp, fwd = -(along * cp + py * sp);   // 在鏡頭座標裡的上方、前方（相對於焦點）
     dist = Math.max(dist, Math.abs(right) / Math.tan(hHalf) - fwd, Math.abs(upv) / Math.tan(vHalf) - fwd);
   }
-  dist = Math.max(dist * 1.04, (h + 15 - ty) / sp);                     // 鏡頭一定高過天花板，天花板才會隱藏
+  return dist;
+}
+function rAngleOut(k) {                                                 // 整個空間：從外面斜上方往內看，剛好把整個空間放進輸出範圍；靠鏡頭的外牆與天花板自動不顯示
+  const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
+  const [dx, dz] = OUT_DIR[k], n = Math.hypot(dx, dz), ux = dx / n, uz = dz / n, pitch = 36 * deg;
+  setLens('std');
+  const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch), ty = h * 0.42;      // 看向空間中心偏下
+  const dist = Math.max(outFit(B, h, ux, uz, vHalf, hHalf, pitch, ty) * 1.04, (h + 15 - ty) / sp);   // 鏡頭一定高過天花板，天花板才會隱藏
   persp.position.set(B.cx + ux * dist * cp, ty + dist * sp, B.cz + uz * dist * cp); controls.target.set(B.cx, ty, B.cz); controls.update();
 }
-// 渲染時從正上方往下看：用一圈「只擋不畫」的遮罩蓋住牆頂，畫面只留牆內（牆的厚度與牆外都不顯示）
-let topMask = null;
+// 渲染時正對著空間看（正上方、正面、後方）：用一圈「只擋不畫」的遮罩蓋住牆的斷面，畫面只留牆內（牆的厚度與牆外都不顯示）
+let viewMask = null;
 function syncTopMask() {
-  const { w, d, h } = state.room, p = persp.position, t = controls.target;
-  const on = RM.on && !MG.on && view === '3d' && p.y > h + 5 && Math.abs(p.x) < w / 2 && Math.abs(p.z) < d / 2 && Math.hypot(p.x - t.x, p.z - t.z) < 0.12 * (p.y - t.y);
-  if (!on) { if (topMask) topMask.visible = false; return; }
-  const key = [w, d, h].join();
-  if (!topMask || topMask.userData.key !== key) {
-    if (topMask) { scene.remove(topMask); topMask.geometry.dispose(); }
-    const o = WALL_T + 40, s = new THREE.Shape([[-w / 2 - o, -d / 2 - o], [w / 2 + o, -d / 2 - o], [w / 2 + o, d / 2 + o], [-w / 2 - o, d / 2 + o]].map(([x, y]) => new THREE.Vector2(x, y)));
-    s.holes.push(new THREE.Path([[-w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2], [w / 2, -d / 2]].map(([x, y]) => new THREE.Vector2(x, y))));
-    topMask = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshBasicMaterial({ colorWrite: false }));
-    topMask.rotation.x = -Math.PI / 2; topMask.position.y = h + 0.5; topMask.renderOrder = -10; topMask.userData.key = key;
-    scene.add(topMask);
+  const { w, d, h } = state.room, p = persp.position, t = controls.target, o = WALL_T + 600;
+  let mode = null;
+  if (RM.on && !MG.on && view === '3d' && Math.abs(p.x) < w / 2) {
+    if (p.y > h + 5 && Math.abs(p.z) < d / 2 && Math.hypot(p.x - t.x, p.z - t.z) < 0.12 * (p.y - t.y)) mode = 'top';
+    else if (Math.abs(p.z) > d / 2 + 5 && p.y > 0 && p.y < h && Math.abs(t.z) < Math.abs(p.z) && Math.hypot(p.x - t.x, p.y - t.y) < 0.12 * Math.abs(p.z - t.z)) mode = p.z > 0 ? 'front' : 'back';
   }
-  topMask.visible = true;
+  if (!mode) { if (viewMask) viewMask.visible = false; return; }
+  const key = [mode, w, d, h].join();
+  if (!viewMask || viewMask.userData.key !== key) {
+    if (viewMask) { scene.remove(viewMask); viewMask.children[0].geometry.dispose(); }
+    const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => new THREE.Vector2(x, y));
+    const R = mode === 'top' ? [-w / 2, -d / 2, w / 2, d / 2] : [-w / 2, 0, w / 2, h];   // 牆內的範圍（開口）
+    const s = new THREE.Shape(rect(R[0] - o, R[1] - o, R[2] + o, R[3] + o)); s.holes.push(new THREE.Path(rect(...R)));
+    const geo = new THREE.ShapeGeometry(s), mm = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide }), sg = mode === 'front' ? 1 : -1;
+    viewMask = new THREE.Group();
+    for (const off of mode === 'top' ? [0.5] : [0.5, WALL_T + 30]) {      // 正面／後方再加一層在牆外側，蓋住凸出牆外的天花板邊緣、樑頭
+      const m = new THREE.Mesh(geo, mm); m.renderOrder = -10; viewMask.add(m);
+      if (mode === 'top') { m.rotation.x = -Math.PI / 2; m.position.y = h + off; } else m.position.z = sg * (d / 2 + off);
+    }
+    viewMask.userData.key = key; scene.add(viewMask);
+  }
+  viewMask.visible = true;
+}
+function rAngleFace(k) {                                                // 正面／後方：退到牆外正對著空間看，擋住的那面牆自動隱藏，畫面剛好框住整個室內（地板、天花板、三面牆）
+  const { w, d, h } = state.room, sg = k === 'back' ? -1 : 1;
+  setLens('wide');
+  const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
+  const dist = Math.max(w / 2 / Math.tan(hHalf), h / 2 / Math.tan(vHalf)) * 1.02;
+  persp.position.set(0, h / 2, sg * (d / 2 + dist)); controls.target.set(0, h / 2, 0); controls.update();
 }
 function rAngleTop() {                                                  // 上方：從正上方垂直往下看，畫面剛好框住牆內的空間（天花板自動隱藏）
   const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
@@ -6469,6 +6489,7 @@ function rAngleTop() {                                                  // 上�
 function rAngle(k) {                                                    // 預設角度：人眼高度站在門口往內看，或從正上方往下看
   if (OUT_DIR[k]) { rAngleOut(k); return; }
   if (k === 'top') { rAngleTop(); return; }
+  if (!MG.on && (k === 'front' || k === 'back')) { rAngleFace(k); return; }
   if (MG.on) {                                                          // 合併畫面：從不同方向斜上方俯看整體
     const { w, d, cx, cz } = rRoom(), S = Math.max(w, d);
     const P = { front: [0, 0.75, 1.0], back: [0, 0.75, -1.0], left: [-0.8, 0.75, 0.8], right: [0.8, 0.75, 0.8] }[k];
@@ -6477,7 +6498,7 @@ function rAngle(k) {                                                    // 預�
     return;
   }
   const { w, d, h } = state.room, eye = Math.min(150, h * 0.55);
-  const P = { front: [[0, eye, d / 2 - 8], [0, eye * 0.7, -d / 2]], back: [[0, eye, -d / 2 + 8], [0, eye * 0.7, d / 2]], left: [[-w / 2 + 12, eye, d / 2 - 12], [w * 0.12, eye * 0.6, -d * 0.15]], right: [[w / 2 - 12, eye, d / 2 - 12], [-w * 0.12, eye * 0.6, -d * 0.15]] }[k];
+  const P = { left: [[-w / 2 + 12, eye, d / 2 - 12], [w * 0.12, eye * 0.6, -d * 0.15]], right: [[w / 2 - 12, eye, d / 2 - 12], [-w * 0.12, eye * 0.6, -d * 0.15]] }[k];
   if (P) { persp.position.set(...P[0]); controls.target.set(...P[1]); setLens('wide'); controls.update(); }
   else { setLens('std'); fitCamera(); }
 }
@@ -6582,6 +6603,9 @@ function stepAnim() {                                                   // 依�
   if (A.M) {                                                            // 空間合併：在外圍斜上方繞著整體轉
     const th = A.mth + (A.path === 'orbit' ? A.dir * Math.PI * 2 * t : 0.5 * Math.sin(Math.PI * 2 * t));
     persp.position.set(A.M.cx + A.mr * Math.sin(th), A.my, A.M.cz + A.mr * Math.cos(th)); persp.lookAt(A.M.cx, 0, A.M.cz);
+  } else if (A.out) {                                                   // 整個空間：在外面斜上方繞一圈（或左右擺動），靠鏡頭的牆自動隱藏
+    const th = A.out.th0 + (A.path === 'orbit' ? A.dir * Math.PI * 2 * t : 0.6 * Math.sin(Math.PI * 2 * t));
+    persp.position.set(A.out.R * Math.sin(th), A.out.Y, A.out.R * Math.cos(th)); persp.lookAt(0, A.out.ty, 0);
   } else if (A.path === 'orbit') {                                      // 沿著牆內側繞一圈，看向房間中央
     const th = A.th0 + A.dir * Math.PI * 2 * t;
     const up = 0.5 - 0.5 * Math.cos(Math.PI * 4 * t);                   // 繞一圈中鏡頭慢慢抬頭兩次，把天花板也帶進畫面
@@ -6614,7 +6638,14 @@ function recordAnim() {
   setOut(W, H, 16 / 9);                                                 // 動畫固定 16:9
   const fov0 = persp.fov; persp.fov = RM.lens === 'wide' ? 66 : 52; persp.updateProjectionMatrix();   // 室內鏡頭；上面「鏡頭」選廣角時動畫也跟著用更廣的視角
   if (M) { persp.fov = fov0; persp.updateProjectionMatrix(); }         // 合併畫面從外面俯看，不用廣角
-  RM.anim = { path: RM.path, ms: +RM.dur * 1000, tg, p0: P0.clone(), rec, track: stream.getVideoTracks()[0], t0: 0, fov0, M, walk: RM.walk === 'on' && !M ? walkPlans() : null,
+  let out = null;                                                       // 整個空間：在空間外斜上方繞，距離取八個方向裡最遠的，整圈都拍得到全部
+  if (!M && RM.cam === 'out') {
+    const fr = frameRect(16 / 9), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * 16 / 9), pitch = 36 * deg, ty = h * 0.42;
+    let dist = 0; for (let n = 0; n < 16; n++) dist = Math.max(dist, outFit({ w, d }, h, Math.sin(n * Math.PI / 8), Math.cos(n * Math.PI / 8), vHalf, hHalf, pitch, ty));
+    dist = Math.max(dist * 1.04, (h + 15 - ty) / Math.sin(pitch));
+    out = { R: dist * Math.cos(pitch), Y: ty + dist * Math.sin(pitch), ty, th0: { front: 0, left: -Math.PI / 4, right: Math.PI / 4, back: Math.PI }[RM.start] ?? Math.atan2(P0.x, P0.z) };
+  }
+  RM.anim = { path: RM.path, ms: +RM.dur * 1000, tg, p0: P0.clone(), rec, track: stream.getVideoTracks()[0], t0: 0, fov0, M, out, walk: RM.walk === 'on' && !M ? walkPlans() : null,
     mth: Math.atan2(P0.x - (M ? M.cx : 0), P0.z - (M ? M.cz : 0)),
     mr: M ? Math.max(M.w, M.d) * 0.8 : 0, my: M ? Math.max(M.w, M.d) * 1.0 : 0,   // 空間合併：高處往下看，外牆完整顯示也看得到裡面
     ax, az, eye: y, th0: Math.atan2(p.x / ax, (p.z || 1) / az), dir: RM.dir === 'left' ? -1 : 1,
