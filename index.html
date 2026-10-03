@@ -492,7 +492,7 @@ body.rmode #side,body.rmode #panel{display:none}
     <textarea id="ioCode" class="num" spellcheck="false" style="margin-top:12px;height:140px;font:12px/1.4 Consolas,monospace;resize:vertical"></textarea>
     <div class="warn" id="ioMsg" style="background:none;padding:4px 0"></div>
     <div class="mfoot" style="flex-wrap:wrap">
-      <div class="btnrow"><button class="btn primary dl" id="ioDl">下載 .json 檔</button><button class="btn" id="ioCopy">複製代碼</button><button class="btn primary" id="ioLoad">開啟這個專案</button><button class="btn" id="ioFile">開啟 .json 檔</button></div>
+      <div class="btnrow"><button class="btn primary dl" id="ioDl">下載 .json 檔</button><button class="btn" id="ioCopy">複製分享連結</button><button class="btn primary" id="ioLoad">開啟這個專案</button><button class="btn" id="ioFile">開啟 .json 檔</button></div>
       <button class="btn" id="ioClose">關閉</button>
     </div>
   </div>
@@ -5794,6 +5794,17 @@ async function shortCode(json) {
     return 'FP2' + b62.enc(await pipeBytes(new TextEncoder().encode(slim), new CompressionStream('deflate-raw')));
   } catch (e) { return json; }
 }
+// 分享連結：代碼放在網址 # 後面，對方點開就直接開啟專案（openExternalBrowser=1：LINE 會改用手機的瀏覽器開，專案才會留在對方常用的瀏覽器）
+const SITE_URL = 'https://andytsai-000.github.io/furniture-planner/';
+const shareLink = code => code.startsWith('FP2') ? SITE_URL + '?openExternalBrowser=1#' + code : code;
+async function openFromLink() {
+  const m = location.hash.match(/^#(FP2[0-9A-Za-z]{20,})/); if (!m) return;
+  try { history.replaceState(null, '', location.pathname); } catch (e) { }   // 拿掉網址裡的代碼：重新整理不會再開一次
+  resumeIds = []; $('#resumeModal').hidden = true;
+  try { loadDesign(await codeToJson(m[1])); }
+  catch (err) { openIO('open'); $('#ioMsg').textContent = '這個分享連結不完整，無法開啟。請對方重新複製分享連結再傳一次，或改傳 .json 專案檔。'; }
+}
+addEventListener('hashchange', openFromLink);
 async function codeToJson(text) {
   const t = text.replace(/[\u200b-\u200f\ufeff]/g, '').trim();          // 去掉通訊軟體夾帶的看不見字元
   const dec = async u8 => { const j = new TextDecoder().decode(await unpack(u8)); JSON.parse(j); return j; };
@@ -5813,11 +5824,11 @@ function openIO(mode) {
   const saving = mode === 'save', p = curProject();
   $('#ioTitle').textContent = saving ? `另存新檔：${p ? p.name : '目前專案'}` : '開啟專案';
   $('#ioDesc').textContent = saving
-    ? `會把整個專案（${p ? p.list.length : 1} 個空間）存成一個檔案。配置平常會自動保存在這台裝置；要留底、換裝置或傳給別人，請下載 .json 專案檔，或按「複製代碼」貼到 LINE、Email（對方在主畫面按「貼上專案代碼」）。`
+    ? `會把整個專案（${p ? p.list.length : 1} 個空間）存成一個檔案。配置平常會自動保存在這台裝置；要留底、換裝置或傳給別人，請下載 .json 專案檔，或按「複製分享連結」貼到 LINE、Email，對方點開連結就會直接開啟這個專案。`
     : '按「開啟 .json 檔」選擇專案檔，或把收到的專案代碼貼在下方，按「開啟這個專案」。會加入成一個新專案，不會覆蓋你現有的專案。';
   ioJson = saving ? projectCode() : '';
   $('#ioCode').value = ioJson;
-  if (saving) { const j = ioJson; shortCode(j).then(c => { if (ioJson === j && !$('#ioModal').hidden && $('#ioCode').readOnly) $('#ioCode').value = c; }); }   // 顯示較短的代碼；下載的 .json 檔內容不變
+  if (saving) { const j = ioJson; shortCode(j).then(c => { if (ioJson === j && !$('#ioModal').hidden && $('#ioCode').readOnly) $('#ioCode').value = shareLink(c); }); }   // 顯示分享連結（內含代碼）；下載的 .json 檔內容不變
   $('#ioCode').readOnly = saving;
   $('#ioCode').placeholder = saving ? '' : '在這裡貼上專案代碼（Ctrl+V）';
   $('#ioCopy').hidden = !saving; $('#ioDl').hidden = !saving || $('#ioDl').dataset.off === '1'; $('#ioLoad').hidden = saving; $('#ioFile').hidden = saving;
@@ -6632,7 +6643,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setInterval(saveUI, 3000);
 if (restoreUI()) resumeIds = [];
 uiReady = true;                                        // 回到原畫面時不跳「上次沒存檔」視窗（右下仍會提醒儲存）
-renderResume(true);
+if (/^#FP2/.test(location.hash)) openFromLink();                        // 從分享連結進來：直接開啟專案
+else renderResume(true);
 $('#resumeList').addEventListener('click', e => {
   const del = e.target.closest('[data-rdel]');
   if (del) { deleteProject(del.dataset.rdel); renderResume(); return; }
