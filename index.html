@@ -720,74 +720,114 @@ const personWt = it => it.wt || PERSON_DEF[it.sex === 'f' ? 'f' : 'm'].wt;
 const personInfo = it => `身高 cm、體重 kg・BMI ${(personWt(it) / (personHt(it) / 100) ** 2).toFixed(1)}・佔地約 ${Math.round(it.w)}×${Math.round(it.d)} cm${it.pose === 'sit' ? `・坐高 ${Math.round(it.h)} cm` : ''}`;
 function buildPerson(it) {
   const H = personHt(it), fem = it.sex === 'f', sit = it.pose === 'sit';
-  const bmi = personWt(it) / (H / 100) ** 2, k = clamp(Math.sqrt(bmi / 22), 0.78, 1.6), kz = k * (1 + 0.35 * clamp((bmi - 24) / 12, 0, 1));   // 胖瘦：寬度、厚度（肚子）
-  const SK = mat('#e2c2a4', 0.7), TOP = mat(it.color, 0.85), PANT = mat(it.color2, 0.85), SHOE = mat('#2b2b2b', 0.6), HAIR = mat('#2a2421', 0.85);
+  const bmi = personWt(it) / (H / 100) ** 2, k = clamp(Math.sqrt(bmi / 22), 0.78, 1.6), belly = clamp((bmi - 24) / 12, 0, 1);   // 胖瘦：整體寬度、肚子
+  const skin = '#dfb99a', SK = mat(skin, 0.62), TOP = mat(it.color, 0.9), PANT = mat(it.color2, 0.88), SHOE = mat('#3a3b3f', 0.7), SOLE = mat('#2a2a2d', 0.8), HAIR = mat('#231c18', 0.7);
   const P = (x, y, z) => new V3(x, y, z);
   const ball = (g, r, p, m, sx = 1, sy = 1, sz = 1) => { const s = add(g, new THREE.SphereGeometry(r, 20, 14), m, p.x, p.y, p.z); s.scale.set(sx, sy, sz); return s; };
-  const limb = (g, a, b, ra, rb, m) => {                                 // 由 a 到 b 的圓錐柱，兩端圓角
-    const dir = new V3().subVectors(b, a), len = dir.length();
-    const c = add(g, new THREE.CylinderGeometry(rb, ra, len, 16), m, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-    c.quaternion.setFromUnitVectors(new V3(0, 1, 0), dir.normalize());
-    ball(g, rb, b, m);
+  // 用一層層橢圓截面疊出連續曲面（軀幹、脖子）：[高度, 半寬, 半厚, 前後偏移]，單位都是身高的比例
+  const loft = (parent, secs, m, n = 28) => {
+    const S = [];                                                        // 截面之間補平滑的中間層
+    for (let j = 0; j < secs.length - 1; j++) for (let s = 0; s < 4; s++) {
+      const t = s / 4, a = secs[Math.max(0, j - 1)], b = secs[j], c = secs[j + 1], d = secs[Math.min(secs.length - 1, j + 2)];
+      S.push(b.map((v, i) => i === 0 ? b[0] + (c[0] - b[0]) * t : 0.5 * (2 * v + (c[i] - a[i]) * t + (2 * a[i] - 5 * v + 4 * c[i] - d[i]) * t * t + (3 * v - a[i] - 3 * c[i] + d[i]) * t * t * t)));
+    }
+    S.push(secs[secs.length - 1]);
+    const pos = [], idx = [], N = S.length;
+    for (const [y, rx, rz, cz] of S) for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; pos.push(Math.cos(a) * Math.max(rx, 0.001) * H, y * H, (cz + Math.sin(a) * Math.max(rz, 0.001)) * H); }
+    for (let j = 0; j < N - 1; j++) for (let i = 0; i < n; i++) { const a = j * n + i, b = j * n + (i + 1) % n; idx.push(a, a + n, b, b, a + n, b + n); }
+    const bc = pos.length / 3; pos.push(0, S[0][0] * H, S[0][3] * H, 0, S[N - 1][0] * H, S[N - 1][3] * H);
+    for (let i = 0; i < n; i++) { idx.push(bc, i, (i + 1) % n, bc + 1, (N - 1) * n + (i + 1) % n, (N - 1) * n + i); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    return add(parent, geo, m, 0, 0, 0);
   };
-  // 軀幹輪廓（佔身高的比例）：[高度, 半寬]
-  const rh = fem ? 0.106 : 0.097, rw = fem ? 0.074 : 0.084, rc = fem ? 0.091 : 0.104, rs = fem ? 0.095 : 0.108;
-  const prof = [[0.462, 0.012], [0.47, 0.068], [0.49, 0.09], [0.52, rh], [0.56, rh * 0.97], [0.61, rw], [0.65, rw * 1.04], [0.7, rc * 0.97], [0.745, rc], [0.785, rs], [0.81, rs * 0.92], [0.828, 0.06], [0.84, 0.034], [0.846, 0.004]];
-  const rAt = y => { for (let i = 1; i < prof.length; i++) if (y <= prof[i][0]) { const [y0, r0] = prof[i - 1], [y1, r1] = prof[i], t = (y - y0) / (y1 - y0); return r0 + (r1 - r0) * (0.5 - Math.cos(Math.PI * t) / 2); } return prof[prof.length - 1][1]; };
-  const lathe = (g, y0, y1, m) => {
-    const pts = []; for (let i = 0; i <= 18; i++) { const y = y0 + (y1 - y0) * i / 18; pts.push(new THREE.Vector2(Math.max(0.05, rAt(y) * H * k), y * H)); }
-    const s = add(g, new THREE.LatheGeometry(pts, 28), m, 0, 0, 0); s.scale.z = 0.62 * kz / k; return s;
+  // 四肢：上端在關節、往下延伸，半徑照肌肉線條變化（[位置 0~1, 半徑]）
+  const limb = (parent, len, prof, m, sz = 1) => {
+    const pts = []; for (let i = 20; i >= 0; i--) { const t = i / 20; let r = prof[prof.length - 1][1]; for (let j = 1; j < prof.length; j++) if (t <= prof[j][0]) { const [t0, r0] = prof[j - 1], [t1, r1] = prof[j], u = (t - t0) / (t1 - t0); r = r0 + (r1 - r0) * (0.5 - Math.cos(Math.PI * u) / 2); break; } pts.push(new THREE.Vector2(r * H, -t * len)); }
+    const s = add(parent, new THREE.LatheGeometry(pts, 20), m, 0, 0, 0); s.scale.z = sz; return s;
   };
-  const g = new THREE.Group(), up = new THREE.Group();                   // up：腰部以上（坐姿時整個往下移、稍微往後靠）
-  lathe(up, 0.462, 0.6, PANT); lathe(up, 0.598, 0.846, TOP);
-  // 頭、頸、頭髮
-  limb(up, P(0, 0.82 * H, 0.004 * H), P(0, 0.885 * H, 0.012 * H), 0.03 * H * Math.sqrt(k), 0.027 * H * Math.sqrt(k), SK);
-  // 頭：一體成形的蛋形（上寬下窄），稍微前傾讓下巴往前；頭髮與五官都放在同一個群組
-  const hh = 0.125 * H, head = new THREE.Group(); head.position.set(0, 0.931 * H, 0.014 * H); head.rotation.x = -0.1; up.add(head);
-  const hp = [[0, 0.011], [0.05, 0.021], [0.15, fem ? 0.029 : 0.032], [0.3, fem ? 0.037 : 0.04], [0.5, 0.0445], [0.7, 0.045], [0.85, 0.038], [0.95, 0.022], [1, 0.002]];
-  const hr = u => { u = clamp(u, 0, 1); for (let i = 1; i < hp.length; i++) if (u <= hp[i][0]) { const [u0, r0] = hp[i - 1], [u1, r1] = hp[i], t = (u - u0) / (u1 - u0); return (r0 + (r1 - r0) * (0.5 - Math.cos(Math.PI * t) / 2)) * H; } return hp[hp.length - 1][1] * H; };
-  { const pts = []; for (let i = 0; i <= 26; i++) { const u = i / 26; pts.push(new THREE.Vector2(hr(u), (u - 0.5) * hh)); } add(head, new THREE.LatheGeometry(pts, 28), SK, 0, 0, 0).scale.z = 1.2; }
-  const fz = (y, x = 0) => 1.2 * Math.sqrt(Math.max(0, hr(y / hh + 0.5) ** 2 - x * x));   // 臉部表面在高度 y、左右 x 處的前緣
-  const cap = add(head, new THREE.SphereGeometry(1, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.52), HAIR, 0, 0.002 * H, -0.003 * H);
-  cap.scale.set(0.053 * H, 0.068 * H, 0.066 * H); cap.rotation.x = -0.42;
-  if (fem) ball(up, 1, P(0, 0.885 * H, -0.016 * H), HAIR, 0.05 * H, 0.085 * H, 0.03 * H);   // 長髮披到肩
-  // 五官：眼睛、眉毛、耳朵、鼻子、嘴巴
-  const EW = mat('#f6f3ee', 0.35), IR = mat('#2e2018', 0.3), LIP = mat(fem ? '#c0585a' : '#b0756a', 0.55);
-  for (const sd of [-1, 1]) {
-    const ex = sd * 0.0172 * H, ey = 0.002 * H, ez = fz(ey, ex);
-    ball(head, 1, P(ex, ey, ez - 0.0022 * H), EW, 0.0082 * H, 0.0043 * H, 0.004 * H);
-    ball(head, 1, P(ex, ey, ez + 0.0006 * H), IR, 0.0036 * H, 0.0036 * H, 0.0018 * H);
-    const br = add(head, new THREE.BoxGeometry(0.0165 * H, (fem ? 0.0022 : 0.0032) * H, 0.004 * H), HAIR, sd * 0.0178 * H, 0.0128 * H, fz(0.0128 * H, 0.0178 * H) - 0.0008 * H);
-    br.rotation.z = -sd * 0.12; br.rotation.y = sd * 0.38; br.castShadow = false;
-    ball(head, 1, P(sd * (hr(0.47) + 0.001 * H), -0.004 * H, -0.004 * H), SK, 0.0055 * H, 0.013 * H, 0.008 * H);
-  }
-  ball(head, 1, P(0, -0.0145 * H, fz(-0.0145 * H) - 0.0015 * H), SK, 0.0042 * H, 0.011 * H, 0.0055 * H);   // 鼻樑
-  ball(head, 1, P(0, -0.0215 * H, fz(-0.0215 * H) + 0.0012 * H), SK, 0.0062 * H, 0.0046 * H, 0.0058 * H);   // 鼻頭
-  ball(head, 1, P(0, -0.036 * H, fz(-0.036 * H) - 0.0012 * H), LIP, (fem ? 0.0102 : 0.0112) * H, (fem ? 0.0033 : 0.0026) * H, 0.003 * H);
-  // 手臂
-  const sx = rs * H * k * 0.9, sy = 0.8 * H, sh = P(0, sy, 0);
-  // 四肢做成可以轉動的關節（肩、肘、髖、膝），坐姿與走路動畫都靠轉關節
   const pivot = (parent, x, y, z) => { const p = new THREE.Group(); p.position.set(x, y, z); parent.add(p); return p; };
-  const seg = (parent, len, ra, rb, m) => { add(parent, new THREE.CylinderGeometry(ra, rb, len, 16), m, 0, -len / 2, 0); ball(parent, ra * 0.985, P(0, 0, 0), m); };   // 上端在關節、往下延伸的一段
-  const rig = { sh: [], el: [], hip: [], knee: [], H, sit };
+  const sc = (prof, f) => prof.map(([t, r]) => [t, r * f]);
+  // ---- 軀幹（褲子到腰、上衣從臀到脖子） ----
+  const rh = (fem ? 0.106 : 0.097) * k, rw = (fem ? 0.074 : 0.084) * k * (1 + 0.12 * belly), rc = (fem ? 0.09 : 0.103) * k, rs = (fem ? 0.094 : 0.108) * k, dk = k * (1 + 0.1 * belly);
+  const bz = 0.03 * belly, body = [
+    [0.465, 0.05 * k, 0.05 * dk, -0.004], [0.49, rh * 0.94, 0.068 * dk, -0.008], [0.52, rh, 0.07 * dk, -0.008], [0.56, rh * 0.97, (0.064 + bz) * dk, -0.004 + bz * 0.6],
+    [0.61, rw, (0.056 + bz) * dk, 0.002 + bz * 0.7], [0.66, rw * 1.05, (0.058 + bz * 0.6) * dk, 0.005 + bz * 0.4], [0.71, rc * 0.98, (fem ? 0.068 : 0.064) * dk, fem ? 0.012 : 0.008], [0.75, rc, (fem ? 0.066 : 0.066) * dk, 0.008],
+    [0.79, rs, 0.055 * dk, 0.002], [0.815, rs * 0.9, 0.045 * dk, 0], [0.832, 0.056 * k, 0.036 * dk, 0], [0.843, 0.04, 0.038, 0.003]];
+  const g = new THREE.Group(), up = new THREE.Group();                   // up：腰部以上（坐姿時整個往下移、稍微往後靠）
+  loft(up, body.slice(0, 5), PANT);
+  loft(up, [[0.515, rh * 1.03, 0.072 * dk, -0.008], ...body.slice(3).map((s, i) => i < 2 ? [s[0], s[1] * 1.03, s[2] * 1.03, s[3]] : s)], TOP);   // 上衣下襬蓋到臀部
+  // ---- 脖子、頭 ----
+  const nk = Math.sqrt(k);
+  loft(up, [[0.82, 0.03 * nk, 0.031 * nk, 0.002], [0.86, 0.027 * nk, 0.029 * nk, 0.006], [0.89, 0.028 * nk, 0.03 * nk, 0.011]], SK, 20);
+  const head = new THREE.Group(); head.position.set(0, 0.931 * H, 0.014 * H); head.rotation.x = -0.06; up.add(head);
+  { // 把球面雕成臉：下巴收窄，加上鼻樑、眉骨、眼窩、嘴唇、下巴、顴骨；嘴唇用頂點顏色上色
+    const geo = new THREE.SphereGeometry(1, 56, 40), ps = geo.attributes.position, col = [], cS = new THREE.Color(skin), cL = new THREE.Color(fem ? '#c25f62' : '#b97f72'), cc = new THREE.Color();
+    const G = (v, c, s) => Math.exp(-(((v - c) / s) ** 2));
+    for (let i = 0; i < ps.count; i++) {
+      const x = ps.getX(i), y = ps.getY(i), z = ps.getZ(i), f = clamp(z * 2.2, 0, 1), ax = Math.abs(x);
+      const jaw = y < 0 ? 1 - (fem ? 0.42 : 0.36) * y * y : 1 - 0.1 * y * y;
+      let px = x * 0.0462 * jaw, py = y * 0.0625, pz = z * (z > 0 ? 0.0545 : 0.058) * (y < 0 ? 1 - 0.12 * y * y : 1);
+      pz += f * (0.0125 * G(x, 0, 0.1) * G(y, -0.12, 0.2) + 0.0065 * G(x, 0, 0.13) * G(y, -0.3, 0.07)   // 鼻樑、鼻頭
+        + 0.0028 * G(y, 0.2, 0.07) * (1 - 0.6 * G(x, 0, 0.1)) * (ax < 0.7 ? 1 : 0)                      // 眉骨
+        - 0.0042 * G(ax, 0.36, 0.15) * G(y, 0.07, 0.09)                                                 // 眼窩
+        + (fem ? 0.0036 : 0.003) * G(x, 0, 0.2) * G(y, -0.53, 0.05) - 0.0012 * G(x, 0, 0.25) * G(y, -0.44, 0.03)   // 嘴唇、人中
+        + 0.0045 * G(x, 0, 0.24) * G(y, -0.84, 0.13) + 0.0022 * G(ax, 0.5, 0.2) * G(y, -0.12, 0.2));    // 下巴、顴骨
+      ps.setXYZ(i, px * H, py * H, pz * H);
+      const lip = f * G(x, 0, 0.19) * G(y, -0.53, 0.04) * (1 - 0.7 * G(y, -0.53, 0.008));
+      cc.copy(cS).lerp(cL, clamp(lip * 1.3, 0, 1)); col.push(cc.r, cc.g, cc.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeVertexNormals();
+    const hm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }); hm.userData.own = true;
+    add(head, geo, hm, 0, 0, 0);
+  }
+  const EW = mat('#f4f1ec', 0.3), IR = mat('#3a2a1e', 0.25), PU = mat('#0c0a09', 0.2);
   for (const sd of [-1, 1]) {
-    const ra = 0.026 * H * k, La = 0.186 * H, Lf = 0.146 * H;
-    const S = pivot(up, sd * sx, sy, sh.z); seg(S, La, ra * 1.02, ra * 0.8, TOP);
-    const E = pivot(S, 0, -La, 0); seg(E, Lf, ra * 0.8, ra * 0.58, TOP);
-    ball(E, 1, P(0, -Lf - 0.04 * H, 0), SK, 0.014 * H, 0.05 * H, 0.026 * H);
-    S.rotation.z = sd * (sit ? 0.05 : 0.09);
+    const ex = sd * 0.0166 * H, ey = 0.0045 * H, ez = 0.0456 * H;
+    ball(head, 1, P(ex, ey, ez), EW, 0.0084 * H, 0.0047 * H, 0.0045 * H);
+    ball(head, 1, P(ex, ey, ez + 0.0034 * H), IR, 0.0037 * H, 0.0037 * H, 0.0017 * H);
+    ball(head, 1, P(ex, ey, ez + 0.0046 * H), PU, 0.0017 * H, 0.0017 * H, 0.0008 * H);
+    const lid = add(head, new THREE.BoxGeometry(0.0165 * H, 0.0008 * H, 0.003 * H), HAIR, ex, ey + 0.0049 * H, ez + 0.0022 * H); lid.rotation.z = -sd * 0.06; lid.castShadow = false;   // 上眼線
+    const br = add(head, new THREE.BoxGeometry(0.0165 * H, (fem ? 0.002 : 0.003) * H, 0.004 * H), HAIR, sd * 0.0175 * H, 0.0135 * H, 0.0508 * H);
+    br.rotation.z = -sd * 0.1; br.rotation.y = sd * 0.36; br.castShadow = false;
+    ball(head, 1, P(sd * 0.0452 * H, -0.004 * H, -0.004 * H), SK, 0.0055 * H, 0.0135 * H, 0.008 * H);   // 耳朵
+  }
+  // 頭髮：男生短髮；女生及肩（頭頂＋後面＋兩側）
+  const cap = add(head, new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.54), HAIR, 0, 0.003 * H, -0.004 * H);
+  cap.scale.set(0.0515 * H, 0.068 * H, 0.0645 * H); cap.rotation.x = -0.5;
+  if (fem) {
+    ball(up, 1, P(0, 0.89 * H, -0.016 * H), HAIR, 0.052 * H, 0.085 * H, 0.032 * H);
+    for (const sd of [-1, 1]) ball(up, 1, P(sd * 0.046 * H, 0.9 * H, 0.004 * H), HAIR, 0.013 * H, 0.06 * H, 0.03 * H);
+  }
+  // ---- 手臂：短袖、前臂與手露出膚色；肩、肘可以轉 ----
+  const sx = rs * H * 0.9, sy = 0.8 * H, rig = { sh: [], el: [], hip: [], knee: [], H, sit }, ak = k * 0.5 + 0.5;
+  for (const sd of [-1, 1]) {
+    const La = 0.186 * H, Lf = 0.146 * H;
+    const S = pivot(up, sd * sx, sy, 0);
+    limb(S, La, sc([[0, 0.026], [0.2, 0.0285], [0.5, 0.026], [0.85, 0.0225], [1, 0.021]], ak), SK);
+    limb(S, La * 0.55, sc([[0, 0.028], [0.3, 0.031], [1, 0.0295]], ak), TOP); ball(S, 0.0285 * ak * H, P(0, 0, 0), TOP);   // 袖子
+    const E = pivot(S, 0, -La, 0); ball(E, 0.0208 * ak * H, P(0, 0, 0), SK);
+    limb(E, Lf, sc([[0, 0.021], [0.22, 0.0225], [0.65, 0.018], [1, 0.0142]], ak), SK);
+    const hand = pivot(E, 0, -Lf, 0); hand.rotation.x = -0.12;         // 手：掌心朝大腿，手指微彎，拇指朝前
+    RB(hand, 0.0115 * H, 0.044 * H, 0.03 * H, 0.005 * H, 0, -0.022 * H, 0, SK);
+    const fg = RB(hand, 0.0095 * H, 0.04 * H, 0.027 * H, 0.0045 * H, sd * -0.002 * H, -0.058 * H, -0.004 * H, SK); fg.rotation.x = 0.28;
+    const th = RB(hand, 0.0095 * H, 0.032 * H, 0.0095 * H, 0.0042 * H, 0, -0.03 * H, 0.019 * H, SK); th.rotation.x = -0.45;
+    S.rotation.z = sd * (sit ? 0.05 : 0.085);
     rig.sh.push(S); rig.el.push(E);
   }
-  // 腿與鞋
-  const hx = (rh * k - 0.044 * k) * H, rt = 0.047 * H * k, rk = 0.031 * H * Math.sqrt(k), ran = 0.019 * H;
+  // ---- 腿與鞋：髖、膝可以轉 ----
+  const hx = (rh - 0.045 * k) * H, lk = k, ck = Math.sqrt(k);
   const Lt = 0.215 * H, Lc = 0.237 * H, hy = sit ? 0.048 * H + Lc : 0.5 * H;   // 坐姿：大腿水平，高度剛好讓腳踩在地上
   for (const sd of [-1, 1]) {
-    const Hp = pivot(g, sd * hx, hy, 0); seg(Hp, Lt, rt, rk, PANT);
-    const K = pivot(Hp, 0, -Lt, 0); seg(K, Lc, rk, ran, PANT);
-    ball(K, ran, P(0, -Lc, 0), PANT);
-    const ft = 0.15 * H, f = RB(K, 0.058 * H, 0.05 * H, ft, 0.02 * H, sd * 0.004 * H, -Lc - 0.023 * H, ft / 2 - 0.035 * H, SHOE);
-    f.rotation.y = sd * 0.08;
-    Hp.rotation.z = sd * (sit ? 0.06 : -0.035);
+    const Hp = pivot(g, sd * hx, hy, 0); ball(Hp, 0.047 * lk * H, P(0, 0, 0), PANT);
+    limb(Hp, Lt, sc([[0, 0.048], [0.25, 0.0495], [0.65, 0.04], [0.92, 0.033], [1, 0.0315]], lk), PANT);
+    const K = pivot(Hp, 0, -Lt, 0); ball(K, 0.031 * ck * H, P(0, 0, 0), PANT);
+    limb(K, Lc, sc([[0, 0.0315], [0.28, 0.034], [0.6, 0.027], [0.9, 0.0215], [1, 0.021]], ck), PANT);
+    const ft = 0.155 * H, fz0 = ft / 2 - 0.04 * H, fy = -Lc - 0.048 * H;   // 鞋：鞋底＋鞋面
+    const shoe = pivot(K, sd * 0.004 * H, fy, 0); shoe.rotation.y = sd * 0.1;
+    RB(shoe, 0.05 * H, 0.016 * H, ft * 0.9, 0.007 * H, 0, 0.008 * H, fz0 - 0.004 * H, SOLE);
+    ball(shoe, 1, P(0, 0.03 * H, fz0 - 0.004 * H), SHOE, 0.0285 * H, 0.022 * H, ft * 0.48);
+    ball(shoe, 1, P(0, 0.038 * H, -0.006 * H), SHOE, 0.027 * H, 0.028 * H, 0.036 * H);
+    Hp.rotation.z = sd * (sit ? 0.06 : -0.03);
     rig.hip.push(Hp); rig.knee.push(K);
   }
   if (sit) { const piv = new THREE.Group(); piv.position.set(0, hy, 0); up.position.set(0, -0.5 * H, 0); piv.rotation.x = -0.1; piv.add(up); g.add(piv); }
