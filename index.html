@@ -370,6 +370,12 @@ body.rmode #side,body.rmode #panel{display:none}
       <div class="btnrow" style="margin-top:6px"><button class="btn" id="addDoor">＋ 門</button><button class="btn" id="addWin">＋ 窗</button></div>
       <div class="slist" id="sStructs"></div>
     </div>
+    <div class="sec" data-pane="room">
+      <h3>人物（看比例用）</h3>
+      <div class="btnrow"><button class="btn" id="addMan">＋ 男性</button><button class="btn" id="addWoman">＋ 女性</button></div>
+      <div class="checks"><label><input type="checkbox" id="optPeople" checked> 顯示人物</label></div>
+      <div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">點選人物可調整身高、體重、站立或坐姿。人物不會列入家具清單。</div>
+    </div>
     <div class="sec" data-pane="furn">
       <h3>家具庫 <span class="muted" style="font-weight:400;letter-spacing:0">點選或拖曳到空間</span></h3>
       <input class="num libsearch" id="libSearch" type="search" placeholder="搜尋家具，例如：沙發、餐椅、衣櫃" aria-label="搜尋家具">
@@ -701,9 +707,77 @@ function buildSofaSet(it) { // 1+2+3 沙發組（家具庫縮圖用）
   g.add(a, b, c);
   return g;
 }
+/* ---------- 人物（比例參考）：依性別、身高、體重建出人形，原點在腳底中心、面向 +Z ---------- */
+const PERSON_DEF = { m: { ht: 172, wt: 68 }, f: { ht: 160, wt: 52 } };
+const personHt = it => it.ht || PERSON_DEF[it.sex === 'f' ? 'f' : 'm'].ht;
+const personWt = it => it.wt || PERSON_DEF[it.sex === 'f' ? 'f' : 'm'].wt;
+const personInfo = it => `身高 cm、體重 kg・BMI ${(personWt(it) / (personHt(it) / 100) ** 2).toFixed(1)}・佔地約 ${Math.round(it.w)}×${Math.round(it.d)} cm${it.pose === 'sit' ? `・坐高 ${Math.round(it.h)} cm` : ''}`;
+function buildPerson(it) {
+  const H = personHt(it), fem = it.sex === 'f', sit = it.pose === 'sit';
+  const bmi = personWt(it) / (H / 100) ** 2, k = clamp(Math.sqrt(bmi / 22), 0.78, 1.6), kz = k * (1 + 0.35 * clamp((bmi - 24) / 12, 0, 1));   // 胖瘦：寬度、厚度（肚子）
+  const SK = mat('#e2c2a4', 0.7), TOP = mat(it.color, 0.85), PANT = mat(it.color2, 0.85), SHOE = mat('#2b2b2b', 0.6), HAIR = mat('#2a2421', 0.85);
+  const P = (x, y, z) => new V3(x, y, z);
+  const ball = (g, r, p, m, sx = 1, sy = 1, sz = 1) => { const s = add(g, new THREE.SphereGeometry(r, 20, 14), m, p.x, p.y, p.z); s.scale.set(sx, sy, sz); return s; };
+  const limb = (g, a, b, ra, rb, m) => {                                 // 由 a 到 b 的圓錐柱，兩端圓角
+    const dir = new V3().subVectors(b, a), len = dir.length();
+    const c = add(g, new THREE.CylinderGeometry(rb, ra, len, 16), m, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    c.quaternion.setFromUnitVectors(new V3(0, 1, 0), dir.normalize());
+    ball(g, rb, b, m);
+  };
+  // 軀幹輪廓（佔身高的比例）：[高度, 半寬]
+  const rh = fem ? 0.106 : 0.097, rw = fem ? 0.074 : 0.084, rc = fem ? 0.091 : 0.104, rs = fem ? 0.095 : 0.108;
+  const prof = [[0.462, 0.012], [0.47, 0.068], [0.49, 0.09], [0.52, rh], [0.56, rh * 0.97], [0.61, rw], [0.65, rw * 1.04], [0.7, rc * 0.97], [0.745, rc], [0.785, rs], [0.81, rs * 0.92], [0.828, 0.06], [0.84, 0.034], [0.846, 0.004]];
+  const rAt = y => { for (let i = 1; i < prof.length; i++) if (y <= prof[i][0]) { const [y0, r0] = prof[i - 1], [y1, r1] = prof[i], t = (y - y0) / (y1 - y0); return r0 + (r1 - r0) * (0.5 - Math.cos(Math.PI * t) / 2); } return prof[prof.length - 1][1]; };
+  const lathe = (g, y0, y1, m) => {
+    const pts = []; for (let i = 0; i <= 18; i++) { const y = y0 + (y1 - y0) * i / 18; pts.push(new THREE.Vector2(Math.max(0.05, rAt(y) * H * k), y * H)); }
+    const s = add(g, new THREE.LatheGeometry(pts, 28), m, 0, 0, 0); s.scale.z = 0.62 * kz / k; return s;
+  };
+  const g = new THREE.Group(), up = new THREE.Group();                   // up：腰部以上（坐姿時整個往下移、稍微往後靠）
+  lathe(up, 0.462, 0.6, PANT); lathe(up, 0.598, 0.846, TOP);
+  if (fem) ball(up, 0.05 * H * k, P(0, 0.722 * H, rc * H * kz * 0.62 - 0.05 * H * k * 0.75 + 0.012 * H), TOP, 1.5, 0.8, 0.75);   // 胸部
+  // 頭、頸、頭髮
+  limb(up, P(0, 0.82 * H, 0.004 * H), P(0, 0.885 * H, 0.012 * H), 0.03 * H * Math.sqrt(k), 0.027 * H * Math.sqrt(k), SK);
+  const hc = P(0, 0.936 * H, 0.014 * H);
+  ball(up, 1, P(hc.x, hc.y - 0.002 * H, hc.z), SK, 0.045 * H, 0.059 * H, 0.054 * H);
+  const cap = add(up, new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), HAIR, hc.x, hc.y, hc.z - 0.004 * H);
+  cap.scale.set(0.05 * H, 0.0655 * H, 0.061 * H); cap.rotation.x = -0.5;
+  if (fem) ball(up, 1, P(0, 0.885 * H, hc.z - 0.03 * H), HAIR, 0.05 * H, 0.085 * H, 0.03 * H);   // 長髮披到肩
+  // 手臂
+  const sx = rs * H * k * 0.9, sy = 0.8 * H, sh = P(0, sy, 0);
+  for (const sd of [-1, 1]) {
+    const S = P(sd * sx, sy, sh.z), ra = 0.026 * H * k;
+    ball(up, ra * 1.02, S, TOP);
+    const E = sit ? P(sd * (sx + 0.012 * H), sy - 0.18 * H, 0.03 * H) : P(sd * (sx + 0.018 * H), sy - 0.186 * H, -0.006 * H);
+    const W = sit ? P(sd * sx * 0.82, 0.565 * H, 0.17 * H) : P(sd * (sx + 0.026 * H), E.y - 0.146 * H, 0.008 * H);
+    limb(up, S, E, ra, ra * 0.8, TOP); limb(up, E, W, ra * 0.78, ra * 0.58, TOP);
+    const hd = new V3().subVectors(W, E).normalize().multiplyScalar(0.045 * H);
+    const hand = ball(up, 1, W.clone().add(hd), SK, 0.014 * H, 0.05 * H, 0.026 * H);
+    hand.quaternion.setFromUnitVectors(new V3(0, 1, 0), hd.clone().normalize());
+  }
+  // 腿與鞋
+  const hx = (rh * k - 0.044 * k) * H, rt = 0.047 * H * k, rk = 0.031 * H * Math.sqrt(k), ran = 0.019 * H;
+  const seat = 0.255 * H, hy = sit ? seat + rt * 0.95 : 0.5 * H;
+  for (const sd of [-1, 1]) {
+    const Hp = P(sd * hx, hy, 0);
+    const K = sit ? P(sd * hx * 1.08, hy - 0.006 * H, 0.235 * H) : P(sd * hx * 0.82, 0.285 * H, 0.006 * H);
+    const A = sit ? P(sd * hx * 1.08, 0.048 * H, K.z + 0.012 * H) : P(sd * hx * 0.7, 0.048 * H, 0);
+    ball(g, rt, Hp, PANT); limb(g, Hp, K, rt, rk, PANT); limb(g, K, A, rk, ran, PANT);
+    const ft = 0.15 * H, f = RB(g, 0.058 * H, 0.05 * H, ft, 0.02 * H, A.x + sd * 0.004 * H, 0.025 * H, A.z + ft / 2 - 0.035 * H, SHOE);
+    f.rotation.y = sd * 0.08;
+  }
+  if (sit) { const piv = new THREE.Group(); piv.position.set(0, hy, 0); up.position.set(0, -0.5 * H, 0); piv.rotation.x = -0.1; piv.add(up); g.add(piv); }
+  else g.add(up);
+  // 以實際外形決定佔地尺寸，並讓中心對準原點
+  const box = new THREE.Box3().setFromObject(g, true), c = box.getCenter(new V3()), out = new THREE.Group();
+  g.position.set(-c.x, -box.min.y, -c.z); out.add(g);
+  const r1 = v => Math.round(v * 10) / 10, sz = box.getSize(new V3());
+  it.w = r1(sz.x); it.d = r1(sz.z); it.h = r1(sz.y);
+  return out;
+}
 /* ---------- 款式選項共用 ---------- */
 // 每種家具可有多組選項（款式、桌面形狀、腳座、材質…）；選項可覆寫顏色標籤 c2 / c3，也可帶預設尺寸 size
 const opt = (id, name, extra = {}) => ({ id, name, ...extra });
+const PERSON_OPTS = [{ key: 'sex', label: '性別', list: [opt('m', '男性'), opt('f', '女性')] }, { key: 'pose', label: '姿勢', list: [opt('stand', '站立'), opt('sit', '坐姿（可放到沙發、椅子上）')] }];
 const GLASS = new THREE.MeshStandardMaterial({ color: '#d6e6ea', transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.1, depthWrite: false });
 function glassPane(g, w, h, d, x, y, z) { const m = add(g, new THREE.BoxGeometry(w, h, d), GLASS, x, y, z); m.castShadow = false; return m; }
 function rod(g, a, b, r, m) {
@@ -3431,6 +3505,7 @@ const TYPES = {
   tv:       { name: '電視',       cat: '家電', w: 123, d: 8,   h: 72,  elev: 50, color: '#1c1c1e', color2: '#1c1c1e', c1: '機身', c2: null, build: buildTV, wall: true },
   rug:      { name: '長方形地毯', cat: '配件', w: 200, d: 140, h: 1,   color: '#d8cfc0', color2: '#8a8f98', c1: '主色',     c2: '邊框',     build: buildRugShaped, opts: RUG_OPTS, flat: true },
   rugRound: { name: '圓形地毯',   cat: '配件', w: 160, d: 160, h: 1,   color: '#e9e4da', color2: '#b9b4ad', c1: '主色',     c2: '邊框',     build: buildRugShaped, opts: RUG_OPTS, def: { shape: 'round' }, flat: true },
+  person:   { name: '人物',       cat: '人物', w: 50,  d: 28,  h: 172, color: '#7d8a99', color2: '#3b3f45', c1: '上衣顏色', c2: '褲子顏色', build: buildPerson, opts: PERSON_OPTS, def: { sex: 'm', pose: 'stand' }, noHit: true, person: true },   // 從「空間設定」加入，不在家具庫
   lamp:     { name: '落地燈',     cat: '燈具', w: 40,  d: 40,  h: 160, color: '#f3ead8', color2: '#2b2b2b', c1: '燈罩',     c2: '燈架',     build: buildLamp, opts: LAMP_OPTS },
   plant:    { name: '植栽',       cat: '擺飾', w: 45,  d: 45,  h: 120, color: '#e9e4da', color2: '#5f7d63', c1: '盆器',     c2: '葉色',     build: buildPlant, opts: PLANT_OPTS },
   dining:   { name: '餐桌',       cat: '餐廳', w: 160, d: 90,  h: 75,  color: '#c49a6c', color2: '#5a3a28', c1: '桌面',     c2: '桌腳',     build: buildDining, opts: DINING_OPTS },
@@ -3583,7 +3658,7 @@ const PALETTE = ['#ffffff', '#f1ebe1', '#d8cfc0', '#b9b4ad', '#8e9099', '#4a4d52
 
 /* ================= 狀態 ================= */
 const state = { room: { w: 400, d: 350, h: 280 }, items: [], structs: [], nextId: 1 };
-const opts = { wallSnap: true, grid: false };
+const opts = { wallSnap: true, grid: false, people: (() => { try { return localStorage.getItem('fp-people') !== '0'; } catch (e) { return true; } })() };
 let view = '3d';
 let sel = null; // {k:'item'|'struct', id}
 
@@ -4045,6 +4120,7 @@ function buildItem(it) {
   if (old) { furnGroup.remove(old); disposeObj(old); }
   const g = TYPES[it.type].build(it);
   g.traverse(o => { o.userData.id = it.id; });
+  if (TYPES[it.type].person) { g.userData.person = true; if (!opts.people) g.visible = false; }   // 空間設定關掉「顯示人物」
   g.position.set(it.x, it.elev || 0, it.z);
   g.rotation.y = -it.rot * deg;
   furnGroup.add(g); objById.set(it.id, g);
@@ -4245,7 +4321,7 @@ function setRay(e) {
 }
 function floorHit() { const p = new V3(); return ray.ray.intersectPlane(floorPlane, p) ? p : null; }
 function pick() {
-  let h = ray.intersectObjects(furnGroup.children, true);
+  let h = ray.intersectObjects(furnGroup.children, true).filter(x => shown(x.object));   // 隱藏中的人物點不到
   if (h.length) return { k: 'item', id: h[0].object.userData.id };
   h = ray.intersectObjects(structGroup.children, true);
   if (h.length) return { k: 'struct', id: h[0].object.userData.id };
@@ -4370,7 +4446,7 @@ function select(k, id) {
 /* ================= 新增 / 刪除 ================= */
 function findSpot(T, id) {
   const W = state.room.w / 2, D = state.room.d / 2, elev = T.elev || 0;
-  if (T.flat) return { x: 0, z: 0 };
+  if (T.flat || T.person) return { x: 0, z: 0 };
   if (T.noHit) return T.ceil ? { x: 0, z: 0 } : { x: 0, z: -D + T.d / 2 };
   const boxes = allBoxes().filter(b => b.id !== id && b.box.min.y < elev + T.h - 0.5 && b.box.max.y > elev + 0.5);
   const free = (x, z) => {
@@ -4542,6 +4618,8 @@ const FIELDS = {
     color2: { get: o => o.color2, set: (o, v) => { o.color2 = v; }, text: true },
     color3: { get: o => o.color3 || TYPES[o.type].color3 || '#e3ddd3', set: (o, v) => { o.color3 = v; }, text: true },
     elev: { get: o => o.elev || 0, set: (o, v) => { o.elev = clamp(v, 0, R().h); } },
+    ht: { get: o => personHt(o), set: (o, v) => { o.ht = Math.round(clamp(v, 80, 220)); } },     // 人物身高 cm
+    wt: { get: o => personWt(o), set: (o, v) => { o.wt = Math.round(clamp(v, 15, 200)); } },     // 人物體重 kg
     rot: { get: o => o.rot, set: (o, v) => { o.rot = ((Math.round(v) % 360) + 360) % 360; } },
     cabx: { get: o => { const c = hostCab(o); return c ? Math.round((cabLocal(c, o).lx - o.w / 2 + c.w / 2 - thickOf(c)) * 10) / 10 : 0; },
       set: (o, v) => { const c = hostCab(o); if (!c) return; slideAcc(c, o, v + o.w / 2 - c.w / 2 + thickOf(c), TYPES[o.type].acc === 'mid' ? midLinks(c, o) : null); } },
@@ -4594,7 +4672,7 @@ function setField(k, id, f, raw) {
   const v = F.text ? raw : parseFloat(raw);
   if (!F.text && !isFinite(v)) return;
   F.set(o, v);
-  if (k === 'item') { if (f !== 'name') { buildItem(o); fitItem(o); followCab(o); } }
+  if (k === 'item') { if (f !== 'name') { buildItem(o); fitItem(o); followCab(o); } if ((f === 'ht' || f === 'wt') && $('#pinfo')) $('#pinfo').textContent = personInfo(o); }
   else { buildStructs(); if (f === 'axis' || f === 'wall') renderStructLists(); if (f === 'wall') renderPanel(); }
   updateOverlay(); syncInputs();
   if (f === 'name') renderPanelList();
@@ -4687,6 +4765,11 @@ function doAct(a, arg, key) {
   if (a === 'inside') { setInside(!sysOpts.inside); return; }
   if (a === 'opt' && sel && sel.k === 'item') {
     const o = getItem(sel.id), before = sizeFor(o);
+    if (key === 'sex' && TYPES[o.type].person) {                          // 換性別：身高體重沒改過就換成該性別的預設值
+      const was = PERSON_DEF[o.sex === 'f' ? 'f' : 'm'];
+      if (personHt(o) === was.ht && personWt(o) === was.wt) { delete o.ht; delete o.wt; }
+      if (o.name === (o.sex === 'f' ? '女性' : '男性')) o.name = arg === 'f' ? '女性' : '男性';
+    }
     o[key] = arg;
     if (key === 'style' && o.framemat) { // 軟包類床頭預設布料，木作類預設木頭
       const padded = ['soft', 'arch', 'wing'].includes(arg);
@@ -4732,7 +4815,7 @@ function doAct(a, arg, key) {
   const W = R().w / 2, D = R().d / 2, acc = accInside(o);
   if (a === 'rotBy' || a === 'rotL' || a === 'rotR') { const dv = a === 'rotBy' ? +arg : a === 'rotR' ? 15 : -15; o.rot = ((o.rot + dv) % 360 + 360) % 360; fitItem(o); }
   if (a === 'dup') return duplicate(o);
-  if (a === 'reset') { Object.assign(o, sizeFor(o)); buildItem(o); fitItem(o); followCab(o); }
+  if (a === 'reset') { if (TYPES[o.type].person) { delete o.ht; delete o.wt; } Object.assign(o, sizeFor(o)); buildItem(o); fitItem(o); followCab(o); }
   if (a === 'snapWin' && !snapToWindow(o)) { flash(document.querySelector('[data-act="snapWin"]'), '空間裡還沒有窗戶，請先在「空間設定」加窗'); return; }
   if (a === 'snapWall') snapWallOf(o);
   if (a === 'toBack') { const b = itemBox(o); o.z += -D - b.min.z; fitItem(o); }
@@ -4823,7 +4906,7 @@ function ccPanel(o) {
 function renderPanelList() {
   const el = $('#plist'); if (!el) return;
   const vis = state.items.filter(i => !i.auto); // 櫃內自動產生的零件不列在這裡
-  el.innerHTML = vis.length ? vis.map(i => `<button data-act="pick" data-id="${i.id}" class="${hits.has(i.id) ? 'bad' : ''}"><span>${esc(i.name)}</span><span>${i.w}×${i.d}×${i.h}</span></button>`).join('') : '<span class="muted" style="font-size:13px">尚未放置家具</span>';
+  el.innerHTML = vis.length ? vis.map(i => `<button data-act="pick" data-id="${i.id}" class="${hits.has(i.id) ? 'bad' : ''}"><span>${esc(i.name)}</span><span>${TYPES[i.type] && TYPES[i.type].person ? `${personHt(i)} cm・${personWt(i)} kg` : `${i.w}×${i.d}×${i.h}`}</span></button>`).join('') : '<span class="muted" style="font-size:13px">尚未放置家具</span>';
 }
 function renderPanel() {
   const p = $('#panelBody'), panel = $('#panel');
@@ -4847,11 +4930,15 @@ function renderPanel() {
     const T = TYPES[o.type], big = Math.max(R().w, R().d);
     p.innerHTML = `<div class="p-head"><input class="p-name" data-k="item" data-id="${o.id}" data-f="name" maxlength="30"><span class="p-type">${T.name}・可點名稱重新命名</span></div>
       <div class="warn" id="warn" hidden></div>
-      <h4>尺寸（cm）</h4>
+      ${T.person ? `<h4>身高體重</h4>
+      <div class="dim"><label>身高</label><input type="range" min="90" max="210" step="1" data-k="item" data-id="${o.id}" data-f="ht" aria-label="身高">${numIn('item', o.id, 'ht', 'min="80" max="220" step="1"')}</div>
+      <div class="dim"><label>體重</label><input type="range" min="20" max="150" step="1" data-k="item" data-id="${o.id}" data-f="wt" aria-label="體重">${numIn('item', o.id, 'wt', 'min="15" max="200" step="1"')}</div>
+      <div class="muted" id="pinfo" style="font-size:12px;margin:2px 0 6px">${personInfo(o)}</div>
+      <button class="link" data-act="reset">↺ 恢復預設身高體重</button>` : `<h4>尺寸（cm）</h4>
       ${dimRow(o, 'w', '寬', Math.max(T.w * 2.5, 300, big) | 0)}
       ${dimRow(o, 'd', '深', Math.max(T.d * 2.5, 200) | 0)}
       ${dimRow(o, 'h', '高', T.flat ? 5 : Math.max(T.h * 1.8, R().h) | 0)}
-      <button class="link" data-act="reset">↺ 恢復預設尺寸</button>
+      <button class="link" data-act="reset">↺ 恢復預設尺寸</button>`}
       ${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
       ${visOpts(o).map(gp => `<h4>${gp.label}</h4><div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`).join('')}
       ${isCab(T) || T.acc ? `<button class="btn xraybtn${sysOpts.inside ? ' on' : ''}" data-act="inside">${sysOpts.inside ? '◫ 透視中（點一下恢復門片）' : '◫ 透視櫃體，查看櫃內配件'}</button>` : ''}
@@ -4981,7 +5068,7 @@ const TYPE_SUB = {
 };
 const libEntries = () => [
   ...Object.entries(SETS).map(([k, t]) => ({ key: 'set:' + k, thumb: k, t, sub: TYPE_SUB[k] || '其他', size: t.size })),
-  ...Object.entries(TYPES).filter(([, t]) => t.cat !== '系統櫃').map(([k, t]) => ({ key: k, thumb: k, t, sub: TYPE_SUB[k] || '其他', size: `${t.own ? '自家款・' : optsOf(t).length ? '多款式・' : ''}${t.w}×${t.d}×${t.h}` })),
+  ...Object.entries(TYPES).filter(([, t]) => t.cat !== '系統櫃' && !t.person).map(([k, t]) => ({ key: k, thumb: k, t, sub: TYPE_SUB[k] || '其他', size: `${t.own ? '自家款・' : optsOf(t).length ? '多款式・' : ''}${t.w}×${t.d}×${t.h}` })),
 ];
 const libCard = e => `<button class="card" draggable="true" data-type="${e.key}"><div class="th">${thumbs[e.thumb] ? `<img src="${thumbs[e.thumb]}" alt="">` : ''}</div><span class="n">${e.t.name}</span><span class="s">${e.size}</span></button>`;
 const libGroup = (title, list) => list.length ? `<div class="libh">${title}<span>${list.length}</span></div>` + list.map(libCard).join('') : '';
@@ -5246,6 +5333,26 @@ $('#ceilColor').oninput = e => setFinish({ ceilColor: e.target.value });
 $('#ceilLamp').onchange = e => setFinish({ ceilLamp: e.target.value }, true);
 for (const id of ['#floorSw', '#wallSw', '#ceilSw']) $(id).addEventListener('click', e => { const b = e.target.closest('[data-fin]'); if (b) setFinish({ [b.dataset.fin]: b.dataset.c }, true); });
 $('#optGrid').addEventListener('change', e => opts.grid = e.target.checked);
+// 人物：從空間設定加入；「顯示人物」可隨時隱藏（記在這台裝置）
+function setPeople(on) {
+  opts.people = on; $('#optPeople').checked = on;
+  try { localStorage.setItem('fp-people', on ? '1' : '0'); } catch (e) { }
+  for (const it of state.items) if (TYPES[it.type] && TYPES[it.type].person) { const g = objById.get(it.id); if (g) g.visible = on; }
+  for (const G of MG.groups || []) G.traverse(o => { if (o.userData.person) o.visible = on; });   // 空間合併畫面裡的人物
+  if (!on && sel && sel.k === 'item' && TYPES[(getItem(sel.id) || {}).type]?.person) select(null);
+  updateOverlay();
+}
+$('#optPeople').checked = opts.people;
+$('#optPeople').addEventListener('change', e => setPeople(e.target.checked));
+function addPerson(sex) {
+  if (MG.on) return;
+  if (!opts.people) setPeople(true);
+  const T = TYPES.person, it = { id: state.nextId++, type: 'person', name: sex === 'f' ? '女性' : '男性', w: T.w, d: T.d, h: T.h, color: sex === 'f' ? '#c98b8b' : T.color, color2: T.color2, rot: 0, elev: 0, x: 0, z: 0, sex, pose: 'stand' };
+  state.items.push(it); buildItem(it); fitItem(it);
+  select('item', it.id); updateOverlay(); commit();
+}
+$('#addMan').onclick = () => addPerson('m');
+$('#addWoman').onclick = () => addPerson('f');
 $('#addCol').onclick = () => addStruct('column');
 $('#addWallP').onclick = $('#mAddWallP').onclick = () => addStruct('wallp');
 $('#addPart').onclick = $('#mAddPart').onclick = () => addStruct('part');
@@ -6484,7 +6591,7 @@ function projectSpaces() {
 function listRows(items) {
   const rows = new Map();
   for (const i of items) {
-    if (!TYPES[i.type]) continue;
+    if (!TYPES[i.type] || TYPES[i.type].person) continue;                // 人物只是比例參考，不列入家具清單
     const key = [i.name, styleName(i), i.w, i.d, i.h, i.color, i.color2, i.color3 || ''].join('|');
     if (!rows.has(key)) rows.set(key, { ...i, qty: 0 });
     rows.get(key).qty++;
