@@ -280,6 +280,20 @@ body.rmode #side,body.rmode #panel{display:none}
 .rbar{width:240px;max-width:70vw;height:6px;background:rgba(255,255,255,.25);border-radius:9px;overflow:hidden;margin:12px auto}
 .rbar i{display:block;height:100%;width:0;background:#fff}
 #shotVid{width:100%;margin-top:12px;border-radius:10px;background:#000}
+/* 展示頁：空間合併的渲染，全螢幕，上方點空間名稱切換 */
+#presBar{position:absolute;left:0;right:0;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px 18px;background:linear-gradient(rgba(30,26,22,.62),rgba(30,26,22,0));color:#fff;font-size:13px}
+#presBar[hidden]{display:none}
+#presBar b{font-size:15px;margin-right:4px;white-space:nowrap}
+#presTabs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+#presBar .chip,#presBar .btn{background:rgba(255,255,255,.94);color:var(--text)}
+#presBar .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+#presBar .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+body.present{grid-template-rows:1fr}
+body.present header{display:none}
+body.present main{grid-template-columns:minmax(0,1fr)}
+body.present #rpanel{display:none}
+body.present.presset main{grid-template-columns:minmax(0,1fr) 300px}
+body.present.presset #rpanel{display:block}
 
 @media (max-width:900px){
   main{grid-template-columns:minmax(0,1fr)}
@@ -399,6 +413,7 @@ body.rmode #side,body.rmode #panel{display:none}
     <div id="labels"></div>
     <button id="sideTog" title="隱藏左側欄" aria-label="隱藏左側欄">‹</button>
     <div id="rframe" hidden></div>
+    <div id="presBar" hidden><b id="presName"></b><div id="presTabs"></div><button class="btn sm" id="presShot">存成圖片</button><button class="btn sm" id="presAll">每個空間各輸出一張</button><button class="btn sm" id="presSet">渲染設定</button><button class="btn sm primary" id="presExit">✕ 返回空間合併</button></div>
     <div id="mergeBar" hidden><span><b>空間合併</b>　拖曳空間排列位置，靠近時牆面會自動貼齊（背靠背）；點選空間可旋轉、點牆可刪除，雙擊進入編輯</span><span id="mergeRot" hidden style="display:inline-flex;gap:6px;align-items:center">｜<b id="mergeName"></b><button class="btn sm" data-mrot="-90" title="逆時針轉 90°">↺ 90°</button><button class="btn sm" data-mrot="90" title="順時針轉 90°（快捷鍵 R）">↻ 90°</button><button class="btn sm danger" id="mergeDelWall" hidden>刪除這道牆</button><button class="btn sm" id="mergeRestore" hidden>還原牆壁</button></span><button class="btn primary sm" id="mergeDone">完成</button></div>
     <div id="shotBar" hidden><span>拖曳畫面調整角度（右鍵旋轉、左鍵平移、滾輪縮放），調好再按「拍下」</span><button class="btn primary sm" id="shotTake">拍下這個畫面</button><button class="btn sm" id="shotCancel">取消</button></div>
     <div id="glLost" hidden style="position:absolute;inset:0;z-index:7;display:grid;place-items:center;background:var(--bg);padding:24px;text-align:center;line-height:1.7"><div><b>3D 畫面暫時無法顯示</b><br><span class="muted">顯示卡記憶體不足。你的配置都還在，請先按「存檔」，再重新整理頁面。<br>渲染 4K 圖片或 1080p 動畫比較吃記憶體，可以改用較小的尺寸。</span></div></div>
@@ -517,6 +532,16 @@ body.rmode #side,body.rmode #panel{display:none}
     <img id="shotImg" alt="渲染結果" style="width:100%;margin-top:12px;border-radius:10px;border:1px solid var(--line)">
     <video id="shotVid" controls loop playsinline hidden></video>
     <div class="mfoot"><div class="btnrow"><button class="btn dl" id="shotJpg">下載 JPG</button><button class="btn dl" id="shotPng">下載 PNG</button><button class="btn dl" id="shotVidDl" hidden>下載影片</button></div><button class="btn primary" id="shotClose">關閉</button></div>
+  </div>
+</div>
+<!-- 各空間渲染圖 -->
+<div class="modal" id="galModal" hidden style="justify-content:center">
+  <div class="mcard wide">
+    <h2 id="galTitle">各空間渲染圖</h2>
+    <div class="muted">點空間名稱切換圖片。</div>
+    <div class="stylechips" id="galTabs" style="margin-top:10px"></div>
+    <img id="galImg" alt="渲染圖" style="width:100%;margin-top:12px;border-radius:10px;border:1px solid var(--line)">
+    <div class="mfoot"><div class="btnrow"><button class="btn dl" id="galDl">下載這張</button><button class="btn dl" id="galDlAll">全部下載</button></div><button class="btn primary" id="galClose">關閉</button></div>
   </div>
 </div>
 <div class="toast" id="saveToast" hidden role="status">
@@ -6604,6 +6629,7 @@ function enterRender() {
 }
 function exitRender() {
   if (!RM.on) return;
+  exitPresent();
   if (RM.anim) { RM.anim.cancel = true; RM.anim.rec.stop(); }
   RM.on = false; busy(false);
   document.body.classList.remove('rmode'); $('#renderBtn').classList.remove('on');
@@ -6620,8 +6646,13 @@ function exitRender() {
   resize();
 }
 async function renderStill() {
+  const r = await renderBlob();
+  if (!r) { flash($('#rShot'), '渲染失敗，請改用較小尺寸'); return; }
+  shotData = r; showShot('image');
+}
+async function renderBlob(text) {                                       // 把目前角度渲染成圖片（PNG、JPG）
   const [W, H] = outSize();
-  busy(true, `渲染中… ${W}×${H}`);
+  busy(true, text || `渲染中… ${W}×${H}`);
   await new Promise(r => setTimeout(r, 60));                          // 讓「渲染中」先顯示出來
   const ss = W * H <= 2560 * 1440 ? 1.5 : 1, SW = Math.round(W * ss), SH = Math.round(H * ss);   // 放大 1.5 倍算再縮小，邊緣更細緻
   setOut(SW, SH, W / H); syncRcam(SW, SH, RM.out.k);
@@ -6631,9 +6662,79 @@ async function renderStill() {
   const png = await new Promise(r => src.toBlob(r, 'image/png'));
   const jpg = await new Promise(r => src.toBlob(r, 'image/jpeg', 0.92));
   clearOut(); busy(false);
-  if (!png) { flash($('#rShot'), '渲染失敗，請改用較小尺寸'); return; }
-  shotData = { png, jpg, W, H }; showShot('image');
+  return png ? { png, jpg, W, H } : null;
 }
+/* ---------- 展示頁：空間合併時按「渲染」直接進來；上方點空間名稱，鏡頭就移到那個空間 ---------- */
+const PRES = { on: false, cur: 'all', shots: [], gi: 0, fly: 0 };
+function flyTo(pos, tg, ms = 650) {
+  const p0 = persp.position.clone(), t0 = controls.target.clone(), st = performance.now(), id = ++PRES.fly;
+  const step = () => {
+    if (id !== PRES.fly) return;
+    const u = Math.min(1, (performance.now() - st) / ms), e = ease(u);
+    persp.position.lerpVectors(p0, pos, e); controls.target.lerpVectors(t0, tg, e); controls.update();
+    if (u < 1) requestAnimationFrame(step);
+  };
+  step();
+}
+function presView(id) {                                                 // 整體或某個空間：從右前方斜上方看，剛好放進輸出範圍
+  let B, h;
+  if (id === 'all') { B = rRoom(); h = B.h; }
+  else { const G = MG.groups.find(x => x.userData.spaceId === id); if (!G) return null; const R = mDims(G); B = { w: R.w, d: R.d, cx: G.position.x, cz: G.position.z }; h = G.userData.room.h; }
+  const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
+  const pitch = (id === 'all' ? 42 : 36) * deg, ty = h * 0.42, u = Math.SQRT1_2, cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const dist = Math.max(outFit(B, h, u, u, vHalf, hHalf, pitch, ty) * 1.06, (h + 15 - ty) / sp);
+  return { pos: new V3(B.cx + u * dist * cp, ty + dist * sp, B.cz + u * dist * cp), tg: new V3(B.cx, ty, B.cz) };
+}
+function presGo(id, fly = true) {
+  setLens('std');
+  const v = presView(id); if (!v) return;
+  PRES.cur = id;
+  if (fly) flyTo(v.pos, v.tg); else { PRES.fly++; persp.position.copy(v.pos); controls.target.copy(v.tg); controls.update(); }
+  $('#presTabs').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.sp === id));
+}
+const presList = () => [{ id: 'all', name: '整體' }, ...MG.groups.map(G => ({ id: G.userData.spaceId, name: (spaces.list.find(s => s.id === G.userData.spaceId) || {}).name || '空間' }))];
+function enterPresent() {
+  if (!MG.on) return;
+  if (!RM.on) enterRender();
+  PRES.on = true; document.body.classList.add('present'); document.body.classList.remove('presset');
+  $('#presName').textContent = (curProject() || {}).name || '';
+  $('#presTabs').innerHTML = presList().map(x => `<button class="chip" data-sp="${x.id}">${esc(x.name)}</button>`).join('');
+  $('#presBar').hidden = false;
+  resize(); placeFrame(); presGo('all', false);
+}
+function exitPresent() {
+  if (!PRES.on) return;
+  PRES.on = false; PRES.fly++; document.body.classList.remove('present', 'presset'); $('#presBar').hidden = true;
+}
+$('#presTabs').addEventListener('click', e => { const c = e.target.closest('[data-sp]'); if (c && !RM.busy) presGo(c.dataset.sp); });
+$('#presExit').onclick = () => exitRender();
+$('#presShot').onclick = () => renderStill();
+$('#presSet').onclick = () => { document.body.classList.toggle('presset'); resize(); placeFrame(); };
+async function presAllShots() {                                         // 整體＋每個空間各渲染一張，集合成一頁
+  if (RM.busy) return;
+  const list = presList(), keep = PRES.cur, shots = [];
+  for (let i = 0; i < list.length; i++) {
+    presGo(list[i].id, false);
+    const r = await renderBlob(`渲染中… ${list[i].name}（${i + 1} / ${list.length}）`);
+    if (!r) break;
+    shots.push({ name: list[i].name, jpg: r.jpg, W: r.W, H: r.H });
+  }
+  presGo(keep, false);
+  if (!shots.length) { flash($('#presAll'), '渲染失敗，請改用較小尺寸'); return; }
+  for (const x of PRES.shots) URL.revokeObjectURL(x.url);
+  PRES.shots = shots.map(x => ({ ...x, url: URL.createObjectURL(x.jpg) }));
+  $('#galTitle').textContent = `${(curProject() || {}).name || ''} 各空間渲染圖`;
+  $('#galTabs').innerHTML = PRES.shots.map((x, i) => `<button class="chip" data-gi="${i}">${esc(x.name)}</button>`).join('');
+  galShow(0); $('#galModal').hidden = false;
+}
+function galShow(i) { PRES.gi = i; $('#galImg').src = PRES.shots[i].url; $('#galTabs').querySelectorAll('.chip').forEach((c, j) => c.classList.toggle('on', j === i)); }
+const galName = x => `${fileBase()}_${cleanName(x.name)}.jpg`;
+$('#presAll').onclick = presAllShots;
+$('#galTabs').addEventListener('click', e => { const c = e.target.closest('[data-gi]'); if (c) galShow(+c.dataset.gi); });
+$('#galDl').onclick = e => { const x = PRES.shots[PRES.gi]; if (x) saveFile(galName(x), x.jpg, e.currentTarget); };
+$('#galDlAll').onclick = async e => { const b = e.currentTarget; for (const x of PRES.shots) { await saveFile(galName(x), x.jpg, b); await new Promise(r => setTimeout(r, 350)); } };
+$('#galClose').onclick = () => { $('#galModal').hidden = true; };
+$('#galModal').addEventListener('click', e => { if (e.target.id === 'galModal') e.target.hidden = true; });
 const VTYPES = [['video/mp4;codecs=avc1.640028', 'mp4'], ['video/mp4', 'mp4'], ['video/webm;codecs=vp9', 'webm'], ['video/webm', 'webm']];
 const vType = () => window.MediaRecorder && dom.captureStream ? VTYPES.find(([m]) => MediaRecorder.isTypeSupported(m)) : null;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -6713,7 +6814,7 @@ function showShot(kind) {
   const vb = $('#shotVidDl'); vb.hidden = img || off(vb); vb.textContent = `下載影片 (.${img ? 'mp4' : shotData.ext})`;
   $('#shotModal').hidden = false;
 }
-$('#renderBtn').onclick = () => RM.on ? exitRender() : enterRender();
+$('#renderBtn').onclick = () => RM.on ? exitRender() : MG.on ? enterPresent() : enterRender();   // 空間合併時直接進展示頁
 let rMoveT = 0;
 controls.addEventListener('start', () => { clearTimeout(rMoveT); RM.moving = true; });
 controls.addEventListener('end', () => { clearTimeout(rMoveT); rMoveT = setTimeout(() => { RM.moving = false; }, 200); });
