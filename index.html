@@ -415,6 +415,8 @@ body.rmode #side,body.rmode #panel{display:none}
     <input type="range" id="rExpo" min="0.5" max="1.8" step="0.05" value="1" aria-label="亮度">
     <h4>角度</h4>
     <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">鳥瞰</button></div>
+    <div class="muted" style="font-size:12px;margin:10px 0 4px">整個空間（從外面看，擋住視線的外牆不顯示）</div>
+    <div class="stylechips"><button class="chip" data-ang="o-f">前</button><button class="chip" data-ang="o-b">後</button><button class="chip" data-ang="o-l">左</button><button class="chip" data-ang="o-r">右</button><button class="chip" data-ang="o-fl">左前角</button><button class="chip" data-ang="o-fr">右前角</button><button class="chip" data-ang="o-bl">左後角</button><button class="chip" data-ang="o-br">右後角</button></div>
     <h4>鏡頭</h4>
     <div class="stylechips" data-rk="lens"><button class="chip" data-v="std">標準</button><button class="chip" data-v="wide">廣角</button></div>
     <div class="muted" style="font-size:12px;margin-top:4px">圖片和動畫都會套用。</div>
@@ -6422,7 +6424,25 @@ function applyLight() {
   renderer.toneMappingExposure = L.expo * RM.expo;
 }
 function setLens(l) { RM.lens = l; persp.fov = l === 'wide' ? 64 : rBase.fov; persp.updateProjectionMatrix(); syncChips(); }
+const OUT_DIR = { 'o-f': [0, 1], 'o-b': [0, -1], 'o-l': [-1, 0], 'o-r': [1, 0], 'o-fl': [-1, 1], 'o-fr': [1, 1], 'o-bl': [-1, -1], 'o-br': [1, -1] };
+function rAngleOut(k) {                                                 // 整個空間：從外面斜上方往內看，剛好把整個空間放進輸出範圍；靠鏡頭的外牆與天花板自動不顯示
+  const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
+  const [dx, dz] = OUT_DIR[k], n = Math.hypot(dx, dz), ux = dx / n, uz = dz / n, pitch = 36 * deg;
+  setLens('std');
+  const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
+  const rx = -uz, rz = ux, cp = Math.cos(pitch), sp = Math.sin(pitch), ty = h * 0.42;      // 鏡頭的右方向；看向空間中心偏下
+  let dist = 0;                                                         // 讓空間的八個角都落在畫面內所需的距離
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [0, h]) {
+    const px = sx * B.w / 2, pz = sz * B.d / 2, py = y - ty;
+    const right = px * rx + pz * rz, along = px * ux + pz * uz;        // along：朝鏡頭方向的水平距離
+    const upv = py * cp - along * sp, fwd = -(along * cp + py * sp);   // 在鏡頭座標裡的上方、前方（相對於焦點）
+    dist = Math.max(dist, Math.abs(right) / Math.tan(hHalf) - fwd, Math.abs(upv) / Math.tan(vHalf) - fwd);
+  }
+  dist = Math.max(dist * 1.04, (h + 15 - ty) / sp);                     // 鏡頭一定高過天花板，天花板才會隱藏
+  persp.position.set(B.cx + ux * dist * cp, ty + dist * sp, B.cz + uz * dist * cp); controls.target.set(B.cx, ty, B.cz); controls.update();
+}
 function rAngle(k) {                                                    // 預設角度：人眼高度站在門口往內看，或鳥瞰
+  if (OUT_DIR[k]) { rAngleOut(k); return; }
   if (MG.on) {                                                          // 合併畫面：從不同方向斜上方俯看整體
     const { w, d, cx, cz } = rRoom(), S = Math.max(w, d);
     const P = { front: [0, 0.75, 1.0], left: [-0.8, 0.75, 0.8], right: [0.8, 0.75, 0.8] }[k];
