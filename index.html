@@ -4679,7 +4679,6 @@ function addItem(type, pos) {
   it.x = p.x; it.z = p.z;
   state.items.push(it);
   buildItem(it); fitItem(it, !!pos && !T.acc && !T.backOf);
-  if (T.build === buildSysCab && !T.acc) genInterior(it);
   if (selWin && selWin.kind === 'window') snapToWindow(it, selWin);
   if (onWall && !(tabletop && !T.elev)) {
     if (T.cat === '窗簾') curtainToWall(it, onWall);
@@ -4696,6 +4695,7 @@ function addItem(type, pos) {
       if (!placed) { it[ax] = 0; fitItem(it); }
     }
   }
+  if (T.build === buildSysCab && !T.acc) genInterior(it);                // 櫃體就定位（含貼到選取的牆）之後才排櫃內配件
   select('item', it.id);
   commit();
   if (innerWidth <= 900) $('#side').classList.remove('open');
