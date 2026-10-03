@@ -246,6 +246,24 @@ th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-weight:600;font-size:12px}
 .dot{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.15);vertical-align:-2px;margin-right:3px}
 #loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)}
+/* 加入平面圖 */
+.planrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 2px;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;background:rgba(184,104,58,.05)}
+.planwrap{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;margin-top:12px}
+.planview{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:60vh;background:#fff}
+.planin{position:relative;touch-action:none;user-select:none;cursor:crosshair}
+.planin canvas{display:block;width:100%}
+.pbox{position:absolute;border:2px solid var(--accent);background:rgba(184,104,58,.16);border-radius:3px;cursor:move;box-sizing:border-box}
+.pbox.on{background:rgba(184,104,58,.32);z-index:2}
+.pbox b{position:absolute;left:2px;top:2px;font-size:12px;line-height:1.3;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;white-space:nowrap;pointer-events:none}
+.pbox i{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;background:var(--accent);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
+.planside{max-height:60vh;overflow:auto;font-size:13px}
+.prow{display:grid;grid-template-columns:1fr 62px 62px 26px;gap:5px;align-items:end;padding:7px 0;border-top:1px solid var(--line)}
+.prow.on{background:rgba(184,104,58,.08)}
+.prow label{display:grid;gap:2px;font-size:11px;color:var(--muted)}
+.prow .num{padding:5px 6px;min-width:0;width:100%}
+.prow .x{border:0;background:none;color:var(--danger);font-size:18px;line-height:1;cursor:pointer;padding:0 0 6px}
+.planchk{display:flex;gap:6px;align-items:flex-start;margin:10px 0 6px;font-size:12px;line-height:1.4}
+@media (max-width:900px){.planwrap{grid-template-columns:minmax(0,1fr)}.planview,.planside{max-height:40vh}}
 /* 可收合的大類（左右兩側面板） */
 .grp{border-top:1px solid var(--line)}
 .grp:first-child{border-top:0}
@@ -519,6 +537,7 @@ body.present.presset #rpanel{display:block}
       <h2 id="mTitle">設定您的空間尺寸</h2>
       <div class="muted">請輸入房間內部的淨尺寸（單位：公分），之後隨時可以修改。</div>
       <label class="mlabel" id="mProjWrap">專案名稱<input class="namein" id="mProj" maxlength="30" placeholder="例如：王先生 新家、XX 建案 12F"></label>
+      <div class="planrow" id="mPlanWrap"><button class="btn" id="mPlan" type="button">加入平面圖（PDF 或圖片）</button><span class="muted" style="font-size:12px;flex:1;min-width:150px">有平面圖的話，可以由圖自動產生各個空間，不用逐一輸入尺寸。</span><input type="file" id="planIn" accept=".pdf,application/pdf,image/*" hidden></div>
       <label class="mlabel">空間名稱<input class="namein" id="mName" maxlength="20" placeholder="例如：客廳、主臥"></label>
       <div class="presets" id="presets"></div>
       <div class="dims3">
@@ -539,6 +558,24 @@ body.present.presset #rpanel{display:block}
   </div>
 </div>
 
+<!-- 加入平面圖 -->
+<div class="modal" id="planModal" hidden style="justify-content:center">
+  <div class="mcard" style="max-width:1100px;width:96vw">
+    <div class="eyebrow">加入平面圖</div>
+    <h2>確認各個空間</h2>
+    <div class="muted" id="planMsg" style="line-height:1.6"></div>
+    <div class="planwrap">
+      <div class="planview"><div class="planin" id="planIn2"><canvas id="planCv"></canvas><div id="planBoxes"></div></div></div>
+      <div class="planside">
+        <div class="btnrow"><button class="btn sm" id="planFiner" title="偵測到的空間太少、幾個房間連在一起時用">分細一點</button><button class="btn sm" id="planCoarser" title="一個房間被切成好幾塊時用">分粗一點</button><button class="btn sm" id="planClear">全部清除</button></div>
+        <div class="btnrow" id="planPages" hidden style="margin-top:6px"><button class="btn sm" id="planPrev">← 上一頁</button><span id="planPageNo" style="align-self:center;font-size:12px"></span><button class="btn sm" id="planNext">下一頁 →</button></div>
+        <label class="planchk"><input type="checkbox" id="planScaleAll" checked><span>改某個空間的寬或深時，其他空間依同比例一起調整（先輸入一個確定的尺寸，整張圖就會對上）</span></label>
+        <div id="planList"></div>
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn" id="planCancel">取消</button><span class="muted" style="font-size:12px;margin-right:auto">在圖上空白處拖曳可新增空間；拖曳框可移動，拖右下角圓點可調整大小。高度先以 240 公分建立。</span><button class="btn primary" id="planOk">建立這些空間 →</button></div>
+  </div>
+</div>
 <!-- 設計代碼 -->
 <div class="modal" id="ioModal" hidden style="justify-content:center">
   <div class="mcard wide">
@@ -6057,7 +6094,7 @@ function startNewSpace(fromHome = false, isProject = false) {
   if (isProject) renderSpaces(); // 清掉上一個專案的名稱與空間清單
   hideHome();
   loadSpaceData(blankSpace());
-  $('#mProjWrap').hidden = !isProject;
+  $('#mProjWrap').hidden = !isProject; $('#mPlanWrap').hidden = !isProject; $('#back1').hidden = false;
   $('#mTitle').textContent = isProject ? '建立新專案' : `在「${(curProject() || {}).name || '目前專案'}」新增空間`;
   if (isProject) $('#mProj').value = nextProjName();
   $('#mName').value = isProject ? '客廳' : nextName();
@@ -6073,7 +6110,7 @@ function restoreDraft() {
   return d;
 }
 function cancelNewSpace() {
-  if (!draft) return;
+  if (!draft) { $('#modal').hidden = true; return; }                     // 由平面圖建立後的「梁柱與門窗」步驟：直接關閉
   const d = restoreDraft();
   if (d.fromHome || !curSpace()) showHome();
 }
@@ -6276,6 +6313,221 @@ $('#toStep2').onclick = () => { showStep(2); renderStructLists(); };
 $('#back1').onclick = () => showStep(1);
 $('#finish').onclick = () => { $('#modal').hidden = true; select(null); fitCamera(); if (draft) finishNewSpace(); else commit(); };
 $('#newBtn').onclick = () => startNewSpace();
+
+/* ================= 加入平面圖：由 PDF／圖片偵測出各個房間，產生多個空間 ================= */
+const PLAN = { img: null, rooms: [], scale: 0, from: '', texts: [], strength: 0, pdf: null, page: 1, pages: 1, sel: -1, drag: null };
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return PLAN.lib || (PLAN.lib = new Promise((res, rej) => {
+    const sc = document.createElement('script'); sc.src = PDFJS + 'pdf.min.js';
+    sc.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; res(window.pdfjsLib); } catch (e) { rej(e); } };
+    sc.onerror = () => { PLAN.lib = null; rej(new Error('pdfjs')); };
+    document.head.appendChild(sc);
+  }));
+}
+async function planOpenFile(file) {
+  if (!file) return;
+  $('#planMsg').textContent = '讀取平面圖中…'; $('#planList').innerHTML = ''; $('#planBoxes').innerHTML = ''; $('#planModal').hidden = false;
+  PLAN.pdf = null; PLAN.page = 1; PLAN.pages = 1; PLAN.strength = 0;
+  try {
+    if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) {
+      const lib = await loadPdfJs();
+      PLAN.pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise; PLAN.pages = PLAN.pdf.numPages;
+      await planRenderPage(1);
+    } else {
+      const url = URL.createObjectURL(file), im = new Image();
+      await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = url; });
+      const k = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); PLAN.img = c; PLAN.texts = []; PLAN.userScale = 0; planRun();
+    }
+  } catch (e) { $('#planMsg').textContent = '這個檔案無法讀取。請確認是平面圖的 PDF 或圖片檔（PNG、JPG）；也可以按「取消」，改用手動輸入尺寸。'; PLAN.img = null; }
+}
+async function planRenderPage(n) {
+  const pg = await PLAN.pdf.getPage(n), v0 = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: Math.min(3, 1800 / Math.max(v0.width, v0.height)) });
+  const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  await pg.render({ canvasContext: x, viewport: vp }).promise;
+  PLAN.texts = [];
+  try {                                                                 // 圖上的文字（尺寸標註）：位置換算成畫面座標
+    for (const t of (await pg.getTextContent()).items) {
+      const m = /^\s*(\d{2,5}(?:\.\d+)?)\s*(cm|mm|公分)?\s*$/i.exec(t.str || ''); if (!m) continue;
+      const [x1, y1] = vp.convertToViewportPoint(t.transform[4], t.transform[5]);
+      PLAN.texts.push({ v: parseFloat(m[1]), unit: (m[2] || '').toLowerCase(), x: x1, y: y1, vert: Math.abs(t.transform[1]) > Math.abs(t.transform[0]) });
+    }
+  } catch (e) { }
+  PLAN.img = c; PLAN.page = n; PLAN.userScale = 0; planRun();
+}
+// 形態學：r 範圍內有任何一點是 1 就是 1（dilate）；全部是 1 才是 1（erode）
+function planMorph(src, W, H, r, dil) {
+  const tmp = new Uint8Array(W * H), out = new Uint8Array(W * H), need = dil ? 1 : 2 * r + 1;
+  for (let y = 0; y < H; y++) { let cnt = 0; const o = y * W;
+    for (let x = -r; x < W + r; x++) { const a = x + r, b = x - r - 1; if (a < W) cnt += src[o + a]; else if (!dil) cnt += 0; if (b >= 0) cnt -= src[o + b];
+      if (x >= 0 && x < W) { const span = Math.min(W - 1, x + r) - Math.max(0, x - r) + 1; tmp[o + x] = dil ? (cnt > 0 ? 1 : 0) : (cnt >= span && span === need ? 1 : 0); } } }
+  for (let x = 0; x < W; x++) { let cnt = 0;
+    for (let y = -r; y < H + r; y++) { const a = y + r, b = y - r - 1; if (a < H) cnt += tmp[a * W + x]; if (b >= 0) cnt -= tmp[b * W + x];
+      if (y >= 0 && y < H) { const span = Math.min(H - 1, y + r) - Math.max(0, y - r) + 1; out[y * W + x] = dil ? (cnt > 0 ? 1 : 0) : (cnt >= span && span === need ? 1 : 0); } } }
+  return out;
+}
+// 連通區域：回傳每一塊的範圍與面積
+function planLabel(mask, W, H, val) {
+  const lab = new Int32Array(W * H), comps = [], st = new Int32Array(W * H);
+  for (let i0 = 0; i0 < W * H; i0++) {
+    if (mask[i0] !== val || lab[i0]) continue;
+    const id = comps.length + 1, c = { x0: W, x1: 0, y0: H, y1: 0, n: 0, edge: false }; let sp = 0; st[sp++] = i0; lab[i0] = id;
+    while (sp) { const i = st[--sp], x = i % W, y = (i - x) / W; c.n++;
+      if (x < c.x0) c.x0 = x; if (x > c.x1) c.x1 = x; if (y < c.y0) c.y0 = y; if (y > c.y1) c.y1 = y;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) c.edge = true;
+      if (x > 0 && mask[i - 1] === val && !lab[i - 1]) { lab[i - 1] = id; st[sp++] = i - 1; }
+      if (x < W - 1 && mask[i + 1] === val && !lab[i + 1]) { lab[i + 1] = id; st[sp++] = i + 1; }
+      if (y > 0 && mask[i - W] === val && !lab[i - W]) { lab[i - W] = id; st[sp++] = i - W; }
+      if (y < H - 1 && mask[i + W] === val && !lab[i + W]) { lab[i + W] = id; st[sp++] = i + W; } }
+    comps.push(c);
+  }
+  return { lab, comps };
+}
+// 偵測房間：找出牆（粗的深色線），把門洞等窄的開口封起來，剩下各自獨立的空白區域就是房間，取外接矩形
+function planDetect(img, strength) {
+  const k = Math.min(1, 720 / Math.max(img.width, img.height)), W = Math.max(8, Math.round(img.width * k)), H = Math.max(8, Math.round(img.height * k));
+  // 先在原解析度判斷哪些是深色，再縮小（一格裡只要有深色就算深色），細線才不會在縮小時變淡而漏掉
+  const fw = img.width, fh = img.height, px = img.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, fw, fh).data, dark = new Uint8Array(W * H); let nDark = 0;
+  for (let y = 0; y < fh; y++) { const ty = Math.min(H - 1, Math.floor(y * k)) * W;
+    for (let x = 0; x < fw; x++) { const i = (y * fw + x) * 4; if (px[i + 3] > 40 && 0.3 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2] < 150) { const j = ty + Math.min(W - 1, Math.floor(x * k)); if (!dark[j]) { dark[j] = 1; nDark++; } } } }
+  if (!nDark) return [];
+  let wall = planMorph(planMorph(dark, W, H, 1, false), W, H, 1, true), nWall = 0;      // 只留粗線（牆）：細的尺寸線、文字、家具線條都去掉
+  for (let i = 0; i < W * H; i++) nWall += wall[i];
+  if (nWall < nDark * 0.2 || nWall < W * H * 0.003) {                    // 圖上的牆是細線（雙線牆、線稿）：改用全部深色線，但先去掉文字、符號等小塊
+    // 先把兩條線中間的窄縫填滿（雙線牆變成實心粗牆），再只留粗的部分（家具、門弧線等單線去掉），最後去掉文字之類的小塊
+    const rc = Math.max(2, Math.round(Math.max(W, H) * 0.011)), closed = planMorph(planMorph(dark, W, H, rc, true), W, H, rc, false);
+    wall = planMorph(planMorph(closed, W, H, 1, false), W, H, 1, true);
+  }
+  { const L = planLabel(wall, W, H, 1), minLen = Math.max(W, H) * 0.05;  // 去掉文字、符號之類的小塊（牆是長的）
+    for (let i = 0; i < W * H; i++) { const cp = L.comps[L.lab[i] - 1]; if (cp && Math.max(cp.x1 - cp.x0, cp.y1 - cp.y0) < minLen) wall[i] = 0; } }
+  let bx0 = W, bx1 = 0, by0 = H, by1 = 0;
+  for (let i = 0; i < W * H; i++) if (wall[i]) { const xx = i % W, yy = (i - xx) / W; if (xx < bx0) bx0 = xx; if (xx > bx1) bx1 = xx; if (yy < by0) by0 = yy; if (yy > by1) by1 = yy; }
+  const P = Math.max(bx1 - bx0, by1 - by0); if (P < 20) return [];
+  // 封住寬度小於 2R 的開口（門洞）。圖的比例未知，所以試幾種 R，取分出最多房間的那個（一樣多就取較小的 R，房間範圍比較準）；strength 再往細／粗調
+  const minSide = P * 0.06, FR = [0.02, 0.028, 0.036, 0.045, 0.055, 0.066, 0.078, 0.092, 0.11];
+  const tryR = f => {
+    const R = Math.max(2, Math.round(P * f)), blocked = planMorph(wall, W, H, R, true), L = planLabel(blocked, W, H, 0), out = [];
+    for (const cp of L.comps) {
+      if (cp.edge) continue;                                            // 連到圖紙邊緣的是室外
+      const r = { x: cp.x0 - R, y: cp.y0 - R, w: cp.x1 - cp.x0 + 1 + 2 * R, h: cp.y1 - cp.y0 + 1 + 2 * R };
+      if (r.w < minSide || r.h < minSide || cp.n < (cp.x1 - cp.x0 + 1) * (cp.y1 - cp.y0 + 1) * 0.35) continue;
+      out.push({ x: r.x / k, y: r.y / k, w: r.w / k, h: r.h / k });
+    }
+    return out;
+  };
+  let bi = 0, bn = -1; const all = FR.map(tryR);
+  all.forEach((a, i) => { if (a.length > bn) { bn = a.length; bi = i; } });
+  let rooms = all[clamp(bi + strength, 0, FR.length - 1)];
+  rooms = rooms.filter(a => !rooms.some(b => b !== a && b.w * b.h > a.w * a.h && a.x + a.w / 2 > b.x && a.x + a.w / 2 < b.x + b.w && a.y + a.h / 2 > b.y && a.y + a.h / 2 < b.y + b.h));   // 落在別的房間裡面的小框（家具外框）不要
+  const rowH = P / k * 0.12;
+  rooms.sort((a, b) => Math.abs(a.y - b.y) > rowH ? a.y - b.y : a.x - b.x);   // 由上到下、由左到右編號
+  return rooms.slice(0, 30);
+}
+// 由圖上的尺寸數字推算比例（公分／像素）：每個房間旁邊的數字除以房間的像素寬（深），取最多數字互相吻合的那個比例
+function planScaleFromText(rooms, texts) {
+  if (!rooms.length || !texts.length) return 0;
+  const P = Math.max(...rooms.map(r => Math.max(r.w, r.h))), cand = [];
+  const cm = t => t.unit === 'mm' ? t.v / 10 : t.unit ? t.v : t.v > 1500 ? t.v / 10 : t.v;   // 沒寫單位：大於 1500 當公釐
+  for (const r of rooms) for (const t of texts) {
+    const v = cm(t); if (v < 80 || v > 2500) continue;
+    if (t.x > r.x - r.w * 0.1 && t.x < r.x + r.w && t.y > r.y - P * 0.6 && t.y < r.y + r.h + P * 0.6) cand.push(v / r.w);
+    if (t.y > r.y - r.h * 0.1 && t.y < r.y + r.h * 1.1 && t.x > r.x - P * 0.6 && t.x < r.x + r.w + P * 0.6) cand.push(v / r.h);
+  }
+  let best = 0, bestN = 0;
+  for (const c of cand) { const near = cand.filter(q => Math.abs(q - c) / c < 0.04); if (near.length > bestN) { bestN = near.length; best = near.slice().sort((a, b) => a - b)[near.length >> 1]; } }
+  return bestN >= Math.min(3, Math.max(2, rooms.length)) ? best : 0;
+}
+const planCm = px => clamp(Math.round(px * PLAN.scale), 100, 3000);
+function planRun(keep) {
+  if (!PLAN.img) return;
+  const cv = $('#planCv'); cv.width = PLAN.img.width; cv.height = PLAN.img.height; cv.getContext('2d').drawImage(PLAN.img, 0, 0);
+  if (!keep) PLAN.rooms = planDetect(PLAN.img, PLAN.strength).map(r => ({ ...r }));
+  PLAN.scale = planScaleFromText(PLAN.rooms, PLAN.texts); PLAN.from = PLAN.scale ? 'dims' : 'guess';
+  if (PLAN.userScale) { PLAN.scale = PLAN.userScale; PLAN.from = 'user'; }   // 使用者已經用確定的尺寸校正過：重新偵測時沿用
+  if (!PLAN.scale) { const side = Math.max(1, ...PLAN.rooms.map(r => Math.max(r.w, r.h))); PLAN.scale = PLAN.rooms.length ? 400 / side : 1200 / Math.max(PLAN.img.width, PLAN.img.height); }   // 沒有尺寸：先假設最大的房間長邊 400 公分
+  PLAN.rooms.forEach((r, i) => { r.name = `空間 ${i + 1}`; r.cw = planCm(r.w); r.cd = planCm(r.h); r.manual = false; });
+  PLAN.sel = -1; planDraw();
+}
+function planDraw() {
+  const iw = PLAN.img.width, ih = PLAN.img.height, pc = v => (v * 100).toFixed(3) + '%';
+  $('#planBoxes').innerHTML = PLAN.rooms.map((r, i) => `<div class="pbox${i === PLAN.sel ? ' on' : ''}" data-pi="${i}" style="left:${pc(r.x / iw)};top:${pc(r.y / ih)};width:${pc(r.w / iw)};height:${pc(r.h / ih)}"><b>${esc(r.name)}　${r.cw}×${r.cd}</b><i data-pr="${i}"></i></div>`).join('');
+  $('#planList').innerHTML = PLAN.rooms.length ? PLAN.rooms.map((r, i) => `<div class="prow${i === PLAN.sel ? ' on' : ''}" data-pi="${i}"><label>名稱<input class="num" data-pf2="name" maxlength="20" value="${esc(r.name)}"></label><label>寬 cm<input class="num" type="number" data-pf2="cw" min="100" max="3000" value="${r.cw}"></label><label>深 cm<input class="num" type="number" data-pf2="cd" min="100" max="3000" value="${r.cd}"></label><button class="x" data-pdel="${i}" title="移除這個空間">×</button></div>`).join('')
+    : '<div class="muted" style="padding:10px 0;line-height:1.6">沒有偵測到空間。請在左邊的圖上，沿著每個房間的內側拖曳出一個框。</div>';
+  const n = PLAN.rooms.length;
+  $('#planMsg').textContent = !n ? '系統沒有從這張圖找到封閉的房間，請在圖上自己框出每個空間。'
+    : PLAN.from === 'dims' ? `偵測到 ${n} 個空間，尺寸依圖面上的標註換算。請核對框的位置和尺寸，有誤可以直接修改。`
+    : PLAN.from === 'user' ? `共 ${n} 個空間，已依您輸入的尺寸換算比例。`
+    : `偵測到 ${n} 個空間，但圖上沒有找到可用的尺寸標註，目前的尺寸只是估計值。請在右邊輸入任何一個空間的正確寬或深，其他空間會依同比例調整。`;
+  $('#planPages').hidden = PLAN.pages < 2; $('#planPageNo').textContent = `第 ${PLAN.page} / ${PLAN.pages} 頁`;
+  $('#planOk').disabled = !n;
+}
+function planRescale() { for (const r of PLAN.rooms) if (!r.manual) { r.cw = planCm(r.w); r.cd = planCm(r.h); } }
+$('#mPlan').onclick = () => $('#planIn').click();
+$('#planIn').onchange = e => { const f = e.target.files[0]; e.target.value = ''; planOpenFile(f); };
+$('#planCancel').onclick = () => { $('#planModal').hidden = true; };
+$('#planFiner').onclick = () => { PLAN.strength = Math.min(6, PLAN.strength + 1); planRun(); };      // 封住更寬的開口 → 分出更多房間
+$('#planCoarser').onclick = () => { PLAN.strength = Math.max(-6, PLAN.strength - 1); planRun(); };
+$('#planClear').onclick = () => { PLAN.rooms = []; PLAN.sel = -1; planDraw(); };
+$('#planPrev').onclick = () => { if (PLAN.pdf && PLAN.page > 1) planRenderPage(PLAN.page - 1); };
+$('#planNext').onclick = () => { if (PLAN.pdf && PLAN.page < PLAN.pages) planRenderPage(PLAN.page + 1); };
+$('#planList').addEventListener('change', e => {
+  const row = e.target.closest('[data-pi]'), k = e.target.dataset.pf2; if (!row || !k) return;
+  const r = PLAN.rooms[+row.dataset.pi]; if (!r) return;
+  if (k === 'name') { r.name = cleanName(e.target.value) || r.name; planDraw(); return; }
+  const v = clamp(Math.round(parseFloat(e.target.value) || 0), 100, 3000);
+  if ($('#planScaleAll').checked) {                                     // 用這個確定的尺寸校正整張圖的比例
+    PLAN.scale = PLAN.userScale = v / (k === 'cw' ? r.w : r.h); PLAN.from = 'user';
+    for (const q of PLAN.rooms) q.manual = false;
+    planRescale(); r[k] = v; r.manual = true; r[k === 'cw' ? 'cd' : 'cw'] = planCm(k === 'cw' ? r.h : r.w);
+  } else { r[k] = v; r.manual = true; }
+  planDraw();
+});
+$('#planList').addEventListener('click', e => {
+  const d = e.target.closest('[data-pdel]');
+  if (d) { PLAN.rooms.splice(+d.dataset.pdel, 1); PLAN.sel = -1; planDraw(); return; }
+  const row = e.target.closest('[data-pi]'); if (row && !e.target.closest('input') && PLAN.sel !== +row.dataset.pi) { PLAN.sel = +row.dataset.pi; planDraw(); }
+});
+{ // 在圖上拖曳：空白處＝新增空間；框＝移動；右下角圓點＝調整大小
+  const el = $('#planIn2'), pos = e => { const b = el.getBoundingClientRect(), kx = PLAN.img.width / b.width; return { x: (e.clientX - b.left) * kx, y: (e.clientY - b.top) * kx }; };
+  el.addEventListener('pointerdown', e => {
+    if (!PLAN.img || e.button) return;
+    const q = pos(e), rz = e.target.closest('[data-pr]'), bx = e.target.closest('.pbox');
+    if (rz) { const r = PLAN.rooms[+rz.dataset.pr]; PLAN.drag = { mode: 'size', r, q }; PLAN.sel = +rz.dataset.pr; }
+    else if (bx) { const r = PLAN.rooms[+bx.dataset.pi]; PLAN.drag = { mode: 'move', r, q, ox: r.x, oy: r.y }; PLAN.sel = +bx.dataset.pi; }
+    else { const r = { x: q.x, y: q.y, w: 1, h: 1, name: '', cw: 100, cd: 100, manual: false }; PLAN.drag = { mode: 'new', r, q }; }
+    el.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  el.addEventListener('pointermove', e => {
+    const d = PLAN.drag; if (!d) return; const q = pos(e), W = PLAN.img.width, H = PLAN.img.height, r = d.r;
+    if (d.mode === 'move') { r.x = clamp(d.ox + q.x - d.q.x, 0, W - r.w); r.y = clamp(d.oy + q.y - d.q.y, 0, H - r.h); }
+    else if (d.mode === 'size') { r.w = clamp(q.x - r.x, 8, W - r.x); r.h = clamp(q.y - r.y, 8, H - r.y); }
+    else { r.x = clamp(Math.min(d.q.x, q.x), 0, W); r.y = clamp(Math.min(d.q.y, q.y), 0, H); r.w = Math.min(W - r.x, Math.abs(q.x - d.q.x)); r.h = Math.min(H - r.y, Math.abs(q.y - d.q.y));
+      if (!d.added && r.w > 10 && r.h > 10) { d.added = true; let n = PLAN.rooms.length + 1; while (PLAN.rooms.some(o => o.name === `空間 ${n}`)) n++; r.name = `空間 ${n}`; PLAN.rooms.push(r); PLAN.sel = PLAN.rooms.length - 1; } }
+    if (d.mode !== 'move' && !r.manual) { r.cw = planCm(r.w); r.cd = planCm(r.h); }
+    if (d.mode === 'size' || d.added || d.mode === 'move') planDraw();
+  });
+  const up = () => { if (PLAN.drag) { PLAN.drag = null; planDraw(); } };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+$('#planOk').onclick = () => {                                           // 依平面圖建立專案：每個框一個空間，位置照平面圖排（空間合併時就是原本的格局）
+  if (!PLAN.rooms.length || !draft || !draft.isProject) return;
+  const now = Date.now(), p = { id: uid('p'), name: $('#mProj').value.trim() || nextProjName(), cur: null, list: [], updated: now };
+  const cx = Math.min(...PLAN.rooms.map(r => r.x)), cy = Math.min(...PLAN.rooms.map(r => r.y));
+  PLAN.rooms.forEach((r, i) => {
+    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs: [], nextId: 1, noWalls: [] };
+    p.list.push({ id: uid('s') + i, name: cleanName(r.name) || `空間 ${i + 1}`, data: JSON.stringify(d), updated: now, pos: { x: Math.round((r.x + r.w / 2 - cx) * PLAN.scale), z: Math.round((r.y + r.h / 2 - cy) * PLAN.scale) } });
+  });
+  projects.list.push(p); projects.cur = p.id; spaces = p; spaces.cur = p.list[0].id; draft = null;
+  $('#planModal').hidden = true;
+  loadSpaceData(JSON.parse(curSpace().data)); renderSpaces(); save();
+  $('#modal').hidden = false; showStep(2); renderStructLists(); $('#back1').hidden = true;   // 接著進「加入梁柱與門窗」（第一個空間）；其他空間用上方的空間選單切換
+  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, '現在是第一個空間，可以先加梁柱與門窗。其他空間用上方的空間選單切換；按「空間合併」可以看到整個格局。');
+};
 
 /* ================= 復原 / 儲存 ================= */
 const snap = () => JSON.stringify({ room: state.room, finish: fin(), items: state.items, structs: state.structs, nextId: state.nextId, noWalls: state.noWalls || [] });
