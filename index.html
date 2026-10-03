@@ -3288,7 +3288,9 @@ function partLocalBox(meshes) {                                         // 一�
   for (const m of meshes) { if (!m.geometry) continue; if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); m.updateMatrix(); box.union(m.geometry.boundingBox.clone().applyMatrix4(m.matrix)); }
   return box;
 }
+const isTrim = (m, makers) => /^(d|f)/.test(m.userData.part || '') && m.material !== GLASS && [...makers.keys()].indexOf(m.material) !== 0;   // 門片、抽屜面板上的把手與溝槽（不是門片材質的那些）
 function cabParts(it, g, makers) {                                      // 建完櫃體後套用 it.parts 裡的修改（顏色、拿掉、尺寸、位置）
+  for (const m of g.children) if (m.userData.part && isTrim(m, makers)) m.userData.trim = true;
   const P = it.parts; if (!P) return;
   for (const m of g.children) {
     const ov = P[m.userData.part]; if (!ov) continue;
@@ -3298,21 +3300,22 @@ function cabParts(it, g, makers) {                                      // 建�
   for (const [key, ov] of Object.entries(P)) {                          // 單片改尺寸、微調位置
     if (!(ov.w > 0 || ov.h > 0 || ov.d > 0 || ov.dx || ov.dy || ov.dz)) continue;
     const ms = g.children.filter(m => m.userData.part === key); if (!ms.length) continue;
-    const b = partLocalBox(ms), sz = b.getSize(new V3());
+    const body = ms.filter(m => !isTrim(m, makers)), b = partLocalBox(body.length ? body : ms), sz = b.getSize(new V3());
     const kx = ov.w > 0 && sz.x > 0.01 ? ov.w / sz.x : 1, ky = ov.h > 0 && sz.y > 0.01 ? ov.h / sz.y : 1, kz = ov.d > 0 && sz.z > 0.01 ? ov.d / sz.z : 1;
     // 固定哪一邊：左側板固定外側、右側板固定外側，其他左右置中；高度固定底部（頂板、檯面固定頂部）；深度固定背面（門片、抽屜面板固定正面）
     const front = /^(d|f|rail)/.test(key);
     const ax = key === 'L' ? b.min.x : key === 'R' ? b.max.x : (b.min.x + b.max.x) / 2, ay = key === 'top' || key === 'counter' ? b.max.y : b.min.y, az = front ? b.max.z : b.min.z;
     for (const m of ms) {
-      m.position.set(ax + (m.position.x - ax) * kx + (ov.dx || 0), ay + (m.position.y - ay) * ky + (ov.dy || 0), az + (m.position.z - az) * kz + (ov.dz || 0));
-      m.scale.set(m.scale.x * kx, m.scale.y * ky, m.scale.z * kz);
+      const trim = body.length && !body.includes(m);                    // 把手、溝槽：跟著板子移動，但不放大、不變厚
+      m.position.set(ax + (m.position.x - ax) * kx + (ov.dx || 0), ay + (m.position.y - ay) * ky + (ov.dy || 0), (trim ? m.position.z : az + (m.position.z - az) * kz) + (ov.dz || 0));
+      if (!trim) m.scale.set(m.scale.x * kx, m.scale.y * ky, m.scale.z * kz);
     }
   }
 }
 function partSize(it, key) {                                            // 目前這片板材的寬、高、深（cm）
   const g = objById.get(it.id); if (!g) return null;
   const ms = g.children.filter(m => m.userData.part === key); if (!ms.length) return null;
-  const sz = partLocalBox(ms).getSize(new V3()), r1 = v => Math.round(v * 10) / 10;
+  const body = ms.filter(m => !m.userData.trim), sz = partLocalBox(body.length ? body : ms).getSize(new V3()), r1 = v => Math.round(v * 10) / 10;
   return { w: r1(sz.x), h: r1(sz.y), d: r1(sz.z) };
 }
 function partName(k, custom) {                                          // custom：自訂櫃體以「第幾格」命名
@@ -3367,7 +3370,7 @@ function buildCustomCab(it) {
   const DoorM = fin === 'plain' ? mat(it.color, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, it.color);
   const BodyM = bf === 'plain' ? mat(it.color2, 0.75) : surfMat('wood', it.color2);
   const Hd = mat('#9a9da2', 0.3, 0.8), dark = mat('#3b3632', 0.85);
-  const bd = d - 2, bz = -1, zf = d / 2 - 0.9, inside = sysOpts.inside;
+  const DT = 1.8, bd = d - 2, bz = -1, zf = d / 2 - DT / 2, inside = sysOpts.inside;   // DT：門片、抽屜面板厚度 1.8cm（所有系統櫃一致）
   let pk = null, pn = 0; const part = k => { if (pk) for (let i = pn; i < g.children.length; i++) g.children[i].userData.part = pk; pn = g.children.length; pk = k; };
   const done = () => { part(null); cabParts(it, g, new Map([[DoorM, c => fin === 'plain' ? mat(c, 0.75) : surfMat(fin === 'stone' ? 'slate' : fin, c)], [BodyM, c => bf === 'plain' ? mat(c, 0.75) : surfMat('wood', c)], [dark, c => mat(c, 0.85)], [Hd, c => mat(c, 0.3, 0.8)]])); return g; };
   part('kick');
@@ -3377,12 +3380,15 @@ function buildCustomCab(it) {
   part('bottom'); B(g, w - 2 * t, t, bd, 0, y0 + t / 2, bz, BodyM);
   part('back'); B(g, w - 2 * t, H - 2 * t, backOf(it), 0, y0 + H / 2, -d / 2 + backOf(it) / 2, BodyM);
   part(null);
-  G.spans.forEach((sp, i) => { if (i) { part('mid' + i); B(g, t, H - 2 * t, bd - 1, sp.x0 - t / 2, y0 + H / 2, bz - 0.5, BodyM); } });
+  const own = !it.interior;                                             // 舊檔：內部直接畫在櫃子上；新櫃：內部是可移動的配件
+  if (own) G.spans.forEach((sp, i) => { if (i) { part('mid' + i); B(g, t, H - 2 * t, bd - 1, sp.x0 - t / 2, y0 + H / 2, bz - 0.5, BodyM); } });
   part(null);
   const yB = hb - t;
-  for (const sp of G.spans) {                                           // 櫃內的板子、吊衣桿也各自有名稱，可以個別選取修改
+  for (const sp of G.spans) {
     const { c, cx, cw, dr } = sp, yA = sp.zoneTop + (dr ? t : 0), ci = sp.i;
     if (dr) { part('dz' + ci); B(g, cw, t, bd - 1, cx, sp.zoneTop + t / 2, bz - 0.5, BodyM); }
+    part(null);
+    if (!own) continue;
     let shelfTop = yB;
     if (c.rod) {
       const hat = Math.max(yA + 40, yB - 30);
@@ -3404,7 +3410,7 @@ function buildCustomCab(it) {
     for (let k = 0; k < dr; k++) {                                         // 抽屜面板
       const y = y0 + drH * (k + 0.5);
       part('f' + i + '-' + k);
-      B(g, fw - 0.4, drH - 0.4, 1.8, fcx, y, zf, DoorM);
+      B(g, fw - 0.4, drH - 0.4, DT, fcx, y, zf, DoorM);
       if (handle === 'bar') hBar(fcx, y + drH * 0.22, Math.min(20, fw * 0.4));
       else if (handle === 'groove') B(g, fw - 0.4, 0.8, 0.3, fcx, y + drH / 2 - 0.8, d / 2 + 0.05, dark);
     }
@@ -3420,10 +3426,10 @@ function buildCustomCab(it) {
       part('d' + i + '-' + k);
       if (c.door === 'glass') {
         const f = 4;
-        B(g, dw - 0.4, f, 1.8, x, hb - f / 2 - 0.2, zf, DoorM); B(g, dw - 0.4, f, 1.8, x, yD + f / 2 + 0.2, zf, DoorM);
-        for (const s2 of [-1, 1]) B(g, f, DH - 0.4, 1.8, x + s2 * (dw / 2 - f / 2 - 0.2), cy, zf, DoorM);
+        B(g, dw - 0.4, f, DT, x, hb - f / 2 - 0.2, zf, DoorM); B(g, dw - 0.4, f, DT, x, yD + f / 2 + 0.2, zf, DoorM);
+        for (const s2 of [-1, 1]) B(g, f, DH - 0.4, DT, x + s2 * (dw / 2 - f / 2 - 0.2), cy, zf, DoorM);
         glassPane(g, dw - 2 * f, DH - 2 * f, 0.5, x, cy, zf);
-      } else B(g, dw - 0.4, DH - 0.4, 1.8, x, cy, zf, DoorM);
+      } else B(g, dw - 0.4, DH - 0.4, DT, x, cy, zf, DoorM);
       const hx = x + side * (dw / 2 - 4), hy = (it.elev || 0) > 100 ? yD + 4 + hl / 2 : tall ? Math.min(yD + 100, yD + DH * 0.5) : hb - 5 - hl / 2;
       if (handle === 'bar') B(g, 1.5, hl, 2, hx, hy, d / 2 + 1, Hd);
       else if (handle === 'groove') B(g, 0.8, DH * 0.9, 0.3, x + side * (dw / 2 - 0.8), cy, d / 2 + 0.05, dark);
@@ -3614,6 +3620,7 @@ function fixStrayParts() {
   let n = 0;
   for (const c of [...state.items]) {
     if (!TYPES[c.type] || !isCab(TYPES[c.type])) continue;
+    if (TYPES[c.type].custom && !c.interior) { for (const k of Object.keys(c.parts || {})) if (/^(mid|s\d|hat|rod)/.test(k)) delete c.parts[k]; genInterior(c); n++; }   // 舊的自訂櫃體：櫃內層板轉成可點選的配件
     const r = c.rot * deg, cs = Math.cos(r), sn = Math.sin(r);
     const stray = state.items.filter(o => TYPES[o.type].acc && (o.auto === c.id || o.host === c.id)).filter(o => { const ox = o.x - c.x, oz = o.z - c.z; return Math.abs(ox * cs + oz * sn) > c.w / 2 + 2 || Math.abs(-ox * sn + oz * cs) > c.d / 2 + 2; });
     // 中心還在櫃內、但前後或左右凸出櫃體的配件（舊版複製時往旁邊偏了 25cm 又拉不回來）：推回櫃內
@@ -3638,11 +3645,11 @@ function dropAuto(cab) {
   state.items = state.items.filter(o => o.auto !== cab.id);
 }
 function genInterior(cab) {
-  const T = TYPES[cab.type]; if (T.build !== buildSysCab || T.acc) return;
-  dropAuto(cab); cab.interior = 1; cab.ncol = T.ncol || Math.max(1, Math.round(cab.w / 60)); buildItem(cab);
+  const T = TYPES[cab.type]; if (!isCab(T) || T.acc) return;
+  dropAuto(cab); cab.interior = 1; if (!T.custom) cab.ncol = T.ncol || Math.max(1, Math.round(cab.w / 60)); buildItem(cab);
   const G = cabGeo(cab), t = G.t, E = cab.elev || 0, d = cab.d, y0 = G.base, H = G.H, n = cab.ncol;
   const cw = (cab.w - 2 * t - (n - 1) * t) / n;
-  G.spans = Array.from({ length: n }, (_, i) => { const x0 = -cab.w / 2 + t + i * (cw + t); return { x0, x1: x0 + cw, cx: x0 + cw / 2, cw }; });
+  if (!T.custom) G.spans = Array.from({ length: n }, (_, i) => { const x0 = -cab.w / 2 + t + i * (cw + t); return { x0, x1: x0 + cw, cx: x0 + cw / 2, cw }; });
   const drawers = parseInt(cab.drawers || 0, 10), drH = T.drawerFull && drawers ? H / drawers : Math.min(22, (H - 10) / Math.max(1, drawers + 1));
   const yA = y0 + drawers * drH + t, yB = G.hb - t, shelves = parseInt(cab.shelves || 0, 10);
   const niches = (T.niches || []).map(([f0, f1]) => [y0 + H * f0, y0 + H * f1]);
@@ -3653,6 +3660,21 @@ function genInterior(cab) {
     state.items.push(it); buildItem(it); setCabLocal(cab, it, lx, lz);
   };
   G.spans.forEach((sp, i) => { if (i) mk('scAccMid', sp.x0 - t / 2, -1.5, t, d - 3, Math.round((H - 2 * t) * 10) / 10, E + y0 + t); });
+  if (T.custom) {                                                       // 自訂櫃體：依「櫃內設計」每一格的設定產生層板、吊衣桿（都是可以點選、拖曳的配件）
+    const r1 = v => Math.round(v * 10) / 10;
+    for (const sp of G.spans) {
+      const c = sp.c, a0 = sp.zoneTop + (sp.dr ? t : 0); let top = yB;
+      if (c.rod) {
+        const hat = Math.max(a0 + 40, yB - 30);
+        if (hat < yB - 5) mk('scAccShelf', sp.cx, -1.5, r1(sp.cw - 0.4), d - 5, t, E + hat - t / 2);
+        mk('scAccRod', sp.cx, -1, r1(sp.cw - 2), 3, 3, E + hat - 6 - 1.5);
+        top = Math.max(a0, hat - 110);
+      }
+      const sh = c.sh || 0;
+      if (sh && top - a0 > 15) for (let k = 1; k <= sh; k++) mk('scAccShelf', sp.cx, -1.5, r1(sp.cw - 0.4), d - 5, t, E + a0 + (top - a0) * k / (sh + 1) - t / 2);
+    }
+    return;
+  }
   let shelfTop = yB, shelfBot = yA;
   if (cab.rod === 'yes') {
     const hat = yB - 30;
@@ -4854,7 +4876,7 @@ function addItem(type, pos) {
       if (!placed) { it[ax] = 0; fitItem(it); }
     }
   }
-  if (T.build === buildSysCab && !T.acc) genInterior(it);                // 櫃體就定位（含貼到選取的牆）之後才排櫃內配件
+  if (isCab(T)) genInterior(it);                                        // 櫃體就定位（含貼到選取的牆）之後才排櫃內配件（自訂櫃體也是）
   select('item', it.id);
   commit();
   if (innerWidth <= 900) $('#side').classList.remove('open');
@@ -5116,7 +5138,7 @@ document.addEventListener('change', e => {
   const inp = e.target.closest('.ccw'); if (!inp || !sel || sel.k !== 'item') return;
   const o = getItem(sel.id), c = ccCols(o)[+inp.dataset.ci]; if (!c) return;
   c.wd = Math.max(0, Math.round(+inp.value || 0));
-  buildItem(o); fitItem(o); renderPanel(); updateOverlay(); commit();
+  buildItem(o); fitItem(o); if (o.interior) genInterior(o); renderPanel(); updateOverlay(); commit();
 });
 // 窗簾貼齊窗戶：移到最近的窗前、面向室內，並依窗戶大小調整寬高（再按一次換到下一扇窗）
 function snapToWindow(o, pick) {                                        // pick：指定要貼的那扇窗
@@ -5230,7 +5252,9 @@ function doAct(a, arg, key) {
       else if (f === 'rod') c.rod = c.rod ? 0 : 1;
       else c[f] = clamp((c[f] || 0) + (+arg), 0, f === 'dr' ? 6 : 10);
     }
-    buildItem(o); fitItem(o); renderPanel(); updateOverlay(); commit(); return;
+    buildItem(o); fitItem(o);
+    if (o.interior && !(a === 'ccol' && key.split(':')[1] === 'door')) genInterior(o);   // 格數、層板、抽屜、吊衣桿改了：櫃內配件重新排（只換門片不用）
+    renderPanel(); updateOverlay(); commit(); return;
   }
   if (a === 'sopt' && sel && sel.k === 'struct') {
     const o = getStruct(sel.id); o[key] = arg;
