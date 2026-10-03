@@ -413,8 +413,8 @@ body.rmode #side,body.rmode #panel{display:none}
     <div class="stylechips" data-rk="light"><button class="chip" data-v="natural">自然光</button><button class="chip" data-v="white">白光</button><button class="chip" data-v="warm">黃光</button></div>
     <h4>亮度</h4>
     <input type="range" id="rExpo" min="0.5" max="1.8" step="0.05" value="1" aria-label="亮度">
-    <h4>角度</h4>
-    <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">鳥瞰</button></div>
+    <h4>內部空間角度</h4>
+    <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">上方</button></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">整個空間（從外面看，擋住視線的外牆不顯示）</div>
     <div class="stylechips"><button class="chip" data-ang="o-f">前</button><button class="chip" data-ang="o-b">後</button><button class="chip" data-ang="o-l">左</button><button class="chip" data-ang="o-r">右</button><button class="chip" data-ang="o-fl">左前角</button><button class="chip" data-ang="o-fr">右前角</button><button class="chip" data-ang="o-bl">左後角</button><button class="chip" data-ang="o-br">右後角</button></div>
     <h4>鏡頭</h4>
@@ -6441,8 +6441,16 @@ function rAngleOut(k) {                                                 // 整�
   dist = Math.max(dist * 1.04, (h + 15 - ty) / sp);                     // 鏡頭一定高過天花板，天花板才會隱藏
   persp.position.set(B.cx + ux * dist * cp, ty + dist * sp, B.cz + uz * dist * cp); controls.target.set(B.cx, ty, B.cz); controls.update();
 }
-function rAngle(k) {                                                    // 預設角度：人眼高度站在門口往內看，或鳥瞰
+function rAngleTop() {                                                  // 上方：從正上方垂直往下看，畫面剛好框住牆內的空間（天花板自動隱藏）
+  const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
+  setLens('std');
+  const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
+  const y = h + Math.max(B.w / 2 / Math.tan(hHalf), B.d / 2 / Math.tan(vHalf)) * 1.02;   // 以牆頂的範圍為準：四面牆的內側都看得到
+  persp.position.set(B.cx, y, B.cz + 0.5); controls.target.set(B.cx, 0, B.cz); controls.update();
+}
+function rAngle(k) {                                                    // 預設角度：人眼高度站在門口往內看，或從正上方往下看
   if (OUT_DIR[k]) { rAngleOut(k); return; }
+  if (k === 'top') { rAngleTop(); return; }
   if (MG.on) {                                                          // 合併畫面：從不同方向斜上方俯看整體
     const { w, d, cx, cz } = rRoom(), S = Math.max(w, d);
     const P = { front: [0, 0.75, 1.0], left: [-0.8, 0.75, 0.8], right: [0.8, 0.75, 0.8] }[k];
