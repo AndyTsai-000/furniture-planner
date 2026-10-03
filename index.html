@@ -428,6 +428,9 @@ body.rmode #side,body.rmode #panel{display:none}
     <div class="stylechips" data-rk="cam"><button class="chip" data-v="eye">人眼高度</button><button class="chip" data-v="high">高處往下看</button></div></div>
     <div id="rDirRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">環繞方向</div>
     <div class="stylechips" data-rk="dir"><button class="chip" data-v="right">往右繞</button><button class="chip" data-v="left">往左繞</button></div></div>
+    <div id="rWalkRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">人物</div>
+    <div class="stylechips" data-rk="walk"><button class="chip" data-v="off">站著不動</button><button class="chip" data-v="on">走動</button></div>
+    <div class="muted" id="rWalkNote" style="font-size:12px;margin-top:4px" hidden>請先到「空間設定」加入站立的人物，並打開「顯示人物」。</div></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">長度與畫質</div>
     <div class="stylechips" data-rk="dur" style="margin-top:8px"><button class="chip" data-v="6">6 秒</button><button class="chip" data-v="10">10 秒</button><button class="chip" data-v="15">15 秒</button></div>
     <div class="stylechips" data-rk="vres" style="margin-top:8px"><button class="chip" data-v="720">720p</button><button class="chip" data-v="1080">1080p</button></div>
@@ -734,46 +737,110 @@ function buildPerson(it) {
   };
   const g = new THREE.Group(), up = new THREE.Group();                   // up：腰部以上（坐姿時整個往下移、稍微往後靠）
   lathe(up, 0.462, 0.6, PANT); lathe(up, 0.598, 0.846, TOP);
-  if (fem) ball(up, 0.05 * H * k, P(0, 0.722 * H, rc * H * kz * 0.62 - 0.05 * H * k * 0.75 + 0.012 * H), TOP, 1.5, 0.8, 0.75);   // 胸部
   // 頭、頸、頭髮
   limb(up, P(0, 0.82 * H, 0.004 * H), P(0, 0.885 * H, 0.012 * H), 0.03 * H * Math.sqrt(k), 0.027 * H * Math.sqrt(k), SK);
-  const hc = P(0, 0.936 * H, 0.014 * H);
-  ball(up, 1, P(hc.x, hc.y - 0.002 * H, hc.z), SK, 0.045 * H, 0.059 * H, 0.054 * H);
-  const cap = add(up, new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), HAIR, hc.x, hc.y, hc.z - 0.004 * H);
-  cap.scale.set(0.05 * H, 0.0655 * H, 0.061 * H); cap.rotation.x = -0.5;
-  if (fem) ball(up, 1, P(0, 0.885 * H, hc.z - 0.03 * H), HAIR, 0.05 * H, 0.085 * H, 0.03 * H);   // 長髮披到肩
+  // 頭：一體成形的蛋形（上寬下窄），稍微前傾讓下巴往前；頭髮與五官都放在同一個群組
+  const hh = 0.125 * H, head = new THREE.Group(); head.position.set(0, 0.931 * H, 0.014 * H); head.rotation.x = -0.1; up.add(head);
+  const hp = [[0, 0.011], [0.05, 0.021], [0.15, fem ? 0.029 : 0.032], [0.3, fem ? 0.037 : 0.04], [0.5, 0.0445], [0.7, 0.045], [0.85, 0.038], [0.95, 0.022], [1, 0.002]];
+  const hr = u => { u = clamp(u, 0, 1); for (let i = 1; i < hp.length; i++) if (u <= hp[i][0]) { const [u0, r0] = hp[i - 1], [u1, r1] = hp[i], t = (u - u0) / (u1 - u0); return (r0 + (r1 - r0) * (0.5 - Math.cos(Math.PI * t) / 2)) * H; } return hp[hp.length - 1][1] * H; };
+  { const pts = []; for (let i = 0; i <= 26; i++) { const u = i / 26; pts.push(new THREE.Vector2(hr(u), (u - 0.5) * hh)); } add(head, new THREE.LatheGeometry(pts, 28), SK, 0, 0, 0).scale.z = 1.2; }
+  const fz = (y, x = 0) => 1.2 * Math.sqrt(Math.max(0, hr(y / hh + 0.5) ** 2 - x * x));   // 臉部表面在高度 y、左右 x 處的前緣
+  const cap = add(head, new THREE.SphereGeometry(1, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.52), HAIR, 0, 0.002 * H, -0.003 * H);
+  cap.scale.set(0.053 * H, 0.068 * H, 0.066 * H); cap.rotation.x = -0.42;
+  if (fem) ball(up, 1, P(0, 0.885 * H, -0.016 * H), HAIR, 0.05 * H, 0.085 * H, 0.03 * H);   // 長髮披到肩
+  // 五官：眼睛、眉毛、耳朵、鼻子、嘴巴
+  const EW = mat('#f6f3ee', 0.35), IR = mat('#2e2018', 0.3), LIP = mat(fem ? '#c0585a' : '#b0756a', 0.55);
+  for (const sd of [-1, 1]) {
+    const ex = sd * 0.0172 * H, ey = 0.002 * H, ez = fz(ey, ex);
+    ball(head, 1, P(ex, ey, ez - 0.0022 * H), EW, 0.0082 * H, 0.0043 * H, 0.004 * H);
+    ball(head, 1, P(ex, ey, ez + 0.0006 * H), IR, 0.0036 * H, 0.0036 * H, 0.0018 * H);
+    const br = add(head, new THREE.BoxGeometry(0.0165 * H, (fem ? 0.0022 : 0.0032) * H, 0.004 * H), HAIR, sd * 0.0178 * H, 0.0128 * H, fz(0.0128 * H, 0.0178 * H) - 0.0008 * H);
+    br.rotation.z = -sd * 0.12; br.rotation.y = sd * 0.38; br.castShadow = false;
+    ball(head, 1, P(sd * (hr(0.47) + 0.001 * H), -0.004 * H, -0.004 * H), SK, 0.0055 * H, 0.013 * H, 0.008 * H);
+  }
+  ball(head, 1, P(0, -0.0145 * H, fz(-0.0145 * H) - 0.0015 * H), SK, 0.0042 * H, 0.011 * H, 0.0055 * H);   // 鼻樑
+  ball(head, 1, P(0, -0.0215 * H, fz(-0.0215 * H) + 0.0012 * H), SK, 0.0062 * H, 0.0046 * H, 0.0058 * H);   // 鼻頭
+  ball(head, 1, P(0, -0.036 * H, fz(-0.036 * H) - 0.0012 * H), LIP, (fem ? 0.0102 : 0.0112) * H, (fem ? 0.0033 : 0.0026) * H, 0.003 * H);
   // 手臂
   const sx = rs * H * k * 0.9, sy = 0.8 * H, sh = P(0, sy, 0);
+  // 四肢做成可以轉動的關節（肩、肘、髖、膝），坐姿與走路動畫都靠轉關節
+  const pivot = (parent, x, y, z) => { const p = new THREE.Group(); p.position.set(x, y, z); parent.add(p); return p; };
+  const seg = (parent, len, ra, rb, m) => { add(parent, new THREE.CylinderGeometry(ra, rb, len, 16), m, 0, -len / 2, 0); ball(parent, ra * 0.985, P(0, 0, 0), m); };   // 上端在關節、往下延伸的一段
+  const rig = { sh: [], el: [], hip: [], knee: [], H, sit };
   for (const sd of [-1, 1]) {
-    const S = P(sd * sx, sy, sh.z), ra = 0.026 * H * k;
-    ball(up, ra * 1.02, S, TOP);
-    const E = sit ? P(sd * (sx + 0.012 * H), sy - 0.18 * H, 0.03 * H) : P(sd * (sx + 0.018 * H), sy - 0.186 * H, -0.006 * H);
-    const W = sit ? P(sd * sx * 0.82, 0.565 * H, 0.17 * H) : P(sd * (sx + 0.026 * H), E.y - 0.146 * H, 0.008 * H);
-    limb(up, S, E, ra, ra * 0.8, TOP); limb(up, E, W, ra * 0.78, ra * 0.58, TOP);
-    const hd = new V3().subVectors(W, E).normalize().multiplyScalar(0.045 * H);
-    const hand = ball(up, 1, W.clone().add(hd), SK, 0.014 * H, 0.05 * H, 0.026 * H);
-    hand.quaternion.setFromUnitVectors(new V3(0, 1, 0), hd.clone().normalize());
+    const ra = 0.026 * H * k, La = 0.186 * H, Lf = 0.146 * H;
+    const S = pivot(up, sd * sx, sy, sh.z); seg(S, La, ra * 1.02, ra * 0.8, TOP);
+    const E = pivot(S, 0, -La, 0); seg(E, Lf, ra * 0.8, ra * 0.58, TOP);
+    ball(E, 1, P(0, -Lf - 0.04 * H, 0), SK, 0.014 * H, 0.05 * H, 0.026 * H);
+    S.rotation.z = sd * (sit ? 0.05 : 0.09);
+    rig.sh.push(S); rig.el.push(E);
   }
   // 腿與鞋
   const hx = (rh * k - 0.044 * k) * H, rt = 0.047 * H * k, rk = 0.031 * H * Math.sqrt(k), ran = 0.019 * H;
-  const seat = 0.255 * H, hy = sit ? seat + rt * 0.95 : 0.5 * H;
+  const Lt = 0.215 * H, Lc = 0.237 * H, hy = sit ? 0.048 * H + Lc : 0.5 * H;   // 坐姿：大腿水平，高度剛好讓腳踩在地上
   for (const sd of [-1, 1]) {
-    const Hp = P(sd * hx, hy, 0);
-    const K = sit ? P(sd * hx * 1.08, hy - 0.006 * H, 0.235 * H) : P(sd * hx * 0.82, 0.285 * H, 0.006 * H);
-    const A = sit ? P(sd * hx * 1.08, 0.048 * H, K.z + 0.012 * H) : P(sd * hx * 0.7, 0.048 * H, 0);
-    ball(g, rt, Hp, PANT); limb(g, Hp, K, rt, rk, PANT); limb(g, K, A, rk, ran, PANT);
-    const ft = 0.15 * H, f = RB(g, 0.058 * H, 0.05 * H, ft, 0.02 * H, A.x + sd * 0.004 * H, 0.025 * H, A.z + ft / 2 - 0.035 * H, SHOE);
+    const Hp = pivot(g, sd * hx, hy, 0); seg(Hp, Lt, rt, rk, PANT);
+    const K = pivot(Hp, 0, -Lt, 0); seg(K, Lc, rk, ran, PANT);
+    ball(K, ran, P(0, -Lc, 0), PANT);
+    const ft = 0.15 * H, f = RB(K, 0.058 * H, 0.05 * H, ft, 0.02 * H, sd * 0.004 * H, -Lc - 0.023 * H, ft / 2 - 0.035 * H, SHOE);
     f.rotation.y = sd * 0.08;
+    Hp.rotation.z = sd * (sit ? 0.06 : -0.035);
+    rig.hip.push(Hp); rig.knee.push(K);
   }
   if (sit) { const piv = new THREE.Group(); piv.position.set(0, hy, 0); up.position.set(0, -0.5 * H, 0); piv.rotation.x = -0.1; piv.add(up); g.add(piv); }
   else g.add(up);
+  personPose(rig, 0, 0);
   // 以實際外形決定佔地尺寸，並讓中心對準原點
   const box = new THREE.Box3().setFromObject(g, true), c = box.getCenter(new V3()), out = new THREE.Group();
   g.position.set(-c.x, -box.min.y, -c.z); out.add(g);
   const r1 = v => Math.round(v * 10) / 10, sz = box.getSize(new V3());
   it.w = r1(sz.x); it.d = r1(sz.z); it.h = r1(sz.y);
+  rig.g = g; rig.y0 = g.position.y; out.userData.rig = rig;
   return out;
 }
+// 擺姿勢：amt = 0 是靜止（站或坐），amt = 1 是走路；ph 是走路的相位（走一個完整步伐循環 = 2π）
+function personPose(rig, ph, amt) {
+  for (let i = 0; i < 2; i++) {
+    const p = ph + i * Math.PI;
+    if (rig.sit) { rig.hip[i].rotation.x = -Math.PI / 2; rig.knee[i].rotation.x = Math.PI / 2; rig.sh[i].rotation.x = -0.3; rig.el[i].rotation.x = -1.15; continue; }
+    rig.hip[i].rotation.x = -0.42 * amt * Math.sin(p);
+    rig.knee[i].rotation.x = 0.95 * amt * Math.max(0, Math.cos(p)) + 0.06 * amt;
+    rig.sh[i].rotation.x = 0.4 * amt * Math.sin(p);
+    rig.el[i].rotation.x = -0.12 - 0.3 * amt * (0.6 + 0.4 * Math.sin(p));
+  }
+  if (rig.g && !rig.sit) rig.g.position.y = rig.y0 + 0.008 * rig.H * amt * (Math.cos(2 * ph) - 1);
+}
+// 渲染動畫的「人物走動」：站著的人沿著面向的方向走，碰到牆或家具前轉身走回來
+const walkers = () => state.items.filter(it => TYPES[it.type] && TYPES[it.type].person && it.pose !== 'sit' && objById.get(it.id) && objById.get(it.id).visible);
+function walkPlans() {
+  const W = state.room.w / 2, D = state.room.d / 2, obs = allBoxes(), R = 24;
+  return walkers().map(it => {
+    const g = objById.get(it.id), H = personHt(it), ry0 = -it.rot * deg;
+    const blocked = (x, z) => Math.abs(x) > W - R || Math.abs(z) > D - R || obs.some(o => o.box.min.y < H * 0.9 && o.box.max.y > 8 && x > o.box.min.x - R && x < o.box.max.x + R && z > o.box.min.z - R && z < o.box.max.z + R);
+    const reach = (fx, fz) => { let L = 0; while (L < 900 && !blocked(it.x + fx * (L + 5), it.z + fz * (L + 5))) L += 5; return L; };
+    let best = null;                                                     // 八個方向裡挑空地最長的那條路線；原本面向的方向優先
+    for (let n = 0; n < 8; n++) {
+      const ry = ry0 + n * Math.PI / 4, fx = Math.sin(ry), fz = Math.cos(ry), a = reach(fx, fz), b = reach(-fx, -fz), score = (a + b) * (n ? 1 : 1.4) + a * 0.01;
+      if (!best || score > best.score) best = { ry, fx, fz, a, b, score, turn0: n > 4 ? (n - 8) * Math.PI / 4 : n * Math.PI / 4 };
+    }
+    return { it, g, rig: g.userData.rig, ry0, ...best, v: 0.55 * H, stride: 0.75 * H };
+  });
+}
+function walkStep(p, t) {                                               // t：動畫開始後的秒數
+  if (p.a + p.b < 40) return;                                           // 沒有空間可以走
+  const TURN = 0.9; let pos = 0, dir = 1, yaw = 0, dist = 0, left = t, amt = Math.min(1, t / 0.4);
+  for (let n = 0; n < 400 && left > 0; n++) {
+    const target = dir > 0 ? p.a : -p.b, need = Math.abs(target - pos) / p.v;
+    if (left <= need) { pos += dir * p.v * left; dist += p.v * left; break; }
+    pos = target; dist += need * p.v; left -= need;
+    const tt = Math.min(TURN, left); left -= tt;
+    yaw += Math.PI * ease(tt / TURN); if (tt < TURN) { amt = 0.25; break; }
+    dir = -dir;
+  }
+  p.g.position.x = p.it.x + p.fx * pos; p.g.position.z = p.it.z + p.fz * pos; p.g.rotation.y = p.ry + yaw - p.turn0 * (1 - ease(Math.min(1, t / 0.7)));   // 一開始先從原本面向的方向轉過去
+  personPose(p.rig, Math.PI * 2 * dist / p.stride, amt);
+}
+function walkReset(plans) { for (const p of plans || []) { p.g.position.set(p.it.x, p.it.elev || 0, p.it.z); p.g.rotation.y = p.ry0; personPose(p.rig, 0, 0); } }
 /* ---------- 款式選項共用 ---------- */
 // 每種家具可有多組選項（款式、桌面形狀、腳座、材質…）；選項可覆寫顏色標籤 c2 / c3，也可帶預設尺寸 size
 const opt = (id, name, extra = {}) => ({ id, name, ...extra });
@@ -3678,7 +3745,7 @@ vp.prepend(renderer.domElement);
 $('#loading').remove();
 const labelR = new CSS2DRenderer({ element: $('#labels') });
 const MG = { on: false, groups: [], drag: null };                     // 空間合併狀態
-const RM = { on: false, busy: false, anim: null, out: null, light: 'natural', lens: 'std', size: '1920x1080', path: 'orbit', start: 'cur', cam: 'eye', dir: 'right', dur: '10', vres: '1080', expo: 1 }; // 渲染模式狀態
+const RM = { on: false, busy: false, anim: null, out: null, light: 'natural', lens: 'std', size: '1920x1080', path: 'orbit', start: 'cur', cam: 'eye', dir: 'right', dur: '10', vres: '1080', expo: 1, walk: 'off' }; // 渲染模式狀態
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#ebe8e2');
@@ -6410,6 +6477,8 @@ const syncChips = () => {
   document.querySelectorAll('#rpanel [data-rk]').forEach(b => b.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === String(RM[b.dataset.rk]))));
   $('#rDirRow').hidden = RM.path !== 'orbit';                           // 環繞方向只有環繞一圈用得到
   $('#rCamRow').hidden = MG.on;                                         // 空間合併：動畫固定從高處往下看
+  $('#rWalkRow').hidden = MG.on;                                        // 人物走動只在單一空間的動畫
+  $('#rWalkNote').hidden = RM.walk !== 'on' || walkers().length > 0;
 };
 function enterRender() {
   if (RM.on) return;
@@ -6462,6 +6531,7 @@ const vType = () => window.MediaRecorder && dom.captureStream ? VTYPES.find(([m]
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 function stepAnim() {                                                   // 依時間移動相機（全程都在室內）
   const A = RM.anim, t = Math.min(1, A.t0 ? (performance.now() - A.t0) / A.ms : 0);
+  if (A.walk) for (const p of A.walk) walkStep(p, t * A.ms / 1000);
   if (A.M) {                                                            // 空間合併：在外圍斜上方繞著整體轉
     const th = A.mth + (A.path === 'orbit' ? A.dir * Math.PI * 2 * t : 0.5 * Math.sin(Math.PI * 2 * t));
     persp.position.set(A.M.cx + A.mr * Math.sin(th), A.my, A.M.cz + A.mr * Math.cos(th)); persp.lookAt(A.M.cx, 0, A.M.cz);
@@ -6497,13 +6567,14 @@ function recordAnim() {
   setOut(W, H, 16 / 9);                                                 // 動畫固定 16:9
   const fov0 = persp.fov; persp.fov = 52; persp.updateProjectionMatrix();   // 室內用廣角（不要太廣，邊緣才不會變形）
   if (M) { persp.fov = fov0; persp.updateProjectionMatrix(); }         // 合併畫面從外面俯看，不用廣角
-  RM.anim = { path: RM.path, ms: +RM.dur * 1000, tg, p0: P0.clone(), rec, track: stream.getVideoTracks()[0], t0: 0, fov0, M,
+  RM.anim = { path: RM.path, ms: +RM.dur * 1000, tg, p0: P0.clone(), rec, track: stream.getVideoTracks()[0], t0: 0, fov0, M, walk: RM.walk === 'on' && !M ? walkPlans() : null,
     mth: Math.atan2(P0.x - (M ? M.cx : 0), P0.z - (M ? M.cz : 0)),
     mr: M ? Math.max(M.w, M.d) * 0.8 : 0, my: M ? Math.max(M.w, M.d) * 1.0 : 0,   // 空間合併：高處往下看，外牆完整顯示也看得到裡面
     ax, az, eye: y, th0: Math.atan2(p.x / ax, (p.z || 1) / az), dir: RM.dir === 'left' ? -1 : 1,
     p, lookY, yaw: st ? Math.atan2(-p.x, -p.z || -1) : Math.atan2(tg.x - P0.x, tg.z - P0.z) };   // 左右擺動：指定起點看向房間中央；目前視角就沿用原本的方向
   rec.onstop = () => {
     const A = RM.anim; RM.anim = null; stream.getTracks().forEach(t => t.stop());
+    walkReset(A.walk);                                                  // 人物回到原本的位置和姿勢
     persp.fov = A.fov0; persp.updateProjectionMatrix();
     persp.position.copy(A.p0); persp.lookAt(A.tg); controls.update();
     if (RC) clearOut(); busy(false);
