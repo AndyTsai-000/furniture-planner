@@ -256,6 +256,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .pbox.on{background:rgba(184,104,58,.32);z-index:2}
 .pbox b{position:absolute;left:2px;top:2px;font-size:12px;line-height:1.3;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;white-space:nowrap;pointer-events:none}
 .pbox i{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;background:var(--accent);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
+.pmk{position:absolute;pointer-events:none;box-sizing:border-box;z-index:3}
+.pmk.door{background:#e08a2e}.pmk.window{background:#3d8fd1}.pmk.column{background:#444;opacity:.85}
 .planside{max-height:60vh;overflow:auto;font-size:13px}
 .prow{display:grid;grid-template-columns:1fr 62px 62px 26px;gap:5px;align-items:end;padding:7px 0;border-top:1px solid var(--line)}
 .prow.on{background:rgba(184,104,58,.08)}
@@ -569,7 +571,8 @@ body.present.presset #rpanel{display:block}
       <div class="planside">
         <div class="btnrow"><button class="btn sm" id="planFiner" title="偵測到的空間太少、幾個房間連在一起時用">分細一點</button><button class="btn sm" id="planCoarser" title="一個房間被切成好幾塊時用">分粗一點</button><button class="btn sm" id="planClear">全部清除</button></div>
         <div class="btnrow" id="planPages" hidden style="margin-top:6px"><button class="btn sm" id="planPrev">← 上一頁</button><span id="planPageNo" style="align-self:center;font-size:12px"></span><button class="btn sm" id="planNext">下一頁 →</button></div>
-        <label class="planchk"><input type="checkbox" id="planScaleAll" checked><span>改某個空間的寬或深時，其他空間依同比例一起調整（先輸入一個確定的尺寸，整張圖就會對上）</span></label>
+        <label class="planchk"><input type="checkbox" id="planStructs" checked><span id="planStructsTxt">一併產生偵測到的門、窗、柱子</span></label>
+        <label class="planchk" style="margin-top:0"><input type="checkbox" id="planScaleAll" checked><span>改某個空間的寬或深時，其他空間依同比例一起調整（先輸入一個確定的尺寸，整張圖就會對上）</span></label>
         <div id="planList"></div>
       </div>
     </div>
@@ -5872,7 +5875,7 @@ $('#insideBtn').onclick = () => setInside(!sysOpts.inside);
 $('#lib').addEventListener('click', e => { const c = e.target.closest('.card'); if (!c) return; if (c.dataset.type.startsWith('set:')) addSet(c.dataset.type.slice(4)); else addItem(c.dataset.type); });
 $('#lib').addEventListener('dragstart', e => { const c = e.target.closest('.card'); if (c) e.dataTransfer.setData('text/plain', c.dataset.type); });
 
-function makeThumbs() {
+async function makeThumbs() {
   const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   r.setPixelRatio(1); r.setSize(200, 150);
   r.toneMapping = THREE.ACESFilmicToneMapping;
@@ -5883,7 +5886,9 @@ function makeThumbs() {
   s.add(new THREE.HemisphereLight(0xffffff, 0xcccccc, 0.6));
   const cam = new THREE.PerspectiveCamera(28, 4 / 3, 1, 10000);
   const dir = new V3(0.9, 0.8, 1.5).normalize();
+  let tick = performance.now();
   for (const [k, T] of Object.entries(TYPES)) {
+    if (performance.now() - tick > 24) { await new Promise(r => setTimeout(r)); tick = performance.now(); }
     const g = T.build(applyDefaults({ ...T, type: k, id: 0, rot: 0 }, T));
     s.add(g);
     const b = new THREE.Box3().setFromObject(g), c = b.getCenter(new V3()), rad = b.getSize(new V3()).length() / 2;
@@ -6388,26 +6393,76 @@ function planLabel(mask, W, H, val) {
   }
   return { lab, comps };
 }
-// 偵測房間：找出牆（粗的深色線），把門洞等窄的開口封起來，剩下各自獨立的空白區域就是房間，取外接矩形
+// 偵測房間：找出牆，把門洞等窄的開口封起來，剩下各自獨立的空白區域就是房間，取外接矩形。家具圖示不管
 function planDetect(img, strength) {
+  PLAN.det = null;
   const k = Math.min(1, 720 / Math.max(img.width, img.height)), W = Math.max(8, Math.round(img.width * k)), H = Math.max(8, Math.round(img.height * k));
-  // 先在原解析度判斷哪些是深色，再縮小（一格裡只要有深色就算深色），細線才不會在縮小時變淡而漏掉
-  const fw = img.width, fh = img.height, px = img.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, fw, fh).data, dark = new Uint8Array(W * H); let nDark = 0;
+  // 先在原解析度判斷哪些是深色，再縮小（一格裡只要有深色就算深色），細線才不會在縮小時變淡而漏掉；vdk：很黑的（實心牆、柱）
+  const fw = img.width, fh = img.height, px = img.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, fw, fh).data, dark = new Uint8Array(W * H), vdk = new Uint8Array(W * H); let nDark = 0;
   for (let y = 0; y < fh; y++) { const ty = Math.min(H - 1, Math.floor(y * k)) * W;
-    for (let x = 0; x < fw; x++) { const i = (y * fw + x) * 4; if (px[i + 3] > 40 && 0.3 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2] < 150) { const j = ty + Math.min(W - 1, Math.floor(x * k)); if (!dark[j]) { dark[j] = 1; nDark++; } } } }
+    for (let x = 0; x < fw; x++) { const i = (y * fw + x) * 4; if (px[i + 3] <= 40) continue; const l = 0.3 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2];
+      if (l < 150) { const j = ty + Math.min(W - 1, Math.floor(x * k)); if (!dark[j]) { dark[j] = 1; nDark++; } if (l < 70) vdk[j] = 1; } } }
   if (!nDark) return [];
-  let wall = planMorph(planMorph(dark, W, H, 1, false), W, H, 1, true), nWall = 0;      // 只留粗線（牆）：細的尺寸線、文字、家具線條都去掉
-  for (let i = 0; i < W * H; i++) nWall += wall[i];
-  if (nWall < nDark * 0.2 || nWall < W * H * 0.003) {                    // 圖上的牆是細線（雙線牆、線稿）：改用全部深色線，但先去掉文字、符號等小塊
-    // 先把兩條線中間的窄縫填滿（雙線牆變成實心粗牆），再只留粗的部分（家具、門弧線等單線去掉），最後去掉文字之類的小塊
-    const rc = Math.max(2, Math.round(Math.max(W, H) * 0.011)), closed = planMorph(planMorph(dark, W, H, rc, true), W, H, rc, false);
-    wall = planMorph(planMorph(closed, W, H, 1, false), W, H, 1, true);
-  }
-  { const L = planLabel(wall, W, H, 1), minLen = Math.max(W, H) * 0.05;  // 去掉文字、符號之類的小塊（牆是長的）
-    for (let i = 0; i < W * H; i++) { const cp = L.comps[L.lab[i] - 1]; if (cp && Math.max(cp.x1 - cp.x0, cp.y1 - cp.y0) < minLen) wall[i] = 0; } }
+  // 牆：把兩條線中間的窄縫填滿（雙線牆變實心、窗戶的線也併成牆），再只留粗的部分（單線的家具、門弧、尺寸線去掉），最後去掉文字之類的小塊
+  const open1 = m => planMorph(planMorph(m, W, H, 1, false), W, H, 1, true);
+  const prune = m => { const L = planLabel(m, W, H, 1), minLen = Math.max(W, H) * 0.05; let big = 0;
+    for (let i = 0; i < W * H; i++) { const cp = L.comps[L.lab[i] - 1]; if (!cp) continue; const len = Math.max(cp.x1 - cp.x0, cp.y1 - cp.y0); if (len < minLen) m[i] = 0; else if (len > big) big = len; }
+    return big; };
+  let dx0 = W, dx1 = 0, dy0 = H, dy1 = 0;
+  for (let i = 0; i < W * H; i++) if (dark[i]) { const xx = i % W, yy = (i - xx) / W; if (xx < dx0) dx0 = xx; if (xx > dx1) dx1 = xx; if (yy < dy0) dy0 = yy; if (yy > dy1) dy1 = yy; }
+  // 實心牆的圖：粗的深色部分連成一大片（跨過大半張圖）。不是的話就是雙線（空心）牆，先把兩條線中間的窄縫填滿再取粗的部分
+  let wall = open1(dark), solid = prune(wall) >= Math.max(dx1 - dx0, dy1 - dy0) * 0.55;
+  if (!solid) { const rc = Math.max(2, Math.round(Math.max(W, H) * 0.011)); wall = open1(planMorph(planMorph(dark, W, H, rc, true), W, H, rc, false)); prune(wall); }
   let bx0 = W, bx1 = 0, by0 = H, by1 = 0;
   for (let i = 0; i < W * H; i++) if (wall[i]) { const xx = i % W, yy = (i - xx) / W; if (xx < bx0) bx0 = xx; if (xx > bx1) bx1 = xx; if (yy < by0) by0 = yy; if (yy > by1) by1 = yy; }
   const P = Math.max(bx1 - bx0, by1 - by0); if (P < 20) return [];
+  // 牆厚 t：橫向、直向「連續深色」長度裡最常見的那個
+  const hist = new Uint32Array(48);
+  for (let y = 0; y < H; y++) { let run = 0; for (let x = 0; x <= W; x++) { if (x < W && wall[y * W + x]) run++; else { if (run >= 2 && run < 48) hist[run]++; run = 0; } } }
+  for (let x = 0; x < W; x++) { let run = 0; for (let y = 0; y <= H; y++) { if (y < H && wall[y * W + x]) run++; else { if (run >= 2 && run < 48) hist[run]++; run = 0; } } }
+  let t = 3, hc = 0; for (let n = 2; n < 48; n++) if (hist[n] > hc) { hc = hist[n]; t = n; }
+  // 比牆厚很多的深色塊：家具（拿掉，不管）或柱子（很黑、接近方形、貼著牆 → 記下來）。貼著牆時保留它後面那一段牆
+  const cols = [];
+  { const r = Math.ceil(t * 0.8) + 1, fat = planMorph(planMorph(wall, W, H, r, false), W, H, r, true), L = planLabel(fat, W, H, 1), w0 = wall.slice();
+    const thin = (x, y) => x >= 0 && y >= 0 && x < W && y < H && w0[y * W + x] === 1 && fat[y * W + x] === 0;
+    L.comps.forEach((cp, ci) => {
+      const bw = cp.x1 - cp.x0 + 1, bh = cp.y1 - cp.y0 + 1; if (Math.max(bw, bh) >= P * 0.35 || Math.min(bw, bh) < t * 2.2) return;   // 很長或只比牆厚一點的當作厚牆，保留
+      for (let y = cp.y0; y <= cp.y1; y++) for (let x = cp.x0; x <= cp.x1; x++) if (L.lab[y * W + x] === ci + 1) wall[y * W + x] = 0;
+      const keep = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (L.lab[y * W + x] === ci + 1) wall[y * W + x] = 1; };
+      const rows = (ya, yb) => { let n = 0; for (let y = ya; y <= yb; y++) { if (thin(cp.x0 - 2, y)) n++; if (thin(cp.x1 + 2, y)) n++; } return n; };
+      const cs = (xa, xb) => { let n = 0; for (let x = xa; x <= xb; x++) { if (thin(x, cp.y0 - 2)) n++; if (thin(x, cp.y1 + 2)) n++; } return n; };
+      const need = Math.max(2, t * 0.6); let touch = 0;
+      if (rows(cp.y0, cp.y0 + t - 1) >= need) { keep(cp.x0, cp.y0, cp.x1, cp.y0 + t - 1); touch++; }
+      if (rows(cp.y1 - t + 1, cp.y1) >= need) { keep(cp.x0, cp.y1 - t + 1, cp.x1, cp.y1); touch++; }
+      if (cs(cp.x0, cp.x0 + t - 1) >= need) { keep(cp.x0, cp.y0, cp.x0 + t - 1, cp.y1); touch++; }
+      if (cs(cp.x1 - t + 1, cp.x1) >= need) { keep(cp.x1 - t + 1, cp.y0, cp.x1, cp.y1); touch++; }
+      // 扣掉保留的牆以後剩下的那一塊：很黑、接近方形、不太大 → 柱子
+      let n = 0, nv = 0, ax = W, ay = H, bx = -1, by = -1;
+      for (let y = cp.y0; y <= cp.y1; y++) for (let x = cp.x0; x <= cp.x1; x++) if (L.lab[y * W + x] === ci + 1 && !wall[y * W + x]) { n++; if (vdk[y * W + x]) nv++; if (x < ax) ax = x; if (x > bx) bx = x; if (y < ay) ay = y; if (y > by) by = y; }
+      const cw = bx - ax + 1, ch = by - ay + 1;
+      if (touch && n && nv > n * 0.8 && n > cw * ch * 0.8 && Math.max(cw, ch) <= Math.min(cw, ch) * 1.8 && Math.max(cw, ch) <= t * 9) cols.push({ x: ax / k, y: ay / k, w: cw / k, h: ch / k });
+    });
+    prune(wall);                                                         // 拿掉家具後留下的零碎小塊
+  }
+  const win = new Uint8Array(W * H);
+  if (solid) {
+    const fill = (N, M, at) => {                                         // N 條線、每條 M 格；at(n, m) → 像素位置
+      const pre = new Int32Array((M + 1) * N);
+      for (let n = 0; n < N; n++) for (let m = 0; m < M; m++) pre[n * (M + 1) + m + 1] = pre[n * (M + 1) + m] + dark[at(n, m)];
+      for (let n = 0; n < N; n++) { let ps = -1, pe = -1, st = -1;      // 前一段牆 [ps, pe)、目前這段的起點
+        for (let m = 0; m <= M; m++) { const on = m < M && wall[at(n, m)] === 1;
+          if (on && st < 0) { st = m; }
+          if (!on && st >= 0) {
+            if (pe >= 0) { const g = st - pe;                            // 兩段牆中間的缺口 [pe, st)
+              if (g >= t * 2 && g <= P * 0.35 && pe - ps >= t * 2.5) { let ok = false, e = m; while (e < M && wall[at(n, e)] === 1 && e - st < t * 3) e++;
+                if (e - st >= t * 2.5 || m - st >= t * 2.5) { const cv = q => q < 0 || q >= N ? 0 : (pre[q * (M + 1) + st] - pre[q * (M + 1) + pe]) / g, wh = q => cv(q) < 0.3;
+                  for (let q = Math.max(0, n - t); q <= Math.min(N - 1, n + t) && !ok; q++) if (wall[at(q, pe - 1)] && wall[at(q, st)] && cv(q) >= 0.85 && (wh(q - 2) || wh(q - 3)) && (wh(q + 2) || wh(q + 3))) ok = true; }   // 要是牆厚度裡的細線（兩邊是白的）；貼著牆的家具邊緣不算
+                if (ok) for (let q = pe; q < st; q++) win[at(n, q)] = 1; } }
+            ps = st; pe = m; st = -1; } } }
+    };
+    fill(H, W, (n, m) => n * W + m); fill(W, H, (n, m) => m * W + n);
+    for (let i = 0; i < W * H; i++) if (win[i]) wall[i] = 1;
+  }
   // 封住寬度小於 2R 的開口（門洞）。圖的比例未知，所以試幾種 R，取分出最多房間的那個（一樣多就取較小的 R，房間範圍比較準）；strength 再往細／粗調
   const minSide = P * 0.06, FR = [0.02, 0.028, 0.036, 0.045, 0.055, 0.066, 0.078, 0.092, 0.11];
   const tryR = f => {
@@ -6423,10 +6478,42 @@ function planDetect(img, strength) {
   let bi = 0, bn = -1; const all = FR.map(tryR);
   all.forEach((a, i) => { if (a.length > bn) { bn = a.length; bi = i; } });
   let rooms = all[clamp(bi + strength, 0, FR.length - 1)];
-  rooms = rooms.filter(a => !rooms.some(b => b !== a && b.w * b.h > a.w * a.h && a.x + a.w / 2 > b.x && a.x + a.w / 2 < b.x + b.w && a.y + a.h / 2 > b.y && a.y + a.h / 2 < b.y + b.h));   // 落在別的房間裡面的小框（家具外框）不要
+  rooms = rooms.filter(a => !rooms.some(b => b !== a && b.w * b.h > a.w * a.h && a.x + a.w / 2 > b.x && a.x + a.w / 2 < b.x + b.w && a.y + a.h / 2 > b.y && a.y + a.h / 2 < b.y + b.h));   // 落在別的房間裡面的小框不要
   const rowH = P / k * 0.12;
   rooms.sort((a, b) => Math.abs(a.y - b.y) > rowH ? a.y - b.y : a.x - b.x);   // 由上到下、由左到右編號
+  PLAN.det = { k, W, H, dark, wall, win, t, cols };
   return rooms.slice(0, 30);
+}
+// 一個房間四面牆上的門、窗，以及凸進房間的柱子（都是圖面像素座標）。門＝牆上的缺口；窗＝牆的位置上不是實心、只有幾條線的那一段
+function planOpenings(r) {
+  const D = PLAN.det, out = { doors: [], wins: [], cols: [] }; if (!D) return out;
+  const { k, W, H, wall, win, t } = D, x0 = Math.round(r.x * k), y0 = Math.round(r.y * k), x1 = Math.round((r.x + r.w) * k), y1 = Math.round((r.y + r.h) * k), tb = t + 3;
+  const side = (name, n, pix) => {                                      // pix(i, j)：沿牆第 i 格、往牆外第 j 格
+    const wp = new Uint8Array(n), wn = new Uint8Array(n), need = Math.max(2, t * 0.4);   // 牆要有一定厚度才算（家具邊緣留下的一兩格不算）
+    for (let i = 0; i < n; i++) { let c = 0; for (let j = -1; j < tb; j++) { const [x, y] = pix(i, j); if (x < 0 || y < 0 || x >= W || y >= H) continue; if (wall[y * W + x]) c++; if (win[y * W + x]) wn[i] = 1; } if (c >= need) wp[i] = 1; }
+    const runs = (test, add) => { let st = -1; for (let i = 0; i <= n; i++) { const ok = i < n && test(i); if (ok && st < 0) st = i; if (!ok && st >= 0) { add(st, i); st = -1; } } };
+    runs(i => !wp[i], (a, b) => { if (b - a >= t * 2.5 && b - a <= n * 0.9) out.doors.push({ side: name, a: a / k, len: (b - a) / k }); });
+    runs(i => wn[i] === 1, (a, b) => { if (b - a >= t * 2) out.wins.push({ side: name, a: a / k, len: (b - a) / k }); });
+  };
+  side('back', x1 - x0, (i, j) => [x0 + i, y0 - j]); side('front', x1 - x0, (i, j) => [x0 + i, y1 + j]);
+  side('left', y1 - y0, (i, j) => [x0 - j, y0 + i]); side('right', y1 - y0, (i, j) => [x1 + j, y0 + i]);
+  for (const c of D.cols) {                                             // 柱子：只取凸進房間裡的那一塊
+    const ax = Math.max(c.x, r.x), ay = Math.max(c.y, r.y), bx = Math.min(c.x + c.w, r.x + r.w), by = Math.min(c.y + c.h, r.y + r.h);
+    if (bx - ax > t / k * 0.6 && by - ay > t / k * 0.6) out.cols.push({ x: ax, y: ay, w: bx - ax, h: by - ay });
+  }
+  return out;
+}
+// 換算成這個空間的門、窗、柱（公分）；尺寸不合理的不要
+function planStructs(r) {
+  const sx = r.cw / r.w, sz = r.cd / r.h, o = planOpenings(r), list = []; let id = 1;
+  const along = sd => sd === 'back' || sd === 'front' ? sx : sz, L = sd => sd === 'back' || sd === 'front' ? r.cw : r.cd;
+  for (const d of o.doors) { const w = Math.round(d.len * along(d.side)); if (w < 55 || w > 260) continue; const ww = Math.min(w, L(d.side));
+    list.push({ id: id++, kind: 'door', wall: d.side, off: clamp(Math.round(d.a * along(d.side)), 0, L(d.side) - ww), w: ww, h: 210, style: ww > 130 ? 'double' : 'single', mat: 'wood', color: '#c49a6c', color2: '#f1ebe1' }); }
+  for (const d of o.wins) { const w = Math.round(d.len * along(d.side)); if (w < 40 || w > 600) continue; const ww = Math.min(w, L(d.side));
+    list.push({ id: id++, kind: 'window', wall: d.side, off: clamp(Math.round(d.a * along(d.side)), 0, L(d.side) - ww), w: ww, h: 120, sill: 90, style: 'sliding', mat: 'metal', color: '#4a4d52', color2: '#cfe3e8' }); }
+  for (const c of o.cols) { const w = Math.round(c.w * sx), dd = Math.round(c.h * sz); if (w < 8 || dd < 8 || w > 150 || dd > 150) continue;
+    list.push({ id: id++, kind: 'column', w, d: dd, x: Math.round((c.x + c.w / 2 - r.x) * sx - r.cw / 2 + 1e-6), z: Math.round((c.y + c.h / 2 - r.y) * sz - r.cd / 2 + 1e-6) }); }
+  return list;
 }
 // 由圖上的尺寸數字推算比例（公分／像素）：每個房間旁邊的數字除以房間的像素寬（深），取最多數字互相吻合的那個比例
 function planScaleFromText(rooms, texts) {
@@ -6455,7 +6542,18 @@ function planRun(keep) {
 }
 function planDraw() {
   const iw = PLAN.img.width, ih = PLAN.img.height, pc = v => (v * 100).toFixed(3) + '%';
-  $('#planBoxes').innerHTML = PLAN.rooms.map((r, i) => `<div class="pbox${i === PLAN.sel ? ' on' : ''}" data-pi="${i}" style="left:${pc(r.x / iw)};top:${pc(r.y / ih)};width:${pc(r.w / iw)};height:${pc(r.h / ih)}"><b>${esc(r.name)}　${r.cw}×${r.cd}</b><i data-pr="${i}"></i></div>`).join('');
+  const cnt = { door: 0, window: 0, column: 0 }, th = Math.max(4, (PLAN.det ? PLAN.det.t / PLAN.det.k : 6) * 0.8), mk = [];
+  for (const r of PLAN.rooms) for (const st of planStructs(r)) {          // 偵測到的門（橘）、窗（藍）、柱（灰）標在圖上
+    cnt[st.kind]++;
+    const fx = r.w / r.cw, fz = r.h / r.cd; let x, y, w, h;
+    if (st.kind === 'column') { w = st.w * fx; h = st.d * fz; x = r.x + (st.x + r.cw / 2) * fx - w / 2; y = r.y + (st.z + r.cd / 2) * fz - h / 2; }
+    else if (st.wall === 'back' || st.wall === 'front') { w = st.w * fx; h = th; x = r.x + st.off * fx; y = st.wall === 'back' ? r.y - th : r.y + r.h; }
+    else { w = th; h = st.w * fz; y = r.y + st.off * fz; x = st.wall === 'left' ? r.x - th : r.x + r.w; }
+    mk.push(`<div class="pmk ${st.kind}" style="left:${pc(x / iw)};top:${pc(y / ih)};width:${pc(w / iw)};height:${pc(h / ih)}"></div>`);
+  }
+  PLAN.cnt = cnt;
+  $('#planBoxes').innerHTML = PLAN.rooms.map((r, i) => `<div class="pbox${i === PLAN.sel ? ' on' : ''}" data-pi="${i}" style="left:${pc(r.x / iw)};top:${pc(r.y / ih)};width:${pc(r.w / iw)};height:${pc(r.h / ih)}"><b>${esc(r.name)}　${r.cw}×${r.cd}</b><i data-pr="${i}"></i></div>`).join('') + ($('#planStructs').checked ? mk.join('') : '');
+  $('#planStructsTxt').textContent = cnt.door + cnt.window + cnt.column ? `一併產生偵測到的門 ${cnt.door} 扇、窗 ${cnt.window} 扇、柱子 ${cnt.column} 根（圖上橘色＝門、藍色＝窗、灰色＝柱；有誤差可以之後修改）` : '沒有偵測到門、窗、柱子（之後可以自己加）';
   $('#planList').innerHTML = PLAN.rooms.length ? PLAN.rooms.map((r, i) => `<div class="prow${i === PLAN.sel ? ' on' : ''}" data-pi="${i}"><label>名稱<input class="num" data-pf2="name" maxlength="20" value="${esc(r.name)}"></label><label>寬 cm<input class="num" type="number" data-pf2="cw" min="100" max="3000" value="${r.cw}"></label><label>深 cm<input class="num" type="number" data-pf2="cd" min="100" max="3000" value="${r.cd}"></label><button class="x" data-pdel="${i}" title="移除這個空間">×</button></div>`).join('')
     : '<div class="muted" style="padding:10px 0;line-height:1.6">沒有偵測到空間。請在左邊的圖上，沿著每個房間的內側拖曳出一個框。</div>';
   const n = PLAN.rooms.length;
@@ -6473,6 +6571,7 @@ $('#planCancel').onclick = () => { $('#planModal').hidden = true; };
 $('#planFiner').onclick = () => { PLAN.strength = Math.min(6, PLAN.strength + 1); planRun(); };      // 封住更寬的開口 → 分出更多房間
 $('#planCoarser').onclick = () => { PLAN.strength = Math.max(-6, PLAN.strength - 1); planRun(); };
 $('#planClear').onclick = () => { PLAN.rooms = []; PLAN.sel = -1; planDraw(); };
+$('#planStructs').onchange = () => planDraw();
 $('#planPrev').onclick = () => { if (PLAN.pdf && PLAN.page > 1) planRenderPage(PLAN.page - 1); };
 $('#planNext').onclick = () => { if (PLAN.pdf && PLAN.page < PLAN.pages) planRenderPage(PLAN.page + 1); };
 $('#planList').addEventListener('change', e => {
@@ -6519,7 +6618,8 @@ $('#planOk').onclick = () => {                                           // 依�
   const now = Date.now(), p = { id: uid('p'), name: $('#mProj').value.trim() || nextProjName(), cur: null, list: [], updated: now };
   const cx = Math.min(...PLAN.rooms.map(r => r.x)), cy = Math.min(...PLAN.rooms.map(r => r.y));
   PLAN.rooms.forEach((r, i) => {
-    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs: [], nextId: 1, noWalls: [] };
+    const sts = $('#planStructs').checked ? planStructs(r) : [];          // 偵測到的門、窗、柱子一併放進這個空間
+    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs: sts, nextId: sts.length + 1, noWalls: [] };
     p.list.push({ id: uid('s') + i, name: cleanName(r.name) || `空間 ${i + 1}`, data: JSON.stringify(d), updated: now, pos: { x: Math.round((r.x + r.w / 2 - cx) * PLAN.scale), z: Math.round((r.y + r.h / 2 - cy) * PLAN.scale) } });
   });
   projects.list.push(p); projects.cur = p.id; spaces = p; spaces.cur = p.list[0].id; draft = null;
