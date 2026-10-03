@@ -3283,13 +3283,37 @@ function buildSysCab(it) {
   return done();
 }
 /* ---------- 個別板材：櫃體的每一片（側板、頂板、底板、背板、踢腳板、檯面、門片、抽屜面板）可以單獨改顏色或隱藏 ---------- */
-function cabParts(it, g, makers) {                                      // 建完櫃體後套用 it.parts 裡的修改
+function partLocalBox(meshes) {                                         // 一片板材（可能含把手、玻璃等好幾塊）在櫃子自身座標裡的範圍
+  const box = new THREE.Box3();
+  for (const m of meshes) { if (!m.geometry) continue; if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); m.updateMatrix(); box.union(m.geometry.boundingBox.clone().applyMatrix4(m.matrix)); }
+  return box;
+}
+function cabParts(it, g, makers) {                                      // 建完櫃體後套用 it.parts 裡的修改（顏色、拿掉、尺寸、位置）
   const P = it.parts; if (!P) return;
   for (const m of g.children) {
     const ov = P[m.userData.part]; if (!ov) continue;
     if (ov.hide) m.visible = false;
     if (ov.color) { const mk = makers.get(m.material); if (mk) m.material = mk(ov.color); else if (m.userData.part === 'counter') m.material = topMat({ topmat: 'slate', color: ov.color }); }
   }
+  for (const [key, ov] of Object.entries(P)) {                          // 單片改尺寸、微調位置
+    if (!(ov.w > 0 || ov.h > 0 || ov.d > 0 || ov.dx || ov.dy || ov.dz)) continue;
+    const ms = g.children.filter(m => m.userData.part === key); if (!ms.length) continue;
+    const b = partLocalBox(ms), sz = b.getSize(new V3());
+    const kx = ov.w > 0 && sz.x > 0.01 ? ov.w / sz.x : 1, ky = ov.h > 0 && sz.y > 0.01 ? ov.h / sz.y : 1, kz = ov.d > 0 && sz.z > 0.01 ? ov.d / sz.z : 1;
+    // 固定哪一邊：左側板固定外側、右側板固定外側，其他左右置中；高度固定底部（頂板、檯面固定頂部）；深度固定背面（門片、抽屜面板固定正面）
+    const front = /^(d|f|rail)/.test(key);
+    const ax = key === 'L' ? b.min.x : key === 'R' ? b.max.x : (b.min.x + b.max.x) / 2, ay = key === 'top' || key === 'counter' ? b.max.y : b.min.y, az = front ? b.max.z : b.min.z;
+    for (const m of ms) {
+      m.position.set(ax + (m.position.x - ax) * kx + (ov.dx || 0), ay + (m.position.y - ay) * ky + (ov.dy || 0), az + (m.position.z - az) * kz + (ov.dz || 0));
+      m.scale.set(m.scale.x * kx, m.scale.y * ky, m.scale.z * kz);
+    }
+  }
+}
+function partSize(it, key) {                                            // 目前這片板材的寬、高、深（cm）
+  const g = objById.get(it.id); if (!g) return null;
+  const ms = g.children.filter(m => m.userData.part === key); if (!ms.length) return null;
+  const sz = partLocalBox(ms).getSize(new V3()), r1 = v => Math.round(v * 10) / 10;
+  return { w: r1(sz.x), h: r1(sz.y), d: r1(sz.z) };
 }
 function partName(k, custom) {                                          // custom：自訂櫃體以「第幾格」命名
   const fixed = { kick: '踢腳板', L: '左側板', R: '右側板', top: '頂板', bottom: '底板', back: '背板', counter: '檯面' };
@@ -5068,6 +5092,17 @@ document.addEventListener('input', e => {                              // 個別
   buildItem(o); fitItem(o); updateOverlay();
 });
 document.addEventListener('change', e => { if (e.target.id === 'partPick') { renderPanel(); commit(); } });
+function setPartField(el, done) {                                       // 個別板材的尺寸、位置欄位
+  if (!selPart || !sel || sel.k !== 'item') return;
+  const o = getItem(sel.id), k = el.dataset.pf, v = parseFloat(el.value); if (!o || !isFinite(v)) return;
+  const P = o.parts || (o.parts = {}), ov = P[selPart] || (P[selPart] = {});
+  if (k[0] === 'd' && k.length === 2) { if (v) ov[k] = clamp(v, -300, 300); else delete ov[k]; }   // dx、dy、dz
+  else ov[k] = clamp(v, 0.2, 600);
+  buildItem(o); fitItem(o); updateOverlay();
+  if (done) { renderPanel(); commit(); }
+}
+document.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.pf) setPartField(e.target, false); });
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.pf) setPartField(e.target, true); });
 document.addEventListener('change', e => {
   const inp = e.target.closest('.ccw'); if (!inp || !sel || sel.k !== 'item') return;
   const o = getItem(sel.id), c = ccCols(o)[+inp.dataset.ci]; if (!c) return;
@@ -5132,7 +5167,7 @@ function snapWallOf(o, within = Infinity) {
 }
 function doAct(a, arg, key) {
   if (a === 'pick') { select('item', +arg); return; }
-  if (a === 'part' || a === 'partBack' || a === 'partColor' || a === 'partHide' || a === 'partClear') {   // 個別板材
+  if (a === 'part' || a === 'partBack' || a === 'partColor' || a === 'partHide' || a === 'partClear' || a === 'partSizeReset') {   // 個別板材
     const o = sel && sel.k === 'item' ? getItem(sel.id) : null; if (!o || !isCab(TYPES[o.type])) return;
     if (a === 'part') { selPart = arg; renderPanel(); updateOverlay(); return; }
     if (a === 'partBack') { selPart = null; renderPanel(); updateOverlay(); return; }
@@ -5141,6 +5176,7 @@ function doAct(a, arg, key) {
       if (!selPart) return;
       const P = o.parts || (o.parts = {}), ov = P[selPart] || (P[selPart] = {});
       if (a === 'partColor') { if (arg) ov.color = arg; else delete ov.color; }
+      else if (a === 'partSizeReset') for (const k of ['w', 'h', 'd', 'dx', 'dy', 'dz']) delete ov[k];
       else { if (ov.hide) delete ov.hide; else ov.hide = true; }
       if (!Object.keys(ov).length) delete P[selPart];
       if (!Object.keys(P).length) delete o.parts;
@@ -5338,9 +5374,15 @@ function renderPanel() {
         <div class="sws">${pal.map(c => `<button class="sw${ov.color === c ? ' on' : ''}" style="background:${c}" title="${c}" data-act="partColor" data-id="${c}"></button>`).join('')}
           <input type="color" class="cpick" id="partPick" title="自訂顏色" value="${ov.color || '#c49a6c'}"></div>
         <div class="stylechips" style="margin-top:8px"><button class="chip${ov.color ? '' : ' on'}" data-act="partColor" data-id="">跟整座櫃子同色</button></div>
+        ${(() => { const z = partSize(o, selPart) || { w: 0, h: 0, d: 0 }, fld = (k, lbl, v, extra = '') => `<label class="mini"><span>${lbl}</span><input class="num" type="number" step="0.1" data-pf="${k}" value="${v}" ${extra}></label>`;
+          return `<h4>這一片的尺寸（cm）</h4>
+        <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">${fld('w', '寬（左右）', z.w, 'min="0.2" max="600"')}${fld('h', '高（上下）', z.h, 'min="0.2" max="600"')}${fld('d', '深（前後）', z.d, 'min="0.2" max="600"')}</div>
+        <h4>位置微調（cm）</h4>
+        <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">${fld('dx', '往右（負數往左）', ov.dx || 0)}${fld('dy', '往上（負數往下）', ov.dy || 0)}${fld('dz', '往前（負數往後）', ov.dz || 0)}</div>
+        ${ov.w > 0 || ov.h > 0 || ov.d > 0 || ov.dx || ov.dy || ov.dz ? '<button class="link" data-act="partSizeReset">↺ 恢復原本的尺寸與位置</button>' : ''}`; })()}
         <h4>顯示</h4>
         <button class="btn${ov.hide ? ' primary' : ' danger'}" data-act="partHide" style="width:100%">${ov.hide ? '顯示這片板材' : '拿掉（隱藏）這片板材'}</button>
-        <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">拿掉後還可以從整座櫃子面板的「個別板材」再選回來顯示。板材的厚度、尺寸跟著整座櫃子的設定。</div>`;
+        <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">拿掉後還可以從整座櫃子面板的「個別板材」再選回來顯示。改尺寸時：側板固定外側、頂板固定頂面、門片與抽屜面板固定正面，其餘固定底部與背面。</div>`;
       syncInputs();
       return;
     }
@@ -5361,7 +5403,7 @@ function renderPanel() {
       ${T.acc && hostCab(o) ? `<h4>櫃內位置（cm）</h4><div class="grid2"><label class="mini"><span>距櫃內左側</span>${numIn('item', o.id, 'cabx', 'step="0.5" min="0"')}</label><label class="mini"><span>離地高度</span>${numIn('item', o.id, 'elev', 'min="0"')}</label></div><div class="muted" style="font-size:12px;margin:4px 0 6px">${T.acc === 'mid' ? '也可以直接在畫面上左右拖曳中立板，兩側的層板、抽屜會自動改寬度貼齊。' : '也可以直接在畫面上上下拖曳調整高度（開啟「透視櫃體」比較好點選）。'}</div>` : ''}
       ${T.custom ? ccPanel(o) : ''}`)}
       ${isCab(T) ? grp('parts', '個別板材', `<div class="muted" style="font-size:12px;margin-bottom:6px;line-height:1.5">櫃子已選取時，在畫面上再點一下某片板材，或在這裡點名稱，就能只改那一片的顏色或把它拿掉。${sysOpts.inside ? '透視櫃內時門片不顯示，仍可在這裡選。' : ''}</div>
-        <div class="stylechips">${partKeys(o).map(k => { const ov = (o.parts || {})[k] || {}; return `<button class="chip" data-act="part" data-id="${k}">${partName(k, T.custom)}${ov.hide ? '（已拿掉）' : ov.color ? '・已改色' : ''}</button>`; }).join('')}</div>
+        <div class="stylechips">${partKeys(o).map(k => { const ov = (o.parts || {})[k] || {}; return `<button class="chip" data-act="part" data-id="${k}">${partName(k, T.custom)}${ov.hide ? '（已拿掉）' : [ov.color ? '已改色' : '', ov.w > 0 || ov.h > 0 || ov.d > 0 || ov.dx || ov.dy || ov.dz ? '已改尺寸' : ''].filter(Boolean).map(x => '・' + x).join('')}</button>`; }).join('')}</div>
         ${Object.keys(o.parts || {}).length ? '<button class="link" data-act="partClear" style="margin-top:8px">↺ 全部恢復成整座櫃子的設定</button>' : ''}`) : ''}
       ${grp('color', '顏色', `<h4>${colorLabel(o, 1)}</h4>${swatches(o, 'color')}
       ${colorLabel(o, 2) ? `<h4>${colorLabel(o, 2)}</h4>${swatches(o, 'color2')}` : ''}
