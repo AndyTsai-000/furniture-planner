@@ -414,7 +414,7 @@ body.rmode #side,body.rmode #panel{display:none}
     <h4>亮度</h4>
     <input type="range" id="rExpo" min="0.5" max="1.8" step="0.05" value="1" aria-label="亮度">
     <h4>內部空間角度</h4>
-    <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">上方</button></div>
+    <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="back">後方</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">上方</button></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">整個空間（從外面看，擋住視線的外牆不顯示）</div>
     <div class="stylechips"><button class="chip" data-ang="o-f">前</button><button class="chip" data-ang="o-b">後</button><button class="chip" data-ang="o-l">左</button><button class="chip" data-ang="o-r">右</button><button class="chip" data-ang="o-fl">左前角</button><button class="chip" data-ang="o-fr">右前角</button><button class="chip" data-ang="o-bl">左後角</button><button class="chip" data-ang="o-br">右後角</button></div>
     <h4>鏡頭</h4>
@@ -4368,6 +4368,7 @@ function loop() {
     }
     for (const wl of walls) wl.m.visible = !(wl.sign * persp.position[wl.axis] > wl.c);
     ceilGroup.visible = persp.position.y < state.room.h - 2;          // 相機低於天花板就看得到天花板；從上方看才隱藏
+    syncTopMask();
     if (MG.on) mergeCutaway(true);
   } else {
     orthoCtl.update();
@@ -6441,6 +6442,23 @@ function rAngleOut(k) {                                                 // 整�
   dist = Math.max(dist * 1.04, (h + 15 - ty) / sp);                     // 鏡頭一定高過天花板，天花板才會隱藏
   persp.position.set(B.cx + ux * dist * cp, ty + dist * sp, B.cz + uz * dist * cp); controls.target.set(B.cx, ty, B.cz); controls.update();
 }
+// 渲染時從正上方往下看：用一圈「只擋不畫」的遮罩蓋住牆頂，畫面只留牆內（牆的厚度與牆外都不顯示）
+let topMask = null;
+function syncTopMask() {
+  const { w, d, h } = state.room, p = persp.position, t = controls.target;
+  const on = RM.on && !MG.on && view === '3d' && p.y > h + 5 && Math.abs(p.x) < w / 2 && Math.abs(p.z) < d / 2 && Math.hypot(p.x - t.x, p.z - t.z) < 0.12 * (p.y - t.y);
+  if (!on) { if (topMask) topMask.visible = false; return; }
+  const key = [w, d, h].join();
+  if (!topMask || topMask.userData.key !== key) {
+    if (topMask) { scene.remove(topMask); topMask.geometry.dispose(); }
+    const o = WALL_T + 40, s = new THREE.Shape([[-w / 2 - o, -d / 2 - o], [w / 2 + o, -d / 2 - o], [w / 2 + o, d / 2 + o], [-w / 2 - o, d / 2 + o]].map(([x, y]) => new THREE.Vector2(x, y)));
+    s.holes.push(new THREE.Path([[-w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2], [w / 2, -d / 2]].map(([x, y]) => new THREE.Vector2(x, y))));
+    topMask = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshBasicMaterial({ colorWrite: false }));
+    topMask.rotation.x = -Math.PI / 2; topMask.position.y = h + 0.5; topMask.renderOrder = -10; topMask.userData.key = key;
+    scene.add(topMask);
+  }
+  topMask.visible = true;
+}
 function rAngleTop() {                                                  // 上方：從正上方垂直往下看，畫面剛好框住牆內的空間（天花板自動隱藏）
   const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
   setLens('std');
@@ -6453,13 +6471,13 @@ function rAngle(k) {                                                    // 預�
   if (k === 'top') { rAngleTop(); return; }
   if (MG.on) {                                                          // 合併畫面：從不同方向斜上方俯看整體
     const { w, d, cx, cz } = rRoom(), S = Math.max(w, d);
-    const P = { front: [0, 0.75, 1.0], left: [-0.8, 0.75, 0.8], right: [0.8, 0.75, 0.8] }[k];
+    const P = { front: [0, 0.75, 1.0], back: [0, 0.75, -1.0], left: [-0.8, 0.75, 0.8], right: [0.8, 0.75, 0.8] }[k];
     setLens('std');
     if (P) { persp.position.set(cx + P[0] * S, P[1] * S, cz + P[2] * S); controls.target.set(cx, 0, cz); controls.update(); } else fitMerge();
     return;
   }
   const { w, d, h } = state.room, eye = Math.min(150, h * 0.55);
-  const P = { front: [[0, eye, d / 2 - 8], [0, eye * 0.7, -d / 2]], left: [[-w / 2 + 12, eye, d / 2 - 12], [w * 0.12, eye * 0.6, -d * 0.15]], right: [[w / 2 - 12, eye, d / 2 - 12], [-w * 0.12, eye * 0.6, -d * 0.15]] }[k];
+  const P = { front: [[0, eye, d / 2 - 8], [0, eye * 0.7, -d / 2]], back: [[0, eye, -d / 2 + 8], [0, eye * 0.7, d / 2]], left: [[-w / 2 + 12, eye, d / 2 - 12], [w * 0.12, eye * 0.6, -d * 0.15]], right: [[w / 2 - 12, eye, d / 2 - 12], [-w * 0.12, eye * 0.6, -d * 0.15]] }[k];
   if (P) { persp.position.set(...P[0]); controls.target.set(...P[1]); setLens('wide'); controls.update(); }
   else { setLens('std'); fitCamera(); }
 }
