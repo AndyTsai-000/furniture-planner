@@ -869,14 +869,18 @@ function buildPerson(it) {
   }
   // ---- 腿與鞋：髖、膝可以轉 ----
   const hx = (rh - 0.045 * k) * H, lk = k, ck = Math.sqrt(k);
-  const Lt = 0.215 * H, Lc = 0.237 * H, hy = sit ? 0.048 * H + Lc : 0.5 * H;   // 坐姿：大腿水平，高度剛好讓腳踩在地上
+  // 坐姿：大腿水平。坐在家具上時臀部高度＝座面高度（it.seat）：座面低，小腿往前伸、腳仍踩地；座面高，小腿垂直、腳懸空。沒有家具時用自然坐高
+  const Lt = 0.215 * H, Lc = 0.237 * H, onSeat = sit && it.seat > 0, hy = sit ? (onSeat ? it.seat + 0.045 * lk * H : 0.048 * H + Lc) : 0.5 * H;
+  const drop = hy - 0.048 * H, lean = sit && drop < Lc ? Math.acos(clamp(drop / Lc, 0.1, 1)) : 0;   // 座面低：小腿往前傾的角度
+  const slope = sit && drop > Lc ? Math.asin(clamp((drop - Lc) / Lt, 0, 0.34)) : 0;                // 座面稍高：大腿往膝蓋方向往下斜，腳仍踩地（太高才懸空）
+  rig.hipSit = -(Math.PI / 2 - slope); rig.kneeSit = Math.PI / 2 - slope - lean;
   for (const sd of [-1, 1]) {
     const Hp = pivot(g, sd * hx, hy, 0); ball(Hp, 0.047 * lk * H, P(0, 0, 0), PANT);
     limb(Hp, Lt, sc([[0, 0.048], [0.25, 0.0495], [0.65, 0.04], [0.92, 0.033], [1, 0.0315]], lk), PANT);
     const K = pivot(Hp, 0, -Lt, 0); ball(K, 0.031 * ck * H, P(0, 0, 0), PANT);
     limb(K, Lc, sc([[0, 0.0315], [0.28, 0.034], [0.6, 0.027], [0.9, 0.0215], [1, 0.021]], ck), PANT);
     const ft = 0.155 * H, fz0 = ft / 2 - 0.04 * H, fy = -Lc - 0.048 * H;   // 鞋：鞋底＋鞋面
-    const shoe = pivot(K, sd * 0.004 * H, fy, 0); shoe.rotation.y = sd * 0.1;
+    const shoe = pivot(K, sd * 0.004 * H, fy, 0); shoe.rotation.y = sd * 0.1; shoe.rotation.x = lean;   // 小腿前傾時鞋底仍平貼地面
     RB(shoe, 0.05 * H, 0.016 * H, ft * 0.9, 0.007 * H, 0, 0.008 * H, fz0 - 0.004 * H, SOLE);
     ball(shoe, 1, P(0, 0.03 * H, fz0 - 0.004 * H), SHOE, 0.0285 * H, 0.022 * H, ft * 0.48);
     ball(shoe, 1, P(0, 0.038 * H, -0.006 * H), SHOE, 0.027 * H, 0.028 * H, 0.036 * H);
@@ -888,9 +892,9 @@ function buildPerson(it) {
   personPose(rig, 0, 0);
   // 以實際外形決定佔地尺寸，並讓中心對準原點
   const box = new THREE.Box3().setFromObject(g, true), c = box.getCenter(new V3()), out = new THREE.Group();
-  g.position.set(-c.x, -box.min.y, -c.z); out.add(g);
+  g.position.set(-c.x, onSeat ? 0 : -box.min.y, -c.z); out.add(g);       // 坐在家具上：腳可能懸空，不把人往下拉到地面
   const r1 = v => Math.round(v * 10) / 10, sz = box.getSize(new V3());
-  it.w = r1(sz.x); it.d = r1(sz.z); it.h = r1(sz.y);
+  it.w = r1(sz.x); it.d = r1(sz.z); it.h = r1(onSeat ? box.max.y : sz.y);
   rig.g = g; rig.y0 = g.position.y; out.userData.rig = rig;
   return out;
 }
@@ -898,7 +902,7 @@ function buildPerson(it) {
 function personPose(rig, ph, amt) {
   for (let i = 0; i < 2; i++) {
     const p = ph + i * Math.PI;
-    if (rig.sit) { rig.hip[i].rotation.x = -Math.PI / 2; rig.knee[i].rotation.x = Math.PI / 2; rig.sh[i].rotation.x = -0.3; rig.el[i].rotation.x = -1.15; continue; }
+    if (rig.sit) { rig.hip[i].rotation.x = rig.hipSit ?? -Math.PI / 2; rig.knee[i].rotation.x = rig.kneeSit ?? Math.PI / 2; rig.sh[i].rotation.x = -0.3; rig.el[i].rotation.x = -1.15; continue; }
     rig.hip[i].rotation.x = -0.42 * amt * Math.sin(p);
     rig.knee[i].rotation.x = 0.95 * amt * Math.max(0, Math.cos(p)) + 0.06 * amt;
     rig.sh[i].rotation.x = 0.4 * amt * Math.sin(p);
@@ -906,6 +910,36 @@ function personPose(rig, ph, amt) {
   }
   if (rig.g && !rig.sit) rig.g.position.y = rig.y0 + 0.008 * rig.H * amt * (Math.cos(2 * ph) - 1);
 }
+// 坐姿的人底下那件家具的座面高度（cm）；沒有家具回傳 0。從臀部、大腿中段兩點往下找，取較低的那個（背靠在椅背上時仍以座面為準）
+const seatRay = new THREE.Raycaster();
+function surfY(objs, x, z, maxY = 130) {                                // 從上往下找某一點的表面高度（看得見、低於 maxY 的第一個面）
+  seatRay.set(new V3(x, 500, z), new V3(0, -1, 0));
+  const hit = seatRay.intersectObjects(objs, true).find(q => q.object.visible && q.point.y > 3 && q.point.y < maxY);
+  return hit ? hit.point.y : null;
+}
+function seatUnder(it) {
+  const H = personHt(it), ry = -it.rot * deg, fx = Math.sin(ry), fz = Math.cos(ry), back = it.d / 2;
+  const tg = state.items.filter(o => o !== it && TYPES[o.type] && !TYPES[o.type].person && !TYPES[o.type].flat && !TYPES[o.type].noHit && !TYPES[o.type].acc && !TYPES[o.type].ceil).map(o => objById.get(o.id)).filter(Boolean);
+  if (!tg.length) return 0;
+  const at = off => {                                                   // 左右各偏一點取最高的，避免剛好落在兩塊坐墊的縫裡；太高的（櫃頂）不算
+    let y = null;
+    for (const lat of [0, -9, 9]) { const v = surfY(tg, it.x - fx * off - fz * lat, it.z - fz * off + fx * lat); if (v !== null && (y === null || v > y)) y = v; }
+    return y;
+  };
+  const hip = at(back - 0.08 * H), thigh = at(back - 0.2 * H);            // 臀部、大腿中段底下的高度
+  const best = hip === null ? thigh : thigh !== null && hip - thigh > 25 ? thigh : hip;   // 臀部那點比大腿高很多：是靠在椅背上，以大腿底下的座面為準
+  return best === null ? 0 : Math.round(best * 10) / 10;
+}
+function syncSeat(it) {                                                 // 座面高度變了就重建人物（身高體重不變，只改坐下來的高度）
+  if (!TYPES[it.type] || !TYPES[it.type].person || it.pose !== 'sit') { if (it.seat) { delete it.seat; return true; } return false; }
+  const g = objById.get(it.id); if (g) { g.position.set(it.x, it.elev || 0, it.z); g.updateMatrixWorld(true); }
+  for (const o of state.items) { const og = objById.get(o.id); if (og && o !== it) og.updateMatrixWorld(true); }
+  const sv = seatUnder(it);
+  if (Math.abs((it.seat || 0) - sv) < 0.5) return false;
+  if (sv) it.seat = sv; else delete it.seat;
+  return true;
+}
+function syncSeats() { let n = 0; for (const it of state.items) if (TYPES[it.type] && TYPES[it.type].person && syncSeat(it)) { buildItem(it); n++; } return n; }
 // 渲染動畫的「人物走動」：站著的人沿著面向的方向走，碰到牆或家具前轉身走回來
 const walkers = () => state.items.filter(it => TYPES[it.type] && TYPES[it.type].person && it.pose !== 'sit' && objById.get(it.id) && objById.get(it.id).visible);
 function walkPlans() {
@@ -1602,6 +1636,81 @@ function buildEntryCab(it) {
   for (let i = 0; i < n; i++) { const hx = -w / 2 + dw * (i + (i % 2 ? 0.12 : 0.88)); B(g, 1.2, Math.min(24, bh * 0.3), 1.6, hx, y0 + bh * (style === 'tall' ? 0.3 : 0.6), d / 2 + 0.8, Hm); }
   return g;
 }
+/* ---------- 鞋櫃（玄關）：矮鞋櫃、高鞋櫃、薄型翻板、百葉門、開放鞋架、穿鞋椅 ---------- */
+const SHOE_OPTS = [
+  { key: 'style', label: '款式', list: [opt('low', '雙門矮鞋櫃', { size: { w: 100, d: 35, h: 100 } }), opt('tall', '高鞋櫃', { size: { w: 80, d: 35, h: 200 } }), opt('slim', '薄型翻板鞋櫃', { size: { w: 80, d: 20, h: 120 } }),
+    opt('louver', '百葉門鞋櫃', { size: { w: 100, d: 35, h: 110 } }), opt('open', '開放鞋架', { size: { w: 80, d: 30, h: 90 } }), opt('bench', '穿鞋椅鞋櫃', { size: { w: 100, d: 35, h: 48 }, c2: '坐墊顏色' })] },
+  { key: 'bodymat', label: '櫃體材質', list: [opt('wood', '木紋'), opt('lacquer', '烤漆')] },
+];
+function buildShoeCab(it) {
+  const g = new THREE.Group(), { w, d, h } = it, style = it.style || 'low', Bd = bodyMat(it), Hm = mat(it.color2, 0.4, 0.6), dark = mat('#2f2b27', 0.85);
+  const SHOES = ['#2b2b2b', '#f1ebe1', '#8b5a3c', '#3d5a80', '#9e4a3a', '#8e9099'];
+  const shoes = (y, x0, x1, z, n0 = 0) => {                              // 在層板上擺幾雙鞋
+    const n = Math.max(1, Math.floor((x1 - x0) / 24)), step = (x1 - x0) / n, len = Math.min(26, d - 6);
+    for (let i = 0; i < n; i++) for (const sd of [-1, 1]) { const m = mat(SHOES[(i + n0) % SHOES.length], 0.7), x = x0 + step * (i + 0.5) + sd * 5; RB(g, 8.5, 5, len, 2.4, x, y + 2.5, z, m); RB(g, 8, 5, len * 0.45, 2.4, x, y + 6, z - len * 0.25, m); }
+  };
+  if (style === 'bench' || style === 'open') {                          // 開放式：側板＋層板，看得到鞋子
+    const top = style === 'bench' ? h - 8 : h, t = 2.2, tiers = Math.max(2, Math.round(top / 24));
+    for (const sd of [-1, 1]) B(g, t, top, d, sd * (w / 2 - t / 2), top / 2, 0, Bd);
+    B(g, w, t, d, 0, top - t / 2, 0, Bd);
+    for (let k = 0; k < tiers; k++) { const y = 3 + (top - t - 3) * k / tiers; B(g, w - 2 * t, 1.8, d - 1.5, 0, y + 0.9, 0, Bd); if (top - t - y > 14) shoes(y + 1.8, -w / 2 + t + 2, w / 2 - t - 2, 0, k * 2); }
+    if (style === 'bench') RB(g, w, 8, d, 2.5, 0, top + 4, 0, surfMat('fabric', it.color2));   // 坐墊
+    else B(g, w - 2 * t, top - 4, 0.6, 0, top / 2, -d / 2 + 0.3, Bd);   // 背板
+    return g;
+  }
+  if (style === 'slim') {                                               // 薄型：三層往外翻的斗
+    const legH = 10, bh = h - legH, n = Math.max(2, Math.round(bh / 37)), fh = bh / n;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) B(g, 2.5, legH, 2.5, sx * (w / 2 - 3), legH / 2, sz * (d / 2 - 2.5), dark);
+    RB(g, w, bh, d - 1.8, 0.5, 0, legH + bh / 2, -0.9, Bd);
+    for (let k = 0; k < n; k++) { const y = legH + fh * (k + 0.5); B(g, w - 0.6, fh - 0.6, 1.8, 0, y, d / 2 - 0.9, Bd); B(g, Math.min(40, w * 0.5), 1.4, 0.5, 0, y + fh / 2 - 3, d / 2 + 0.1, Hm); }
+    return g;
+  }
+  // 有門的鞋櫃：矮櫃、高櫃、百葉門
+  const y0 = style === 'louver' ? 12 : 8, bh = h - y0;
+  if (style === 'louver') for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(g, 2, 1.4, y0, sx * (w / 2 - 5), y0 / 2, sz * (d / 2 - 5), dark, 12);
+  else B(g, w - 6, y0, d - 6, 0, y0 / 2, -2, dark);                        // 內縮踢腳
+  RB(g, w, bh, d - 1.8, 0.6, 0, y0 + bh / 2, -0.9, Bd);
+  const n = Math.max(1, Math.round(w / 45)), dw = w / n, rows = style === 'tall' ? [[0, 0.55], [0.55, 1]] : [[0, 1]];
+  for (const [f0, f1] of rows) for (let i = 0; i < n; i++) {
+    const x = -w / 2 + dw * (i + 0.5), ya = y0 + bh * f0, yb = y0 + bh * f1, dh = yb - ya, cy = (ya + yb) / 2;
+    if (style === 'louver') { B(g, dw - 0.6, dh - 0.6, 1.2, x, cy, d / 2 - 1.2, Bd); slats(g, x, cy, dw - 7, dh - 7, d / 2 - 0.2, Bd, dark); }
+    else B(g, dw - 0.6, dh - 0.6, 1.8, x, cy, d / 2 - 0.9, Bd);
+    const hx = x + (n === 1 ? 1 : i % 2 ? -1 : 1) * (dw / 2 - 4), hl = Math.min(22, dh * 0.3);
+    B(g, 1.2, hl, 1.6, hx, style === 'tall' ? (f0 ? ya + 6 + hl / 2 : yb - 6 - hl / 2) : cy + dh * 0.12, d / 2 + 0.8, Hm);
+  }
+  return g;
+}
+/* ---------- 抱枕（配件）：方形、腰枕、圓形、圓筒、坐墊 ---------- */
+const PILLOW_OPTS = [
+  { key: 'style', label: '款式', list: [opt('square', '方形抱枕', { size: { w: 45, d: 14, h: 45 } }), opt('lumbar', '長方形腰枕', { size: { w: 50, d: 12, h: 30 } }), opt('round', '圓形抱枕', { size: { w: 40, d: 12, h: 40 } }),
+    opt('bolster', '圓筒抱枕', { size: { w: 45, d: 18, h: 18 } }), opt('seat', '坐墊', { size: { w: 45, d: 45, h: 8 } })] },
+  { key: 'cmat', label: '布料', list: [opt('fabric', '棉麻'), opt('velvet', '絨布'), opt('leather', '皮革')] },
+];
+function buildPillow(it) {
+  const g = new THREE.Group(), { w, d, h } = it, style = it.style || 'square', F = surfMat(it.cmat || 'fabric', it.color), T2 = mat(it.color2, 0.8);
+  if (style === 'bolster') {                                            // 圓筒：橫躺，兩端有包釦
+    const r = Math.min(d, h) / 2, c = C(g, r, r, w - 2, 0, r, 0, F, 28); c.rotation.z = Math.PI / 2;
+    for (const sd of [-1, 1]) { const e = add(g, new THREE.SphereGeometry(r, 24, 12), F, sd * (w / 2 - 1), r, 0); e.scale.x = 0.18; add(g, new THREE.SphereGeometry(1.6, 12, 8), T2, sd * (w / 2 + 0.2), r, 0); }
+    return g;
+  }
+  if (style === 'seat') {                                               // 坐墊：平放，四角有綁帶釦
+    RB(g, w, h, d, Math.min(3.5, h / 2 - 0.2), 0, h / 2, 0, F);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(g, new THREE.SphereGeometry(1.3, 10, 8), T2, sx * w * 0.28, h + 0.2, sz * d * 0.28).scale.y = 0.4;
+    return g;
+  }
+  const p = new THREE.Group(); p.rotation.x = -0.2; g.add(p);            // 立著、稍微往後靠
+  if (style === 'round') {
+    const r = Math.min(w, h) / 2, b = add(p, new THREE.SphereGeometry(r, 32, 20), F, 0, r, 0); b.scale.z = d / 2 / r;
+    for (const sd of [-1, 1]) add(p, new THREE.SphereGeometry(1.8, 12, 8), T2, 0, r, sd * (d / 2 - 0.4));
+  } else {                                                              // 方形、腰枕：中間鼓、四邊收，邊上有滾邊
+    const b = add(p, new THREE.SphereGeometry(1, 28, 18), F, 0, h / 2, 0), ps = b.geometry.attributes.position;
+    for (let i = 0; i < ps.count; i++) { const x = ps.getX(i), y = ps.getY(i), z = ps.getZ(i), sq = v => Math.sign(v) * Math.pow(Math.abs(v), 0.38); ps.setXYZ(i, sq(x) * w / 2, sq(y) * h / 2, z * d / 2 * (1 - 0.55 * Math.max(Math.abs(x), Math.abs(y)) ** 3)); }
+    b.geometry.computeVertexNormals();
+    for (const sd of [-1, 1]) { B(p, w * 0.9, 0.7, 0.9, 0, h / 2 + sd * (h / 2 - 0.5), 0, T2); B(p, 0.7, h * 0.9, 0.9, sd * (w / 2 - 0.5), h / 2, 0, T2); }
+  }
+  return g;
+}
+const SOFA_LIKE = ['ownRecliner', 'ownFloatL', 'armchair', 'sofa2', 'sofa', 'baysofa', 'lsofa', 'lounge', 'shellchair', 'wingchair', 'woodchair', 'bench', 'bed', 'queen', 'single'];   // 抱枕會自動放到這些家具上
 const NIGHT_OPTS = [{ key: 'style', label: '款式', list: [opt('drawer', '雙抽屜'), opt('open', '抽屜＋開放格'), opt('round', '圓形邊櫃')] }];
 function buildNight(it) {
   const g = new THREE.Group(), { w, d, h } = it, style = it.style || 'drawer';
@@ -3820,6 +3929,17 @@ const TYPES = {
   vstool:   { name: '化妝椅',     cat: '臥室', w: 42,  d: 42,  h: 46,  color: '#c98b8b', color2: '#b08d57', c1: '椅面', c2: '椅腳', build: buildVanityStool, opts: VSTOOL_OPTS },
   ldesk:    { name: 'L型書桌',    cat: '書房', w: 160, d: 140, h: 75, color: '#e8d3b0', color2: '#2b2b2b', c1: '桌面', c2: '桌腳', build: buildLDesk, opts: LDESK_OPTS, def: { style: 'metal', side: 'right' }, wall: true },
   consoletable:{ name: '玄關桌',  cat: '玄關', w: 120, d: 35, h: 80, color: '#c49a6c', color2: '#5a3a28', c1: '桌面', c2: '桌腳', build: buildConsole, opts: CONSOLE_OPTS, def: { style: 'slim' }, wall: true },
+  shoecab:  { name: '矮鞋櫃',     cat: '玄關', w: 100, d: 35, h: 100, color: '#e9e4da', color2: '#2b2b2b', c1: '櫃體', c2: '把手', build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'low', bodymat: 'wood' }, wall: true },
+  shoecabTall: { name: '高鞋櫃',  cat: '玄關', w: 80, d: 35, h: 200, color: '#c49a6c', color2: '#2b2b2b', c1: '櫃體', c2: '把手', build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'tall', bodymat: 'wood' }, wall: true },
+  shoecabSlim: { name: '薄型翻板鞋櫃', cat: '玄關', w: 80, d: 20, h: 120, color: '#f1ebe1', color2: '#b08d57', c1: '櫃體', c2: '把手', build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'slim', bodymat: 'lacquer' }, wall: true },
+  shoecabLouver: { name: '百葉門鞋櫃', cat: '玄關', w: 100, d: 35, h: 110, color: '#c49a6c', color2: '#2b2b2b', c1: '櫃體', c2: '把手', build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'louver', bodymat: 'wood' }, wall: true },
+  shoerack: { name: '開放鞋架',   cat: '玄關', w: 80, d: 30, h: 90, color: '#c49a6c', color2: '#2b2b2b', c1: '櫃體', c2: null, build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'open', bodymat: 'wood' }, wall: true },
+  shoebench: { name: '穿鞋椅鞋櫃', cat: '玄關', w: 100, d: 35, h: 48, color: '#c49a6c', color2: '#8e9099', c1: '櫃體', c2: '坐墊顏色', build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'bench', bodymat: 'wood' }, wall: true },
+  pillowSq: { name: '方形抱枕',   cat: '配件', w: 45, d: 14, h: 45, color: '#c98b8b', color2: '#f1ebe1', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'square', cmat: 'fabric' }, noHit: true, pillow: true, on: SOFA_LIKE },
+  pillowLumbar: { name: '長方形腰枕', cat: '配件', w: 50, d: 12, h: 30, color: '#3d5a80', color2: '#d8cfc0', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'lumbar', cmat: 'velvet' }, noHit: true, pillow: true, on: SOFA_LIKE },
+  pillowRound: { name: '圓形抱枕', cat: '配件', w: 40, d: 12, h: 40, color: '#d9a441', color2: '#8b5a3c', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'round', cmat: 'velvet' }, noHit: true, pillow: true, on: SOFA_LIKE },
+  pillowBolster: { name: '圓筒抱枕', cat: '配件', w: 45, d: 18, h: 18, color: '#5f7d63', color2: '#f1ebe1', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'bolster', cmat: 'fabric' }, noHit: true, pillow: true, on: SOFA_LIKE },
+  seatpad:  { name: '坐墊',       cat: '配件', w: 45, d: 45, h: 8, color: '#b9b4ad', color2: '#5a3a28', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'seat', cmat: 'fabric' }, noHit: true, pillow: true, on: ['chair', 'ownVChair', 'ownMiyazaki', 'ownDanishBench', 'bench', 'pouf', 'vstool', 'office', ...SOFA_LIKE] },
   entrycab: { name: '玄關櫃',     cat: '玄關', w: 120, d: 38, h: 100, color: '#e9e4da', color2: '#2b2b2b', c1: '櫃體', c2: '把手／坐墊', build: buildEntryCab, opts: ENTRY_OPTS, def: { style: 'low', bodymat: 'wood' }, wall: true },
   desk:     { name: '書桌',       cat: '書房', w: 120, d: 60, h: 75,  color: '#e8d3b0', color2: '#2b2b2b', c1: '桌面', c2: '桌架', build: buildDesk, opts: DESK_OPTS, wall: true },
   bookshelf:{ name: '書櫃',       cat: '書房', w: 80,  d: 30, h: 180, color: '#e8d3b0', color2: '#2b2b2b', c1: '櫃體', c2: null,   build: buildBookshelf, opts: BOOK_OPTS, wall: true },
@@ -4443,6 +4563,7 @@ function itemBox(it) {
   return new THREE.Box3().setFromObject(g);
 }
 function fitItem(it, snap = false) {
+  if (TYPES[it.type].person && syncSeat(it)) buildItem(it);              // 坐姿：依底下家具的座面高度重建
   const W = state.room.w / 2, D = state.room.d / 2;
   if (opts.grid && snap) { it.x = Math.round(it.x / 5) * 5; it.z = Math.round(it.z / 5) * 5; }
   const b = itemBox(it);
@@ -4464,6 +4585,7 @@ function rebuildAll() {
   for (const g of objById.values()) { furnGroup.remove(g); disposeObj(g); }
   objById.clear();
   for (const it of state.items) { buildItem(it); fitItem(it); }
+  syncSeats();                                                          // 家具都建好之後再算一次坐姿高度
   renderStructLists(); updateOverlay(); renderPanel(); renderWallOff();
 }
 
@@ -4851,12 +4973,17 @@ function addItem(type, pos) {
     const picked = cur && (tabletop ? !cT.flat && !cT.noHit && !cT.person && !cT.acc && !cT.ceil : hostTypes.includes(cur.type)) ? cur : null;
     const host = picked || (hostTypes ? [...state.items].reverse().find(i => hostTypes.includes(i.type)) : null);
     if (host) {
-      const top = (host.elev || 0) + host.h, r = host.rot * deg, cs = Math.cos(r), sn = Math.sin(r);
-      const used = state.items.filter(i => i !== host && Math.abs((i.elev || 0) - top) < 1);   // 已經放在這件家具上面的東西
-      const spots = [[0, 0], [-0.28, 0], [0.28, 0], [0, 0.22], [0, -0.22], [-0.28, 0.22], [0.28, 0.22], [-0.28, -0.22], [0.28, -0.22]].map(([a, b]) => { const lx = a * host.w, lz = b * host.d; return { x: host.x + lx * cs - lz * sn, z: host.z + lx * sn + lz * cs }; });
+      const r = host.rot * deg, cs = Math.cos(r), sn = Math.sin(r), hg = objById.get(host.id);
+      if (hg) hg.updateMatrixWorld(true);
+      const seat = (x, z) => { const y = T.pillow && hg ? surfY([hg], x, z, 500) : null; return y === null ? (host.elev || 0) + host.h : Math.round(y * 10) / 10; };   // 抱枕、坐墊放在座面上（那一點的表面高度）；其他放在家具頂面
+      const top = (host.elev || 0) + host.h;
+      const used = state.items.filter(i => i !== host && TYPES[i.type].noHit && Math.abs(i.x - host.x) < host.w && Math.abs(i.z - host.z) < host.w && (i.elev || 0) > 1 && (T.pillow ? TYPES[i.type].pillow : Math.abs((i.elev || 0) - top) < 1));   // 已經放在這件家具上面的東西
+      const grid = T.pillow ? (it.style === 'seat' ? [[0, 0.12], [-0.3, 0.12], [0.3, 0.12]] : [[-0.33, 0.08], [0.33, 0.08], [0, 0.08], [-0.17, 0.08], [0.17, 0.08]])
+        : [[0, 0], [-0.28, 0], [0.28, 0], [0, 0.22], [0, -0.22], [-0.28, 0.22], [0.28, 0.22], [-0.28, -0.22], [0.28, -0.22]];
+      const spots = grid.map(([a, b]) => { const lx = a * host.w, lz = b * host.d; return { x: host.x + lx * cs - lz * sn, z: host.z + lx * sn + lz * cs }; });
       const need = Math.max(8, Math.min(it.w, it.d) * 0.6);
-      const spot = spots.find(q => !used.some(i => Math.hypot(i.x - q.x, i.z - q.z) < need + Math.min(i.w, i.d) * 0.3)) || spots[0];   // 桌上已有東西就往旁邊放
-      it.x = spot.x; it.z = spot.z; it.rot = host.rot; it.elev = top; pos = { x: spot.x, z: spot.z };
+      const spot = spots.find(q => !used.some(i => Math.hypot(i.x - q.x, i.z - q.z) < need + Math.min(i.w, i.d) * 0.3)) || spots[0];   // 已有東西就往旁邊放
+      it.x = spot.x; it.z = spot.z; it.rot = host.rot; it.elev = seat(spot.x, spot.z); pos = { x: spot.x, z: spot.z };
     }
   }
   const p = pos || findSpot(T, it.id);
@@ -5433,7 +5560,7 @@ function renderPanel() {
       ${dimRow(o, 'd', '深', Math.max(T.d * 2.5, 200) | 0)}
       ${dimRow(o, 'h', '高', T.flat ? 5 : Math.max(T.h * 1.8, R().h) | 0)}
       <button class="link" data-act="reset">↺ 恢復預設尺寸</button>`)}
-      ${T.person ? visOpts(o).map(gp => grp('p-' + gp.key, gp.label, `<div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`)).join('') : ''}
+      ${T.person ? grp('pset', '人物設定', visOpts(o).map(gp => `<h4>${gp.label}</h4><div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`).join('')) : ''}
       ${T.person ? '' : grp('style', '款式與材質', `${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
       ${visOpts(o).map(gp => `<h4>${gp.label}</h4><div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`).join('')}
       ${isCab(T) || T.acc ? `<button class="btn xraybtn${sysOpts.inside ? ' on' : ''}" data-act="inside">${sysOpts.inside ? '◫ 透視中（點一下恢復門片）' : '◫ 透視櫃體，查看櫃內配件'}</button>` : ''}
@@ -5545,10 +5672,10 @@ const SUB_ORDER = {
   '書房': ['書桌', '辦公椅', '書櫃收納'],
   '窗簾': ['布簾', '捲簾', '百葉簾'],
   '燈具': ['吊燈', '吸頂燈', '檯燈', '落地燈', '壁燈'],
-  '玄關': ['玄關桌', '玄關櫃'],
+  '玄關': ['玄關桌', '玄關櫃', '鞋櫃'],
   '衛浴': ['馬桶', '浴缸淋浴', '洗手台鏡櫃', '浴室配件'],
   '家電': ['影音', '電腦', '廚房家電', '生活家電'],
-  '配件': ['花架', '展示台', '衣帽架', '屏風', '鏡子', '地毯'],
+  '配件': ['花架', '展示台', '衣帽架', '屏風', '鏡子', '地毯', '抱枕'],
   '擺飾': ['掛畫', '藝術品', '花藝植栽', '香氛', '相框', '托盤收納', '餐具', '時鐘', '書本'],
 };
 const TYPE_SUB = {
@@ -5557,6 +5684,8 @@ const TYPE_SUB = {
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
   dining: '餐桌', round: '餐桌', chair: '餐椅', sideboard: '餐櫃', kitchen: '廚房',
   bed: '床', queen: '床', single: '床', night: '床頭櫃', wardrobe: '衣櫃', slidewardrobe: '衣櫃', vanity: '化妝台', vstool: '化妝台',
+  shoecab: '鞋櫃', shoecabTall: '鞋櫃', shoecabSlim: '鞋櫃', shoecabLouver: '鞋櫃', shoerack: '鞋櫃', shoebench: '鞋櫃',
+  pillowSq: '抱枕', pillowLumbar: '抱枕', pillowRound: '抱枕', pillowBolster: '抱枕', seatpad: '抱枕',
   desk: '書桌', ldesk: '書桌', consoletable: '玄關桌', entrycab: '玄關櫃', office: '辦公椅', bookshelf: '書櫃收納', cabinet: '書櫃收納',
   computer: '電腦', bookitem: '書本',
   tv: '影音', speaker: '影音', fridge: '廚房家電', microwave: '廚房家電', ricecooker: '廚房家電', coffeemaker: '廚房家電',
@@ -6153,6 +6282,7 @@ const snap = () => JSON.stringify({ room: state.room, finish: fin(), items: stat
 let last = snap(); const undoS = [], redoS = [];
 function commit() {
   syncRel();
+  if (syncSeats()) updateOverlay();                                     // 家具搬動或改尺寸後，坐在上面的人跟著調整坐高
   const s = snap(); if (s === last) return;
   markDirty();
   undoS.push(last); if (undoS.length > 80) undoS.shift();
