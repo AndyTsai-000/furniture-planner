@@ -4641,11 +4641,21 @@ function addItem(type, pos) {
     }
   }
   // 桌上小物自動放到合適的家具上：優先放在目前選取的家具，否則找最後放置的那件
+  // 桌上的東西（擺飾、小家電、檯燈…）：先點選一件家具再選品項，就直接放到那件家具上面
   const hostTypes = type === 'tv' ? ['tvcab'] : T.on;
-  if (hostTypes && !pos) {
-    const cur = sel && sel.k === 'item' ? getItem(sel.id) : null;
-    const host = cur && hostTypes.includes(cur.type) ? cur : [...state.items].reverse().find(i => hostTypes.includes(i.type));
-    if (host) { it.x = host.x; it.z = host.z; it.rot = host.rot; it.elev = host.h; pos = { x: host.x, z: host.z }; }
+  const tabletop = type !== 'tv' && (!!T.on || (T.noHit && !T.ceil && !T.elev && !T.wall && !T.acc && !T.person && T.cat !== '窗簾' && type !== 'robot'));
+  if ((hostTypes || tabletop) && !pos) {
+    const cur = sel && sel.k === 'item' ? getItem(sel.id) : null, cT = cur && TYPES[cur.type];
+    const picked = cur && (tabletop ? !cT.flat && !cT.noHit && !cT.person && !cT.acc && !cT.ceil : hostTypes.includes(cur.type)) ? cur : null;
+    const host = picked || (hostTypes ? [...state.items].reverse().find(i => hostTypes.includes(i.type)) : null);
+    if (host) {
+      const top = (host.elev || 0) + host.h, r = host.rot * deg, cs = Math.cos(r), sn = Math.sin(r);
+      const used = state.items.filter(i => i !== host && Math.abs((i.elev || 0) - top) < 1);   // 已經放在這件家具上面的東西
+      const spots = [[0, 0], [-0.28, 0], [0.28, 0], [0, 0.22], [0, -0.22], [-0.28, 0.22], [0.28, 0.22], [-0.28, -0.22], [0.28, -0.22]].map(([a, b]) => { const lx = a * host.w, lz = b * host.d; return { x: host.x + lx * cs - lz * sn, z: host.z + lx * sn + lz * cs }; });
+      const need = Math.max(8, Math.min(it.w, it.d) * 0.6);
+      const spot = spots.find(q => !used.some(i => Math.hypot(i.x - q.x, i.z - q.z) < need + Math.min(i.w, i.d) * 0.3)) || spots[0];   // 桌上已有東西就往旁邊放
+      it.x = spot.x; it.z = spot.z; it.rot = host.rot; it.elev = top; pos = { x: spot.x, z: spot.z };
+    }
   }
   const p = pos || findSpot(T, it.id);
   it.x = p.x; it.z = p.z;
@@ -4757,6 +4767,7 @@ const FIELDS = {
     color2: { get: o => o.color2, set: (o, v) => { o.color2 = v; }, text: true },
     color3: { get: o => o.color3 || TYPES[o.type].color3 || '#e3ddd3', set: (o, v) => { o.color3 = v; }, text: true },
     elev: { get: o => o.elev || 0, set: (o, v) => { o.elev = clamp(v, 0, R().h); } },
+    wgap: { get: o => Math.max(0, wallGaps(o)[itemWall(o)]), set: (o, v) => { setWallGap(o, itemWall(o), v); } },   // 離目前貼齊那面牆的距離
     ht: { get: o => personHt(o), set: (o, v) => { o.ht = Math.round(clamp(v, 80, 220)); } },     // 人物身高 cm
     wt: { get: o => personWt(o), set: (o, v) => { o.wt = Math.round(clamp(v, 15, 200)); } },     // 人物體重 kg
     rot: { get: o => o.rot, set: (o, v) => { o.rot = ((Math.round(v) % 360) + 360) % 360; } },
@@ -4885,6 +4896,18 @@ function snapToWindow(o, pick) {                                        // pick�
   buildItem(o); fitItem(o); renderPanel();
   return true;
 }
+// 位置調整：目前貼齊的牆（沒選過就用最近的那面）、離那面牆的距離、移到指定的牆
+function wallGaps(o) { const b = itemBox(o), W = state.room.w / 2, D = state.room.d / 2; return { back: b.min.z + D, front: D - b.max.z, left: b.min.x + W, right: W - b.max.x }; }
+function itemWall(o) { if (WALLS[o.pwall]) return o.pwall; if (WALLS[o.cwall]) return o.cwall; const g = wallGaps(o); return Object.keys(g).reduce((a, b) => g[a] <= g[b] ? a : b); }
+function setWallGap(o, wall, v) {
+  const dlt = Math.max(0, v) - wallGaps(o)[wall];
+  if (wall === 'back') o.z += dlt; else if (wall === 'front') o.z -= dlt; else if (wall === 'left') o.x += dlt; else o.x -= dlt;
+}
+function itemToWall(o, wall) {                                          // 背面轉向那面牆並貼上去；沿牆的位置不變
+  const T = TYPES[o.type];
+  if (!T.flat && !T.ceil) o.rot = { back: 0, front: 180, left: 270, right: 90 }[wall];
+  o.pwall = wall; setWallGap(o, wall, 0); fitItem(o);
+}
 // 窗簾移到指定的牆：那面牆有窗就貼齊窗戶（多扇窗時再按一次換下一扇），沒有窗就放在牆面中央
 function curtainToWall(o, wall) {
   const wins = state.structs.filter(s => s.kind === 'window' && s.wall === wall);
@@ -4967,6 +4990,7 @@ function doAct(a, arg, key) {
   if (a === 'dup') return duplicate(o);
   if (a === 'reset') { if (TYPES[o.type].person) { delete o.ht; delete o.wt; } Object.assign(o, sizeFor(o)); buildItem(o); fitItem(o); followCab(o); }
   if (a === 'curtWall') curtainToWall(o, arg);
+  if (a === 'toWall' && WALLS[arg]) { itemToWall(o, arg); renderPanel(); }
   if (a === 'snapWin' && !snapToWindow(o)) { flash(document.querySelector('[data-act="snapWin"]'), '空間裡還沒有窗戶，請先在「空間設定」加窗'); return; }
   if (a === 'snapWall') snapWallOf(o);
   if (a === 'toBack') { const b = itemBox(o); o.z += -D - b.min.z; fitItem(o); }
@@ -5098,7 +5122,17 @@ function renderPanel() {
       <h4>${colorLabel(o, 1)}</h4>${swatches(o, 'color')}
       ${colorLabel(o, 2) ? `<h4>${colorLabel(o, 2)}</h4>${swatches(o, 'color2')}` : ''}
       ${colorLabel(o, 3) ? `<h4>${colorLabel(o, 3)}</h4>${swatches(o, 'color3')}` : ''}
-      <h4>位置與方向</h4>
+      ${T.acc && hostCab(o) ? '' : `<h4>位置</h4>
+      ${T.cat === '窗簾' ? '' : `<div class="muted" style="font-size:12px;margin:0 0 5px">1. 貼齊哪面牆</div>
+      <div class="stylechips">${['back', 'front', 'left', 'right'].map(k => `<button class="chip${o.pwall === k ? ' on' : ''}" data-act="toWall" data-id="${k}">${WALLS[k]}</button>`).join('')}</div>`}
+      <div class="muted" style="font-size:12px;margin:10px 0 5px">${T.cat === '窗簾' ? '' : '2. '}離${WALLS[itemWall(o)]}的距離（cm）</div>
+      ${numIn('item', o.id, 'wgap', 'min="0" step="1" style="width:100%"')}
+      <div class="muted" style="font-size:12px;margin:10px 0 5px">${T.cat === '窗簾' ? '' : '3. '}沿著${WALLS[itemWall(o)]}的位置</div>
+      ${['back', 'front'].includes(itemWall(o))
+        ? '<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="toLeft">靠左牆</button><button class="btn" data-act="center">置中</button><button class="btn" data-act="toRight">靠右牆</button></div>'
+        : '<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="toBack">靠後牆</button><button class="btn" data-act="centerZ">置中</button><button class="btn" data-act="toFront">靠前牆</button></div>'}
+      <div class="muted" style="font-size:12px;margin-bottom:6px">${T.cat === '窗簾' ? '' : '選了牆面後，家具會轉成背靠那面牆並貼上去；'}${cabLike(T) || T.wall ? '拖曳時離牆 25 cm 內也會自動貼齊。' : '也可以直接在畫面上拖曳。'}</div>`}
+      <h4>精確位置與方向</h4>
       <div class="grid2">
         <label class="mini"><span>距左牆</span>${numIn('item', o.id, 'left')}</label>
         <label class="mini"><span>距後牆</span>${numIn('item', o.id, 'back')}</label>
@@ -5108,15 +5142,12 @@ function renderPanel() {
       <div class="dim" style="grid-template-columns:34px 1fr"><label>方向</label><input type="range" min="0" max="359" step="1" data-k="item" data-id="${o.id}" data-f="rot" aria-label="旋轉角度"></div>
       <div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="rotBy" data-id="-90">↺90°</button><button class="btn" data-act="rotBy" data-id="-15">↺15°</button><button class="btn" data-act="rotBy" data-id="15">↻15°</button><button class="btn" data-act="rotBy" data-id="90">↻90°</button></div>
       <div class="muted" style="font-size:12px;margin-bottom:10px">也可以拖曳家具前方的圓點自由旋轉，按住 Shift 以 15° 為單位。</div>
-      ${wallable(T) && !o.auto ? `<button class="btn primary" data-act="snapWall" style="width:100%;margin-bottom:6px">貼齊牆壁</button><div class="muted" style="font-size:12px;margin-bottom:10px">貼到最近的牆面，背面自動轉向牆。${cabLike(T) || T.wall ? '拖曳時離牆 25 cm 內也會自動貼齊。' : ''}</div>` : ''}
       ${T.cat === '窗簾' ? `<button class="btn primary" data-act="snapWin" style="width:100%;margin-bottom:6px">貼齊窗戶</button><div class="muted" style="font-size:12px;margin-bottom:10px">移到最近的窗戶前並配合窗戶大小；有多扇窗時再按一次換下一扇。</div>
       <h4>窗簾位置</h4><div class="stylechips">${['back', 'front', 'left', 'right'].map(k => `<button class="chip${o.cwall === k ? ' on' : ''}" data-act="curtWall" data-id="${k}">${WALLS[k]}</button>`).join('')}</div>
       <div class="muted" style="font-size:12px;margin:6px 0 10px">移到那面牆：有窗就貼齊窗戶，沒有窗就放在牆面中央。也可以先點選窗戶，再到家具庫選窗簾款式，新窗簾會直接貼齊那扇窗。</div>` : ''}
       ${T.acc && hostCab(o) ? `<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="accCX">櫃內水平置中</button><button class="btn" data-act="accCY"${T.acc === 'mid' ? ' disabled' : ''}>櫃內垂直置中</button></div>
       <div class="muted" style="font-size:12px;margin-bottom:14px">水平置中：在所在的那一格裡左右置中；垂直置中：在櫃內上下置中。</div>`
-      : `<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="toLeft">靠左牆</button><button class="btn" data-act="center">水平置中</button><button class="btn" data-act="toRight">靠右牆</button></div>
-      <div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="toBack">靠後牆</button><button class="btn" data-act="centerZ">垂直置中</button><button class="btn" data-act="toFront">靠前牆</button></div>
-      <div class="muted" style="font-size:12px;margin-bottom:14px">水平＝左右方向；垂直＝前後方向（平面圖上的上下）。</div>`}
+      : ''}
       <div class="btnrow"><button class="btn" data-act="dup">複製</button><button class="btn danger" data-act="del">刪除</button></div>`;
   } else if (isOpening(o)) {
     const isDoor = o.kind === 'door', idx = state.structs.filter(s => s.kind === o.kind).indexOf(o) + 1;
