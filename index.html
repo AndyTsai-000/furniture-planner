@@ -246,6 +246,18 @@ th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-weight:600;font-size:12px}
 .dot{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.15);vertical-align:-2px;margin-right:3px}
 #loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)}
+/* 可收合的大類（左右兩側面板） */
+.grp{border-top:1px solid var(--line)}
+.grp:first-child{border-top:0}
+.grpH{display:flex;justify-content:space-between;align-items:center;width:100%;padding:11px 0;background:none;border:0;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;text-align:left;letter-spacing:.02em}
+.grpH::after{content:'▾';color:var(--muted);font-size:12px;transition:transform .15s}
+.grpH:hover{color:var(--accent)}
+.grp.off>.grpH::after{transform:rotate(-90deg)}
+.grp.off>.grpB{display:none}
+.grpB{padding:0 0 12px}
+.grpB>h4:first-child{margin-top:2px}
+.subh{margin:10px 0 5px;font-size:12px;color:var(--muted);font-weight:600}
+.subh:first-child{margin-top:0}
 /* 左側欄收合 */
 #sideTog{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:4;width:22px;height:60px;padding:0;border:1px solid var(--line2);border-left:0;border-radius:0 9px 9px 0;background:var(--panel);color:var(--muted);font-size:18px;line-height:1;box-shadow:2px 0 8px rgba(0,0,0,.06)}
 #sideTog:hover{color:var(--accent);border-color:var(--accent)}
@@ -348,17 +360,23 @@ body.present.presset #rpanel{display:block}
       <button data-pane="sys" role="tab">系統櫃</button>
     </div>
     <div class="sec" data-pane="room">
-      <h3>目前專案</h3>
+      <div class="grp" data-g="s-proj"><button type="button" class="grpH" data-grp="s-proj">專案與空間</button><div class="grpB">
+      <div class="subh">專案名稱</div>
       <div class="sname"><input class="num" id="projName" maxlength="30" title="專案名稱"><button class="btn danger sm" id="delProj" title="刪除整個專案">刪除專案</button></div>
-      <h3>目前空間</h3>
+      <div class="subh">空間名稱</div>
       <div class="sname"><input class="num" id="spaceName" maxlength="20" title="空間名稱"><button class="btn danger sm" id="delSpace">刪除空間</button></div>
-      <h3>空間尺寸（cm）</h3>
+      <div class="subh">空間尺寸（cm）</div>
       <div class="roomdims">
         <label>寬<input class="num" type="number" id="rW" min="100" max="3000"></label>
         <label>深<input class="num" type="number" id="rD" min="100" max="3000"></label>
         <label>高<input class="num" type="number" id="rH" min="150" max="800"></label>
       </div>
-      <h3 style="margin-top:14px">地板、牆面與天花板</h3>
+      <div class="checks">
+        <label><input type="checkbox" id="optWall" checked> 牆面吸附</label>
+        <label><input type="checkbox" id="optGrid"> 5cm 格線吸附</label>
+      </div>
+      </div></div>
+      <div class="grp" data-g="s-finish"><button type="button" class="grpH" data-grp="s-finish">地板、牆面與天花板</button><div class="grpB">
       <div class="finrow"><span>地板</span><select class="num" id="floorType"></select><input type="color" class="cpick" id="floorColor" title="地板顏色"></div>
       <div class="sws finsw" id="floorSw"></div>
       <div class="shade" data-finshade="floorColor"><span>深淺</span><input type="range" class="shade-l fin-l" min="3" max="97" step="1" aria-label="地板顏色深淺"><span>彩度</span><input type="range" class="shade-s fin-s" min="0" max="100" step="1" aria-label="地板顏色彩度"><span>色碼</span><div class="hexrow"><span class="prev"></span><input class="num fin-hex" maxlength="7" spellcheck="false" aria-label="地板色碼"><span>可貼上色碼</span></div></div>
@@ -372,23 +390,18 @@ body.present.presset #rpanel{display:block}
       <div class="shade" data-finshade="ceilColor"><span>深淺</span><input type="range" class="shade-l fin-l" min="3" max="97" step="1" aria-label="天花板顏色深淺"><span>彩度</span><input type="range" class="shade-s fin-s" min="0" max="100" step="1" aria-label="天花板顏色彩度"><span>色碼</span><div class="hexrow"><span class="prev"></span><input class="num fin-hex" maxlength="7" spellcheck="false" aria-label="天花板色碼"><span>可貼上色碼</span></div></div>
       <div class="finrow"><span>燈具</span><select class="num" id="ceilLamp"><option value="none">無</option><option value="down">嵌燈</option></select></div>
       <div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">從上方往下看時天花板會自動隱藏；視角移進室內（低於天花板）就看得到。</div>
-      <div class="checks">
-        <label><input type="checkbox" id="optWall" checked> 牆面吸附</label>
-        <label><input type="checkbox" id="optGrid"> 5cm 格線吸附</label>
-      </div>
-    </div>
-    <div class="sec" data-pane="room">
-      <h3>梁柱・門窗</h3>
+      </div></div>
+      <div class="grp" data-g="s-struct"><button type="button" class="grpH" data-grp="s-struct">梁柱・門窗・隔間</button><div class="grpB">
       <div class="btnrow"><button class="btn" id="addCol">＋ 柱子</button><button class="btn" id="addBeam">＋ 樑</button></div>
       <div class="btnrow" style="margin-top:6px"><button class="btn" id="addWallP">＋ 牆壁</button><button class="btn" id="addPart">＋ 隔間</button></div>
       <div class="btnrow" style="margin-top:6px"><button class="btn" id="addDoor">＋ 門</button><button class="btn" id="addWin">＋ 窗</button></div>
       <div class="slist" id="sStructs"></div>
-    </div>
-    <div class="sec" data-pane="room">
-      <h3>人物（看比例用）</h3>
+      </div></div>
+      <div class="grp" data-g="s-people"><button type="button" class="grpH" data-grp="s-people">人物（看比例用）</button><div class="grpB">
       <div class="btnrow"><button class="btn" id="addMan">＋ 男性</button><button class="btn" id="addWoman">＋ 女性</button></div>
       <div class="checks"><label><input type="checkbox" id="optPeople" checked> 顯示人物</label></div>
       <div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">點選人物可調整身高、體重、站立或坐姿。人物不會列入家具清單。</div>
+      </div></div>
     </div>
     <div class="sec" data-pane="furn">
       <h3>家具庫 <span class="muted" style="font-weight:400;letter-spacing:0">點選或拖曳到空間</span></h3>
@@ -400,12 +413,18 @@ body.present.presset #rpanel{display:block}
     <div class="sec" data-pane="sys">
       <h3>系統櫃 <span class="muted" style="font-weight:400;letter-spacing:0">尺寸、門片、內部都可自訂</span></h3>
       <div class="checks" style="margin:0 0 10px"><label><input type="checkbox" id="sysInside"> 透視櫃內（隱藏門片）</label></div>
+      <div class="grp" data-g="y-def"><button type="button" class="grpH" data-grp="y-def">預設板材與顏色</button><div class="grpB">
       <div class="ccrow" style="align-items:center;margin-bottom:6px"><span>板材厚度</span><div class="stylechips" id="thickDef"></div></div>
       <div class="ccrow" style="align-items:center;margin-bottom:10px"><span>背板厚度</span><div class="stylechips" id="backDef"></div></div>
-      <div id="scColDef" style="margin-bottom:12px"></div>
+      <div id="scColDef"></div>
+      </div></div>
+      <div class="grp" data-g="y-lib"><button type="button" class="grpH" data-grp="y-lib">櫃體與配件</button><div class="grpB">
       <div class="subtabs" id="stabs"></div>
       <div class="lib" id="slib"></div>
-      <div class="muted" style="font-size:12px;margin-top:8px;line-height:1.6">櫃內的層板、中立板、吊衣桿都能直接拖曳或在右側輸入數字調整；櫃子改尺寸時會自動跟著調整。<br>配件：先點選空間中的系統櫃，再點配件，就會自動放進那座櫃子裡。<br>衣櫃背櫃：先點選衣櫃再加入，會放在衣櫃上方並跟著衣櫃移動。<br>自訂櫃體：放進空間後，在右側「櫃內設計」逐格設定。</div>
+      </div></div>
+      <div class="grp" data-g="y-help"><button type="button" class="grpH" data-grp="y-help">使用說明</button><div class="grpB">
+      <div class="muted" style="font-size:12px;line-height:1.6">櫃內的層板、中立板、吊衣桿都能直接拖曳或在右側輸入數字調整；櫃子改尺寸時會自動跟著調整。<br>配件：先點選空間中的系統櫃，再點配件，就會自動放進那座櫃子裡。<br>衣櫃背櫃：先點選衣櫃再加入，會放在衣櫃上方並跟著衣櫃移動。<br>自訂櫃體：放進空間後，在右側「櫃內設計」逐格設定。</div>
+      </div></div>
     </div>
   </aside>
   <div id="viewport">
@@ -424,10 +443,13 @@ body.present.presset #rpanel{display:block}
   <aside id="rpanel" hidden><div class="sec">
     <h3>渲染</h3>
     <div class="muted" style="font-size:12px;line-height:1.6">拖曳畫面調整角度（右鍵旋轉、左鍵平移、滾輪縮放），白框內就是輸出的範圍。</div>
+    <div class="grp" data-g="r-light"><button type="button" class="grpH" data-grp="r-light">燈光與亮度</button><div class="grpB">
     <h4>燈光</h4>
     <div class="stylechips" data-rk="light"><button class="chip" data-v="natural">自然光</button><button class="chip" data-v="white">白光</button><button class="chip" data-v="warm">黃光</button></div>
     <h4>亮度</h4>
     <input type="range" id="rExpo" min="0.5" max="1.8" step="0.05" value="1" aria-label="亮度">
+    </div></div>
+    <div class="grp" data-g="r-angle"><button type="button" class="grpH" data-grp="r-angle">角度與鏡頭</button><div class="grpB">
     <h4>內部空間角度</h4>
     <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="back">後方</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">上方</button></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">整個空間（從外面看，擋住視線的外牆不顯示）</div>
@@ -435,10 +457,14 @@ body.present.presset #rpanel{display:block}
     <h4>鏡頭</h4>
     <div class="stylechips" data-rk="lens"><button class="chip" data-v="std">標準</button><button class="chip" data-v="wide">廣角</button></div>
     <div class="muted" style="font-size:12px;margin-top:4px">圖片和動畫都會套用。</div>
+    </div></div>
+    <div class="grp" data-g="r-shot"><button type="button" class="grpH" data-grp="r-shot">輸出圖片</button><div class="grpB">
     <h4>圖片尺寸</h4>
     <div class="stylechips" data-rk="size"><button class="chip" data-v="1920x1080">1920×1080</button><button class="chip" data-v="2560x1440">2560×1440</button><button class="chip" data-v="3840x2160">4K</button></div>
     <button class="btn primary wbtn" id="rShot">渲染這個角度</button>
-    <h4>動畫</h4>
+    </div></div>
+    <div class="grp" data-g="r-anim"><button type="button" class="grpH" data-grp="r-anim">錄製動畫</button><div class="grpB">
+    <h4>動畫路徑</h4>
     <div class="stylechips" data-rk="path"><button class="chip" data-v="orbit">環繞一圈</button><button class="chip" data-v="sway">左右擺動</button></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">起點</div>
     <div class="stylechips" data-rk="start"><button class="chip" data-v="cur">目前視角</button><button class="chip" data-v="front">正面</button><button class="chip" data-v="left">左前角</button><button class="chip" data-v="right">右前角</button><button class="chip" data-v="back">後方</button></div>
@@ -454,6 +480,7 @@ body.present.presset #rpanel{display:block}
     <div class="stylechips" data-rk="vres" style="margin-top:8px"><button class="chip" data-v="720">720p</button><button class="chip" data-v="1080">1080p</button></div>
     <button class="btn wbtn" id="rAnim">錄製動畫</button>
     <div class="muted" id="rAnimNote" style="font-size:12px;margin-top:6px"></div>
+    </div></div>
     <button class="btn wbtn" id="rExit">離開渲染模式</button>
   </div></aside>
 </main>
@@ -3823,6 +3850,19 @@ const state = { room: { w: 400, d: 350, h: 280 }, items: [], structs: [], nextId
 const opts = { wallSnap: true, grid: false, people: (() => { try { return localStorage.getItem('fp-people') !== '0'; } catch (e) { return true; } })() };
 let view = '3d';
 let sel = null; // {k:'item'|'struct', id}
+/* 可收合的大類：左右兩側面板的選項分成幾類，開合狀態記在這台裝置 */
+const GRP = (() => { try { return JSON.parse(localStorage.getItem('fp-grp') || '{}') || {}; } catch (e) { return {}; } })();
+const GRP_OFF = new Set(['color', 'fine', 's-finish', 's-people', 'y-def', 'y-help', 'r-anim']);   // 預設收合的大類
+const grpOpen = k => k in GRP ? !!GRP[k] : !GRP_OFF.has(k);
+const grp = (k, title, html) => html && html.trim() ? `<div class="grp${grpOpen(k) ? '' : ' off'}" data-g="${k}"><button type="button" class="grpH" data-grp="${k}">${title}</button><div class="grpB">${html}</div></div>` : '';
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-grp]'); if (!b) return;
+  const g = b.parentElement, k = b.dataset.grp;
+  GRP[k] = g.classList.contains('off'); g.classList.toggle('off', !GRP[k]);
+  try { localStorage.setItem('fp-grp', JSON.stringify(GRP)); } catch (err) { }
+  if (k.startsWith('r-')) setTimeout(() => { try { placeFrame(); } catch (err) { } }, 0);
+});
+document.querySelectorAll('.grp[data-g]').forEach(g => g.classList.toggle('off', !grpOpen(g.dataset.g)));
 
 const getItem = id => state.items.find(i => i.id === id);
 const getStruct = id => state.structs.find(s => s.id === id);
@@ -5181,25 +5221,24 @@ function renderPanel() {
     const T = TYPES[o.type], big = Math.max(R().w, R().d);
     p.innerHTML = `<div class="p-head"><input class="p-name" data-k="item" data-id="${o.id}" data-f="name" maxlength="30"><span class="p-type">${T.name}・可點名稱重新命名</span></div>
       <div class="warn" id="warn" hidden></div>
-      ${T.person ? `<h4>身高體重</h4>
+      ${grp('size', T.person ? '身高體重' : '尺寸（cm）', T.person ? `
       <div class="dim"><label>身高</label><input type="range" min="90" max="210" step="1" data-k="item" data-id="${o.id}" data-f="ht" aria-label="身高">${numIn('item', o.id, 'ht', 'min="80" max="220" step="1"')}</div>
       <div class="dim"><label>體重</label><input type="range" min="20" max="150" step="1" data-k="item" data-id="${o.id}" data-f="wt" aria-label="體重">${numIn('item', o.id, 'wt', 'min="15" max="200" step="1"')}</div>
       <div class="muted" id="pinfo" style="font-size:12px;margin:2px 0 6px">${personInfo(o)}</div>
-      <button class="link" data-act="reset">↺ 恢復預設身高體重</button>` : `<h4>尺寸（cm）</h4>
+      <button class="link" data-act="reset">↺ 恢復預設身高體重</button>` : `
       ${dimRow(o, 'w', '寬', Math.max(T.w * 2.5, 300, big) | 0)}
       ${dimRow(o, 'd', '深', Math.max(T.d * 2.5, 200) | 0)}
       ${dimRow(o, 'h', '高', T.flat ? 5 : Math.max(T.h * 1.8, R().h) | 0)}
-      <button class="link" data-act="reset">↺ 恢復預設尺寸</button>`}
-      ${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
+      <button class="link" data-act="reset">↺ 恢復預設尺寸</button>`)}
+      ${grp('style', '款式與材質', `${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
       ${visOpts(o).map(gp => `<h4>${gp.label}</h4><div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`).join('')}
       ${isCab(T) || T.acc ? `<button class="btn xraybtn${sysOpts.inside ? ' on' : ''}" data-act="inside">${sysOpts.inside ? '◫ 透視中（點一下恢復門片）' : '◫ 透視櫃體，查看櫃內配件'}</button>` : ''}
       ${T.acc && hostCab(o) ? `<h4>櫃內位置（cm）</h4><div class="grid2"><label class="mini"><span>距櫃內左側</span>${numIn('item', o.id, 'cabx', 'step="0.5" min="0"')}</label><label class="mini"><span>離地高度</span>${numIn('item', o.id, 'elev', 'min="0"')}</label></div><div class="muted" style="font-size:12px;margin:4px 0 6px">${T.acc === 'mid' ? '也可以直接在畫面上左右拖曳中立板，兩側的層板、抽屜會自動改寬度貼齊。' : '也可以直接在畫面上上下拖曳調整高度（開啟「透視櫃體」比較好點選）。'}</div>` : ''}
-      ${T.custom ? ccPanel(o) : ''}
-      <h4>${colorLabel(o, 1)}</h4>${swatches(o, 'color')}
+      ${T.custom ? ccPanel(o) : ''}`)}
+      ${grp('color', '顏色', `<h4>${colorLabel(o, 1)}</h4>${swatches(o, 'color')}
       ${colorLabel(o, 2) ? `<h4>${colorLabel(o, 2)}</h4>${swatches(o, 'color2')}` : ''}
-      ${colorLabel(o, 3) ? `<h4>${colorLabel(o, 3)}</h4>${swatches(o, 'color3')}` : ''}
-      ${T.acc && hostCab(o) ? '' : `<h4>位置</h4>
-      ${T.cat === '窗簾' ? `<div class="muted" style="font-size:12px;margin:0 0 5px">1. 貼齊哪面牆（有窗就貼齊窗戶，同一面牆有多扇窗時再按一次換下一扇）</div>
+      ${colorLabel(o, 3) ? `<h4>${colorLabel(o, 3)}</h4>${swatches(o, 'color3')}` : ''}`)}
+      ${grp('pos', '位置', T.acc && hostCab(o) ? '' : `${T.cat === '窗簾' ? `<div class="muted" style="font-size:12px;margin:0 0 5px">1. 貼齊哪面牆（有窗就貼齊窗戶，同一面牆有多扇窗時再按一次換下一扇）</div>
       <div class="stylechips">${['back', 'front', 'left', 'right'].map(k => `<button class="chip${o.cwall === k ? ' on' : ''}" data-act="curtWall" data-id="${k}">${WALLS[k]}</button>`).join('')}</div>` : `<div class="muted" style="font-size:12px;margin:0 0 5px">1. 貼齊哪面牆</div>
       <div class="stylechips">${['back', 'front', 'left', 'right'].map(k => `<button class="chip${o.pwall === k ? ' on' : ''}" data-act="toWall" data-id="${k}">${WALLS[k]}</button>`).join('')}</div>`}
       <div class="muted" style="font-size:12px;margin:10px 0 5px">2. 離${WALLS[itemWall(o)]}的距離（cm）</div>
@@ -5208,9 +5247,8 @@ function renderPanel() {
       ${['back', 'front'].includes(itemWall(o))
         ? '<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="toLeft">靠左牆</button><button class="btn" data-act="center">置中</button><button class="btn" data-act="toRight">靠右牆</button></div>'
         : '<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="toBack">靠後牆</button><button class="btn" data-act="centerZ">置中</button><button class="btn" data-act="toFront">靠前牆</button></div>'}
-      <div class="muted" style="font-size:12px;margin-bottom:6px">${T.cat === '窗簾' ? '' : '選了牆面後，家具會轉成背靠那面牆並貼上去；'}${cabLike(T) || T.wall ? '拖曳時離牆 25 cm 內也會自動貼齊。' : '也可以直接在畫面上拖曳。'}</div>`}
-      <h4>精確位置與方向</h4>
-      <div class="grid2">
+      <div class="muted" style="font-size:12px;margin-bottom:6px">${T.cat === '窗簾' ? '' : '選了牆面後，家具會轉成背靠那面牆並貼上去；'}${cabLike(T) || T.wall ? '拖曳時離牆 25 cm 內也會自動貼齊。' : '也可以直接在畫面上拖曳。'}</div>`)}
+      ${grp('fine', '精確位置與方向', `<div class="grid2">
         <label class="mini"><span>距左牆</span>${numIn('item', o.id, 'left')}</label>
         <label class="mini"><span>距後牆</span>${numIn('item', o.id, 'back')}</label>
         <label class="mini"><span>離地高度</span>${numIn('item', o.id, 'elev', 'min="0"')}</label>
@@ -5222,8 +5260,8 @@ function renderPanel() {
       ${T.cat === '窗簾' ? `<button class="btn primary" data-act="snapWin" style="width:100%;margin-bottom:6px">貼齊窗戶</button><div class="muted" style="font-size:12px;margin-bottom:10px">移到最近的窗戶前並配合窗戶大小；有多扇窗時再按一次換下一扇。</div>` : ''}
       ${T.acc && hostCab(o) ? `<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-act="accCX">櫃內水平置中</button><button class="btn" data-act="accCY"${T.acc === 'mid' ? ' disabled' : ''}>櫃內垂直置中</button></div>
       <div class="muted" style="font-size:12px;margin-bottom:14px">水平置中：在所在的那一格裡左右置中；垂直置中：在櫃內上下置中。</div>`
-      : ''}
-      <div class="btnrow"><button class="btn" data-act="dup">複製</button><button class="btn danger" data-act="del">刪除</button></div>`;
+      : ''}`)}
+      <div class="btnrow" style="margin-top:12px"><button class="btn" data-act="dup">複製</button><button class="btn danger" data-act="del">刪除</button></div>`;
   } else if (isOpening(o)) {
     const isDoor = o.kind === 'door', idx = state.structs.filter(s => s.kind === o.kind).indexOf(o) + 1;
     const chips = (key, list) => list.map(st => `<button class="chip${o[key] === st.id ? ' on' : ''}" data-act="sopt" data-key="${key}" data-id="${st.id}">${st.name}</button>`).join('');
