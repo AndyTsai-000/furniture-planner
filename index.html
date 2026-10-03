@@ -417,6 +417,7 @@ body.rmode #side,body.rmode #panel{display:none}
     <div class="stylechips"><button class="chip" data-ang="front">正面</button><button class="chip" data-ang="left">左前角</button><button class="chip" data-ang="right">右前角</button><button class="chip" data-ang="top">鳥瞰</button></div>
     <h4>鏡頭</h4>
     <div class="stylechips" data-rk="lens"><button class="chip" data-v="std">標準</button><button class="chip" data-v="wide">廣角</button></div>
+    <div class="muted" style="font-size:12px;margin-top:4px">圖片和動畫都會套用。</div>
     <h4>圖片尺寸</h4>
     <div class="stylechips" data-rk="size"><button class="chip" data-v="1920x1080">1920×1080</button><button class="chip" data-v="2560x1440">2560×1440</button><button class="chip" data-v="3840x2160">4K</button></div>
     <button class="btn primary wbtn" id="rShot">渲染這個角度</button>
@@ -6565,7 +6566,7 @@ function recordAnim() {
   const lookY = high ? eye * 0.45 : eye * 0.72;
   busy(true, '錄製動畫中…');
   setOut(W, H, 16 / 9);                                                 // 動畫固定 16:9
-  const fov0 = persp.fov; persp.fov = 52; persp.updateProjectionMatrix();   // 室內用廣角（不要太廣，邊緣才不會變形）
+  const fov0 = persp.fov; persp.fov = RM.lens === 'wide' ? 66 : 52; persp.updateProjectionMatrix();   // 室內鏡頭；上面「鏡頭」選廣角時動畫也跟著用更廣的視角
   if (M) { persp.fov = fov0; persp.updateProjectionMatrix(); }         // 合併畫面從外面俯看，不用廣角
   RM.anim = { path: RM.path, ms: +RM.dur * 1000, tg, p0: P0.clone(), rec, track: stream.getVideoTracks()[0], t0: 0, fov0, M, walk: RM.walk === 'on' && !M ? walkPlans() : null,
     mth: Math.atan2(P0.x - (M ? M.cx : 0), P0.z - (M ? M.cz : 0)),
