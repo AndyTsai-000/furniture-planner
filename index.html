@@ -3544,6 +3544,15 @@ function fixStrayParts() {
     if (!TYPES[c.type] || !isCab(TYPES[c.type])) continue;
     const r = c.rot * deg, cs = Math.cos(r), sn = Math.sin(r);
     const stray = state.items.filter(o => TYPES[o.type].acc && (o.auto === c.id || o.host === c.id)).filter(o => { const ox = o.x - c.x, oz = o.z - c.z; return Math.abs(ox * cs + oz * sn) > c.w / 2 + 2 || Math.abs(-ox * sn + oz * cs) > c.d / 2 + 2; });
+    // 中心還在櫃內、但前後或左右凸出櫃體的配件（舊版複製時往旁邊偏了 25cm 又拉不回來）：推回櫃內
+    const t = thickOf(c);
+    for (const o of state.items) {
+      if (!TYPES[o.type].acc || (o.auto !== c.id && o.host !== c.id) || stray.includes(o)) continue;
+      const ox = o.x - c.x, oz = o.z - c.z, lx = ox * cs + oz * sn, lz = -ox * sn + oz * cs;
+      const mx = Math.max(0, c.w / 2 - t - o.w / 2), mz = Math.max(0, (c.d - o.d) / 2);
+      if (Math.abs(lx) <= mx + 1 && Math.abs(lz) <= mz + 1) continue;
+      delete o.rel; o.rot = c.rot; buildItem(o); setCabLocal(c, o, clamp(lx, -mx, mx), clamp(lz, -mz, Math.min(mz, -Math.min(1.5, mz)))); n++;
+    }
     if (!stray.length) continue;
     n++;
     if (stray.some(o => o.auto === c.id)) genInterior(c);               // 自動產生的層板、抽屜、吊衣桿：重新排一次
