@@ -4924,6 +4924,19 @@ function setView(v) {
   updateOverlay();
 }
 new ResizeObserver(resize).observe(vp);
+// 螢幕或瀏覽器視窗比較小時，整個介面等比例縮小（以 1500×760 的視窗為基準，最小縮到 70%）；
+// 用視窗的實際大小來算，所以使用者自己用 Ctrl +／- 縮放時，畫面照樣跟著放大縮小
+let UI_S = 1;
+function uiScale() {
+  let top = false; try { top = window.top === window.self; } catch (e) { }
+  const W = top && window.outerWidth ? window.outerWidth : innerWidth, H = top && window.outerHeight ? window.outerHeight - 90 : innerHeight;
+  const s = innerWidth <= 900 || W <= 900 ? 1 : Math.round(clamp(Math.min(W / 1500, H / 760), 0.7, 1) * 100) / 100;
+  if (s === UI_S) return;
+  UI_S = s; document.body.style.zoom = s === 1 ? '' : s;
+  if (!RM.out) renderer.setPixelRatio(Math.min(devicePixelRatio, 2) * s);   // 畫布跟著縮小顯示，解析度也照實際大小算，不多花顯示卡
+  resize();
+}
+uiScale(); addEventListener('resize', uiScale);
 
 function loop() {
   requestAnimationFrame(loop);
