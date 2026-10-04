@@ -375,7 +375,7 @@ body.present.presset #rpanel{display:block}
 <main>
   <aside id="side">
     <div class="sidetabs" id="sideTabs" role="tablist">
-      <button data-pane="room" role="tab">空間設定</button>
+      <button data-pane="room" role="tab">專案與空間</button>
       <button data-pane="furn" role="tab">家具庫</button>
       <button data-pane="sys" role="tab">系統櫃</button>
     </div>
@@ -495,7 +495,7 @@ body.present.presset #rpanel{display:block}
     <div class="stylechips" data-rk="dir"><button class="chip" data-v="right">往右繞</button><button class="chip" data-v="left">往左繞</button></div></div>
     <div id="rWalkRow"><div class="muted" style="font-size:12px;margin:10px 0 4px">人物</div>
     <div class="stylechips" data-rk="walk"><button class="chip" data-v="off">站著不動</button><button class="chip" data-v="on">走動</button></div>
-    <div class="muted" id="rWalkNote" style="font-size:12px;margin-top:4px" hidden>請先到「空間設定」加入站立的人物，並打開「顯示人物」。</div></div>
+    <div class="muted" id="rWalkNote" style="font-size:12px;margin-top:4px" hidden>請先到「專案與空間」加入站立的人物，並打開「顯示人物」。</div></div>
     <div class="muted" style="font-size:12px;margin:10px 0 4px">長度與畫質</div>
     <div class="stylechips" data-rk="dur" style="margin-top:8px"><button class="chip" data-v="6">6 秒</button><button class="chip" data-v="10">10 秒</button><button class="chip" data-v="15">15 秒</button></div>
     <div class="stylechips" data-rk="vres" style="margin-top:8px"><button class="chip" data-v="720">720p</button><button class="chip" data-v="1080">1080p</button></div>
@@ -5446,7 +5446,7 @@ function doAct(a, arg, key) {
   if (a === 'reset') { if (TYPES[o.type].person) { delete o.ht; delete o.wt; } Object.assign(o, sizeFor(o)); buildItem(o); fitItem(o); followCab(o); }
   if (a === 'curtWall') curtainToWall(o, arg);
   if (a === 'toWall' && WALLS[arg]) { itemToWall(o, arg); renderPanel(); }
-  if (a === 'snapWin' && !snapToWindow(o)) { flash(document.querySelector('[data-act="snapWin"]'), '空間裡還沒有窗戶，請先在「空間設定」加窗'); return; }
+  if (a === 'snapWin' && !snapToWindow(o)) { flash(document.querySelector('[data-act="snapWin"]'), '空間裡還沒有窗戶，請先在「專案與空間」加窗'); return; }
   if (a === 'snapWall') snapWallOf(o);
   if (a === 'toBack') { const b = itemBox(o); o.z += -D - b.min.z; fitItem(o); }
   if (a === 'toFront') { const b = itemBox(o); o.z += D - b.max.z; fitItem(o); }
@@ -5549,7 +5549,7 @@ function renderPanel() {
       ${on.length ? `<h4>已放在這面牆的品項</h4><div class="plist">${on.map(i => `<button data-act="pick" data-id="${i.id}"><span>${esc(i.name)}</span><span>${i.w}×${i.d}×${i.h}</span></button>`).join('')}</div>` : ''}
       <h4>牆面</h4>
       <button class="btn danger" data-act="wallDel" style="width:100%">拿掉這面牆</button>
-      <div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">拿掉後這面牆和上面的門窗都不顯示（也可以按 Del）。要復原請到左側「空間設定」的牆面選項，或按復原（Ctrl+Z）。</div>`;
+      <div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">拿掉後這面牆和上面的門窗都不顯示（也可以按 Del）。要復原請到左側「專案與空間」的牆面選項，或按復原（Ctrl+Z）。</div>`;
     return;
   }
   if (!sel) {
