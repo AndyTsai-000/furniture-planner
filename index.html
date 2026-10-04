@@ -575,7 +575,7 @@ body.present.presset #rpanel{display:block}
         <div id="planList"></div>
       </div>
     </div>
-    <div class="mfoot"><button class="btn" id="planCancel">取消</button><span class="muted" style="font-size:12px;margin-right:auto">在圖上空白處拖曳可新增空間；拖曳框可移動，拖右下角圓點可調整大小。高度先以 240 公分建立。</span><button class="btn primary" id="planOk">建立這些空間 →</button></div>
+    <div class="mfoot"><button class="btn" id="planCancel">取消</button><span class="muted" style="font-size:12px;margin-right:auto">少框的地方點一下就會自動框出那一格（也可以拖曳自己框）；拖曳框可移動，拖右下角圓點可調整大小。高度先以 240 公分建立。</span><button class="btn primary" id="planOk">建立這些空間 →</button></div>
   </div>
 </div>
 <!-- 設計代碼 -->
@@ -6545,7 +6545,7 @@ async function planRenderPage(n) {
       const str = (t.str || '').trim(); if (!str) continue;
       const a = t.transform[0], b = t.transform[1], len = Math.hypot(a, b) || 1, ux = a / len, uy = b / len, wd = t.width || len * str.length * 0.5;
       const [x0, y0] = vp.convertToViewportPoint(t.transform[4], t.transform[5]), [x1, y1] = vp.convertToViewportPoint(t.transform[4] + ux * wd, t.transform[5] + uy * wd);
-      its.push({ str, x0, y0, x1, y1, h: Math.hypot(x1 - x0, y1 - y0) / Math.max(1, str.length) * 1.9, vert: Math.abs(b) > Math.abs(a) });
+      its.push({ str, x0, y0, x1, y1, h: Math.hypot(x1 - x0, y1 - y0) / Math.max(1, str.length) * 1.9, vert: Math.abs(y1 - y0) > Math.abs(x1 - x0) });   // 方向看畫面上實際的走向（頁面本身可能旋轉過）
     }
     PLAN.texts = planTexts(its);
   } catch (e) { }
@@ -6711,10 +6711,20 @@ function planDetect(img, strength) {
     return bad.length && bad.length < rooms.length && area(bad) < area(rooms) * 0.35 ? rooms.filter(r => !sealed(r)) : rooms;
   };
   // 封門洞的寬度試幾種：先看哪幾種分出來的空間涵蓋的面積最大（門洞沒封好，房間會漏到室外而不見），其中空間數最多的優先，再來取封得最少的
-  const all = FR.map(f => clean(tryR(f))), amax = Math.max(...all.map(area));
-  let bi = 0, bn = -1;
-  all.forEach((a, i) => { if (area(a) >= amax * 0.9 && mains(a) > bn) { bn = mains(a); bi = i; } });
-  let rooms = all[clamp(bi + strength, 0, FR.length - 1)];
+  const all = FR.map(f => clean(tryR(f)));
+  // 真正的房間：和別的房間相通（有門洞或開口）。整層樓封成一大塊、或四面封死的小框，都只算自己一個，不列入
+  const real = a => { const own = new Map(); for (const r of a) if (r.c0) own.set(r.c0, (own.get(r.c0) || new Set()).add(r.gid)); return a.filter(r => !r.ext && !(r.c0 && L0.comps[r.c0 - 1] && !L0.comps[r.c0 - 1].edge && own.get(r.c0).size === 1)).length; };
+  let bi = 0, bn = -1, ba = 0;
+  all.forEach((a, i) => { const n = real(a) || (mains(a) ? 0.5 : 0), ar = area(a); if (n > bn || (n === bn && ar > ba * 1.05)) { bn = n; ba = ar; bi = i; } });
+  bi = clamp(bi + strength, 0, FR.length - 1);
+  let rooms = all[bi].slice();
+  // 門洞封得寬，小房間（廁所、儲藏室）會整間被封掉；封得窄，開放式的空間會連成一塊。所以把其他寬度找到、和現有的房間不重疊的也補進來
+  for (let i = 0; i < all.length; i++) { if (i === bi || !strength && false) continue;
+    for (const r of all[i]) { if (r.ext) continue;
+      if (rooms.some(o => ov(o, r) > Math.min(o.w * o.h, r.w * r.h) * 0.15)) continue;
+      const c = L0.comps[r.c0 - 1]; if (c && !c.edge && !rooms.some(o => o.c0 === r.c0)) continue;   // 封死的小框不補
+      rooms.push(r, ...all[i].filter(e => e.ext && e.gid === r.gid && !rooms.some(o => ov(o, e) > e.w * e.h * 0.15))); } }
+
   const rowH = P / k * 0.12;
   rooms.sort((a, b) => Math.abs(a.y - b.y) > rowH ? a.y - b.y : a.x - b.x);   // 由上到下、由左到右編號
   PLAN.det = { k, W, H, dark, wall, win, t, cols };
@@ -6736,20 +6746,64 @@ function planTexts(its) {
     const x = (cur.x0 + cur.x1) / 2, y = (cur.y0 + cur.y1) / 2;
     for (const m of cur.str.matchAll(/(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(cm|mm|m|公分|公尺|米)?(?![\d坪])/gi)) {
       let v = parseFloat(m[1].replace(/,/g, '')), unit = (m[2] || '').toLowerCase();
-      if (unit === 'm' || unit === '公尺' || unit === '米' || (!unit && /\./.test(m[1]) && v < 30)) { v *= 100; unit = 'cm'; }   // 3.6 這種寫法是公尺
+      if (unit === 'm' || unit === '公尺' || unit === '米') { v *= 100; unit = 'cm'; }
       if (unit === '公分') unit = 'cm';
-      if (v >= 30 && v <= 60000) out.push({ v, unit, x, y, vert: cur.vert });
+      const dec = !unit && /\./.test(m[1]) && v < 30;                     // 3.6 這種：可能是公尺，也可能是公分圖上的小尺寸，之後整張圖一起判斷
+      if ((v >= 10 || dec) && v <= 60000) out.push({ v, unit, x, y, vert: cur.vert, h: cur.h, dec });
     }
   }
   return out;
 }
+// 沒寫單位的數字：整張圖一起判斷單位——數字普遍很大（中位數超過 1500）是公釐；多半是帶小數的小數字（3.60、4.2）是公尺；其餘是公分
+function planUnit(texts) {
+  const bare = texts.filter(t => !t.unit), big = bare.filter(t => t.v >= 100).map(t => t.v).sort((a, b) => a - b);
+  const mmAll = big.length ? big[big.length >> 1] > 1500 : false, mAll = bare.filter(t => t.dec).length > bare.filter(t => !t.dec).length;
+  return t => t.unit === 'mm' ? t.v / 10 : t.unit ? t.v : mmAll ? t.v / 10 : t.dec && mAll ? t.v * 100 : t.v;
+}
+// 由尺寸線算比例：每個尺寸數字旁邊都有一條尺寸線（兩端有短的端線），量出那條線的長度，數字 ÷ 長度就是比例。
+// 家具尺寸、窗戶代號這類旁邊沒有尺寸線的數字不會被採用；最多數字對得上的比例就是答案
+function planDimScale(texts) {
+  if (!PLAN.img || !texts.length) return 0;
+  // 用原解析度的圖找線（縮小的圖上線和字會黏在一起）
+  if (!PLAN.hi || PLAN.hi.img !== PLAN.img) {
+    const w = PLAN.img.width, h = PLAN.img.height, px = PLAN.img.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data, dk = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) if (px[i * 4 + 3] > 40 && 0.3 * px[i * 4] + 0.59 * px[i * 4 + 1] + 0.11 * px[i * 4 + 2] < 205) dk[i] = 1;
+    PLAN.hi = { img: PLAN.img, w, h, dk };
+  }
+  const { w: W, h: H, dk } = PLAN.hi, cm = planUnit(texts), cand = [];
+  const at = (x, y) => x >= 0 && y >= 0 && x < W && y < H && dk[y * W + x] === 1;
+  texts.forEach((t, ti) => {
+    const v = cm(t); if (v < 15 || v > 4000) return;
+    const hor = !t.vert, A = (a, c) => hor ? at(a, c) : at(c, a), a0 = Math.round(hor ? t.x : t.y), c0 = Math.round(hor ? t.y : t.x), hh = clamp(Math.round(t.h || 14), 8, 30);
+    let best = null;
+    for (let dc = -2 * hh; dc <= 2 * hh; dc++) {
+      const c = c0 + dc; if (!A(a0, c)) continue;
+      let lo = a0, hi = a0;
+      while (A(lo - 1, c) || A(lo - 2, c) || A(lo - 3, c)) lo--; while (A(hi + 1, c) || A(hi + 2, c) || A(hi + 3, c)) hi++;
+      if (hi - lo < 2.5 * hh) continue;
+      let thick = 0; for (let a = lo; a <= hi; a++) if (A(a, c - 4) && A(a, c + 4)) thick++;
+      if (thick > (hi - lo) * 0.3) continue;                            // 上下都是黑的：不是線，是牆或塗滿的東西
+      // 端線：和尺寸線垂直、穿過它的短線（兩邊各至少 3 格）；數字所在的那一段就是兩條端線之間。找不到端線就用線的盡頭
+      const tk = a => [3, 4, 5].every(d => A(a, c - d)) && [3, 4, 5].every(d => A(a, c + d)), tick = a => tk(a) || tk(a - 1) || tk(a + 1);
+      let p = lo, q = hi; const off = Math.round(hh * 0.9);
+      for (let a = a0 - off; a >= lo; a--) if (tick(a)) { p = a; break; }
+      for (let a = a0 + off; a <= hi; a++) if (tick(a)) { q = a; break; }
+      if (q - p < 2.5 * hh) continue;
+      if (!best || Math.abs(dc) < Math.abs(best.dc)) best = { len: q - p, dc, p, q };
+    }
+    if (best) cand.push({ q: v / best.len, ti, len: best.len });
+  });
+  let bestN = 0, scale = 0, used = [];
+  for (const c of cand) { const near = cand.filter(o => Math.abs(o.q - c.q) / c.q < 0.03); if (near.length > bestN) { bestN = near.length; used = near.map(o => o.ti); scale = near.map(o => o.q).sort((a, b) => a - b)[near.length >> 1]; } }
+  if (bestN < 2) return 0;
+  PLAN.used = used.map(i => texts[i]);
+  return scale;
+}
 function planScaleFromText(rooms, texts) {
-  PLAN.used = [];
   if (!rooms.length || !texts.length) return 0;
   const P = Math.max(...rooms.map(r => Math.max(r.w, r.h))), cand = [];
   // 沒寫單位的數字：整張圖一起判斷——數字普遍很大（中位數超過 1500）就是公釐
-  const bare = texts.filter(t => !t.unit && t.v >= 100).map(t => t.v).sort((a, b) => a - b), mmAll = bare.length ? bare[bare.length >> 1] > 1500 : false;
-  const cm = t => t.unit === 'mm' ? t.v / 10 : t.unit ? t.v : mmAll ? t.v / 10 : t.v;
+  const cm = planUnit(texts);
   // 標註的可能是淨寬、牆心到牆心、外緣到外緣，也可能是整棟的總長：每一種都拿來比對，最多數字對得上的比例就是答案
   const T = PLAN.det ? PLAN.det.t / PLAN.det.k : 0, spans = [];
   const addSp = (r, tag) => { for (const e of [0, T, 2 * T]) { spans.push({ id: 'w' + tag, horiz: true, lo: r.x, hi: r.x + r.w, len: r.w + e, c: r.y + r.h / 2, ext: r.h / 2 }); spans.push({ id: 'h' + tag, horiz: false, lo: r.y, hi: r.y + r.h, len: r.h + e, c: r.x + r.w / 2, ext: r.w / 2 }); } };
@@ -6789,10 +6843,10 @@ function planRun(keep) {
   if (!PLAN.img) return;
   const cv = $('#planCv'); cv.width = PLAN.img.width; cv.height = PLAN.img.height; cv.getContext('2d').drawImage(PLAN.img, 0, 0);
   if (!keep) PLAN.rooms = planDetect(PLAN.img, PLAN.strength).map(r => ({ ...r }));
-  PLAN.scale = planScaleFromText(PLAN.rooms, PLAN.texts); PLAN.from = PLAN.scale ? 'dims' : 'guess';
+  PLAN.used = []; PLAN.scale = planDimScale(PLAN.texts) || planScaleFromText(PLAN.rooms, PLAN.texts); PLAN.from = PLAN.scale ? 'dims' : 'guess';   // 先由尺寸線算比例；圖上沒有尺寸線才拿數字去比對房間的寬深
   if (PLAN.userScale) { PLAN.scale = PLAN.userScale; PLAN.from = 'user'; }   // 使用者已經用確定的尺寸校正過：重新偵測時沿用
   if (!PLAN.scale) { const side = Math.max(1, ...PLAN.rooms.map(r => Math.max(r.w, r.h))); PLAN.scale = PLAN.rooms.length ? 400 / side : 1200 / Math.max(PLAN.img.width, PLAN.img.height); }   // 沒有尺寸：先假設最大的房間長邊 400 公分
-  if (!keep && PLAN.from === 'dims') PLAN.rooms = PLAN.rooms.filter(r => r.ext || (Math.min(r.w, r.h) * PLAN.scale >= 70 && r.w * r.h * PLAN.scale * PLAN.scale >= 10000));   // 有尺寸可以換算時：太小的框（管道間、櫃子）不算空間
+  if (!keep && PLAN.from === 'dims') { const okR = PLAN.rooms.filter(r => r.ext || (Math.min(r.w, r.h) * PLAN.scale >= 70 && r.w * r.h * PLAN.scale * PLAN.scale >= 10000)); if (okR.some(r => !r.ext)) PLAN.rooms = okR; }   // 有尺寸可以換算時：太小的框（管道間、櫃子）不算空間
   { let n = 0; const nm = new Map();
     for (const r of PLAN.rooms) if (!r.ext) { r.name = `空間 ${++n}`; if (r.gid) nm.set(r.gid, r.name); }
     PLAN.rooms = PLAN.rooms.filter(r => !r.ext || nm.has(r.gid));
@@ -6862,7 +6916,22 @@ $('#planList').addEventListener('click', e => {
     if (d.mode !== 'move' && !r.manual) { r.cw = planCm(r.w); r.cd = planCm(r.h); }
     if (d.mode === 'size' || d.added || d.mode === 'move') planDraw();
   });
-  const up = () => { if (PLAN.drag) { PLAN.drag = null; planDraw(); } };
+  // 在還沒框的地方點一下：從那一點往四個方向找到牆（或別的框）為止，自動框出那一格——補小空間最快的方法
+  const clickAdd = q => {
+    const D = PLAN.det; if (!D) return;
+    const { k, W, H, wall, t } = D, cx = Math.round(q.x * k), cy = Math.round(q.y * k);
+    if (cx < 1 || cy < 1 || cx >= W - 1 || cy >= H - 1 || wall[cy * W + cx]) return;
+    const boxes = PLAN.rooms.map(r => [r.x * k, r.y * k, (r.x + r.w) * k, (r.y + r.h) * k]);
+    const hit = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? 2 : wall[y * W + x] || boxes.some(b => x > b[0] && x < b[2] && y > b[1] && y < b[3]) ? 1 : 0;
+    const offs = [0, -t, t, -2 * t, 2 * t];
+    const ray = (dx, dy) => { let best = 1e9; for (const o of offs) { let x = cx + (dy ? o : 0), y = cy + (dx ? o : 0), n = 0, h2 = hit(x, y); if (h2) continue; while (!(h2 = hit(x + dx, y + dy))) { x += dx; y += dy; n++; } if (h2 === 2) n = 1e8; best = Math.min(best, n); } return best; };
+    const L = ray(-1, 0), R = ray(1, 0), U = ray(0, -1), Dn = ray(0, 1);
+    if (Math.max(L, R, U, Dn) > 1e7 || L + R < 6 || U + Dn < 6) return;      // 射到圖外（不是封閉的地方）或太小：不框
+    let n = PLAN.rooms.length + 1; while (PLAN.rooms.some(o => o.name === `空間 ${n}`)) n++;
+    const r = { x: (cx - L) / k, y: (cy - U) / k, w: (L + R + 1) / k, h: (U + Dn + 1) / k, name: `空間 ${n}`, manual: false };
+    r.cw = planCm(r.w); r.cd = planCm(r.h); PLAN.rooms.push(r); PLAN.sel = PLAN.rooms.length - 1;
+  };
+  const up = () => { if (PLAN.drag) { const d = PLAN.drag; PLAN.drag = null; if (d.mode === 'new' && !d.added) clickAdd(d.q); planDraw(); } };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
 $('#planOk').onclick = () => {                                           // 依平面圖建立專案：每個框一個空間，位置照平面圖排（空間合併時就是原本的格局）
