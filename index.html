@@ -4304,6 +4304,7 @@ renderer.toneMappingExposure = 1.0;
 vp.prepend(renderer.domElement);
 $('#loading').remove();
 const labelR = new CSS2DRenderer({ element: $('#labels') });
+const CTX = { groups: new Map(), busy: false, box: null }, ctxGroup = new THREE.Group();   // 全戶編輯：其他空間的群組（由平面圖建立的專案）
 const MG = { on: false, groups: [], drag: null };                     // 空間合併狀態
 const RM = { on: false, busy: false, anim: null, out: null, light: 'natural', lens: 'std', size: '1920x1080', path: 'orbit', start: 'cur', cam: 'out', dir: 'right', dur: '10', vres: '1080', expo: 1, walk: 'off' }; // 渲染模式狀態
 
@@ -4899,17 +4900,18 @@ function resize() {
 }
 function fitOrtho() {
   const w = vp.clientWidth || 1, h = vp.clientHeight || 1, a = w / h;
-  const R = MG.on && MG.box ? { w: MG.box.w, d: MG.box.d } : state.room, half = Math.max((R.d + 120) / 2, (R.w + 140) / 2 / a);
+  const R = MG.on && MG.box ? { w: MG.box.w, d: MG.box.d } : CTX.box && !RM.on ? { w: CTX.box.w, d: CTX.box.d } : state.room, half = Math.max((R.d + 120) / 2, (R.w + 140) / 2 / a);
   Object.assign(ortho, { left: -half * a, right: half * a, top: half, bottom: -half });
   ortho.updateProjectionMatrix();
 }
 function fitCamera() {
-  const { w, d, h } = state.room, S = Math.max(w, d);
+  const B = !MG.on && !RM.on ? CTX.box : null;        // 全戶編輯：以整個格局為範圍
+  const { w, d, h } = B ? { w: B.w, d: B.d, h: state.room.h } : state.room, S = Math.max(w, d), ox = B ? B.cx : 0, oz = B ? B.cz : 0;
   const k = persp.aspect < 1.2 ? Math.min(2.4, 1.25 / persp.aspect) : 1; // 直式螢幕拉遠
-  persp.position.set(S * 0.45, h * 0.6 + S * 0.9, S * 1.15 + d * 0.2).multiplyScalar(k);
-  controls.target.set(0, h * 0.15, 0);
+  persp.position.set(S * 0.45, h * 0.6 + S * 0.9, S * 1.15 + d * 0.2).multiplyScalar(k); persp.position.x += ox; persp.position.z += oz;
+  controls.target.set(ox, h * 0.15, oz);
   controls.update();
-  ortho.position.set(0, 5000, 0); ortho.zoom = 1; orthoCtl.target.set(0, 0, 0); orthoCtl.update();
+  ortho.position.set(ox, 5000, oz); ortho.zoom = 1; orthoCtl.target.set(ox, 0, oz); orthoCtl.update();
   fitOrtho();
 }
 function setView(v) {
@@ -4951,11 +4953,13 @@ function loop() {
     ceilGroup.visible = persp.position.y < state.room.h - 2;          // 相機低於天花板就看得到天花板；從上方看才隱藏
     syncTopMask();
     if (MG.on) mergeCutaway(true);
+    ctxWalls(true);
   } else {
     orthoCtl.update();
     for (const wl of walls) wl.m.visible = true;
     ceilGroup.visible = false;
     if (MG.on) mergeCutaway(false);
+    ctxWalls(false);
   }
   for (const c of structGroup.children) if (c.userData.wall) { const wl = walls.find(x => x.key === c.userData.wall); c.visible = wl ? wl.m.visible : true; }
   for (const s of state.structs) if (s.kind === 'beam') { const m = structById.get(s.id); if (m) m.visible = !RM.on || view !== '3d' || ceilGroup.visible; }   // 渲染時從天花板上方往下看：樑跟著天花板一起隱藏，才不會擋住家具
@@ -5092,7 +5096,7 @@ dom.addEventListener('pointerup', e => {
     controls.enabled = view === '3d'; orthoCtl.enabled = view === 'top';
     return;
   }
-  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { setRay(e); if (!pick()) { const wk = RM.on || RM.shot ? null : pickWall(); if (wk) selectWall(wk); else select(null); } }
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { setRay(e); if (!pick()) { const wk = RM.on || RM.shot ? null : pickWall(), other = wk || RM.on || RM.shot ? null : ctxPick(); if (wk) selectWall(wk); else if (other && ctxSwitch(other)) { setRay(e); const pk = pick(); if (pk) select(pk.k, pk.id); else select(null); } else select(null); } }
   down = null;
 });
 // 從家具庫拖曳進來
@@ -6243,6 +6247,7 @@ function loadSpaceData(data) {
   state.items = (state.items || []).filter(i => TYPES[i.type]);
   for (const i of state.items) if (RENAMED[i.name]) i.name = RENAMED[i.name];
   sel = null; rebuildAll(); fixStrayParts(); fitCamera(); resetHistory();
+  ctxRefresh(data);
 }
 let delArmed = false;
 function renderSpaces() {
@@ -6792,11 +6797,12 @@ $('#planOk').onclick = () => {                                           // 依�
     const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs: sts, nextId: sts.length + 1, noWalls: [] };
     p.list.push({ id: uid('s') + i, name: cleanName(r.name) || `空間 ${i + 1}`, data: JSON.stringify(d), updated: now, pos: { x: Math.round((r.x + r.w / 2 - cx) * PLAN.scale), z: Math.round((r.y + r.h / 2 - cy) * PLAN.scale) } });
   });
+  p.plan = true;                                                        // 由平面圖建立：編輯時所有空間一起顯示，點哪個空間就編輯哪個
   projects.list.push(p); projects.cur = p.id; spaces = p; spaces.cur = p.list[0].id; draft = null;
   $('#planModal').hidden = true;
   loadSpaceData(JSON.parse(curSpace().data)); renderSpaces(); save();
   $('#modal').hidden = false; showStep(2); renderStructLists(); $('#back1').hidden = true;   // 接著進「加入梁柱與門窗」（第一個空間）；其他空間用上方的空間選單切換
-  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, '現在是第一個空間，可以先加梁柱與門窗。其他空間用上方的空間選單切換；按「空間合併」可以看到整個格局。');
+  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, '現在是第一個空間，可以先加梁柱與門窗。所有空間會一起顯示，直接點畫面上的其他空間就能切換過去編輯（也可以用上方的空間選單）。');
 };
 
 /* ================= 復原 / 儲存 ================= */
@@ -6928,7 +6934,7 @@ function projectCode() {
   save();
   const p = curProject();
   if (!p) return JSON.stringify({ format: 'furniture-project', version: 1, name: '未命名專案', spaces: [{ name: '空間 1', ...JSON.parse(snap()) }] });
-  return JSON.stringify({ format: 'furniture-project', version: 1, id: p.id, savedAt: Date.now(), name: p.name, mergeView: p.mergeView, spaces: p.list.map(s => ({ name: s.name, mergePos: s.pos, mergeRot: s.rot, ...JSON.parse(s.data) })) });   // 空間合併的位置、角度、視角也一起存
+  return JSON.stringify({ format: 'furniture-project', version: 1, id: p.id, savedAt: Date.now(), name: p.name, mergeView: p.mergeView, plan: p.plan || undefined, spaces: p.list.map(s => ({ name: s.name, mergePos: s.pos, mergeRot: s.rot, ...JSON.parse(s.data) })) });   // 空間合併的位置、角度、視角也一起存
 }
 // 開啟專案檔／專案代碼：開出來的一定是檔案（代碼）裡的內容；這台裝置已有同一個專案且內容不同時，先問要開哪一份
 const projStat = list => { let n = 0; for (const sp of list) { try { n += (JSON.parse(sp.data).items || []).filter(i => !i.auto).length; } catch (e) { } } return `${list.length} 個空間・${n} 件家具`; };
@@ -6976,6 +6982,7 @@ function loadDesign(text, fileName, opt = {}) {
   while (taken(pname)) pname = `${name} (${n++})`;
   const p = { id: mine ? mine.id : d.id || uid('p'), name: pname, cur: list[0].id, list, updated: mine ? now : d.savedAt || now, ...(fileName ? { fileName } : {}) };   // 從檔案開啟：記住檔名給「儲存舊檔」
   if (d.mergeView && Array.isArray(d.mergeView.p)) p.mergeView = d.mergeView;
+  if (d.plan) p.plan = true;
   p.srcAt = d.savedAt || 0; p.impAt = p.updated;                         // 記下對方的儲存時間與收到當下的時間，之後收到更新版本可以直接更新
   done();
   let replaced = null;
@@ -7205,6 +7212,78 @@ function buildSpaceGroup(sp) {                                          // 用�
   G.traverse(o => { o.userData.spaceId = sp.id; });
   return G;
 }
+/* ---------- 全戶編輯：由平面圖建立的專案，編輯時其他空間照格局一起顯示在旁邊，點一下就切換過去編輯 ---------- */
+scene.add(ctxGroup);
+const ctxOn = () => { const c = spaces && spaces.plan && !MG.on && spaces.list.length > 1 ? curSpace() : null; return !!(c && c.pos); };
+function ctxDrop(id) { const c = CTX.groups.get(id); if (!c) return; c.G.traverse(o => { if (o.isCSS2DObject && o.element) o.element.remove(); }); ctxGroup.remove(c.G); disposeObj(c.G); CTX.groups.delete(id); }
+function ctxClear() { for (const id of [...CTX.groups.keys()]) ctxDrop(id); CTX.box = null; }
+function ctxRefresh(data) {
+  if (CTX.busy) return;
+  if (!ctxOn()) { if (CTX.groups.size || CTX.box) { ctxClear(); fitCamera(); } return; }
+  const cur = curSpace(); let rebuilt = false; CTX.busy = true;
+  for (const id of [...CTX.groups.keys()]) if (!spaces.list.some(sp => sp.id === id && sp.pos)) ctxDrop(id);
+  for (const sp of spaces.list) {
+    if (sp.id === cur.id || !sp.pos) continue;
+    const c = CTX.groups.get(sp.id);
+    if (c && c.data === sp.data) continue;                              // 內容沒變就沿用
+    ctxDrop(sp.id);
+    const G = buildSpaceGroup(sp); G.userData.lbl = G.children.find(o => o.isCSS2DObject);
+    ctxGroup.add(G); CTX.groups.set(sp.id, { G, data: sp.data }); rebuilt = true;
+  }
+  if (rebuilt) loadSpaceData(data);                                     // 建其他空間時借用了編輯用的物件，建完把目前空間載回來
+  CTX.busy = false;
+  // 以目前空間為原點擺放其他空間
+  const a = (cur.rot || 0) * deg, cs = Math.cos(a), sn = Math.sin(a);
+  ctxGroup.rotation.y = a; ctxGroup.position.set(-(cur.pos.x * cs + cur.pos.z * sn), 0, -(-cur.pos.x * sn + cur.pos.z * cs));
+  let x0 = -state.room.w / 2, x1 = -x0, z0 = -state.room.d / 2, z1 = -z0;
+  for (const sp of spaces.list) {
+    const c = CTX.groups.get(sp.id); if (!c) continue;
+    const G = c.G, show = sp.id !== cur.id;
+    G.position.set(sp.pos.x, 0, sp.pos.z); G.userData.rot = sp.rot || 0; G.rotation.y = -G.userData.rot * deg;
+    G.visible = show; if (G.userData.lbl) G.userData.lbl.visible = show;
+    if (!show) continue;
+    ctxGroup.updateMatrixWorld(true);
+    const R = G.userData.room, rel = ((G.userData.rot - (cur.rot || 0)) % 180 + 180) % 180, hw = (rel ? R.d : R.w) / 2, hd = (rel ? R.w : R.d) / 2, pw = G.getWorldPosition(new V3());
+    x0 = Math.min(x0, pw.x - hw); x1 = Math.max(x1, pw.x + hw); z0 = Math.min(z0, pw.z - hd); z1 = Math.max(z1, pw.z + hd);
+  }
+  CTX.box = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, w: x1 - x0 + 2 * WALL_T, d: z1 - z0 + 2 * WALL_T };
+  fitCamera();
+}
+function ctxWalls(is3d) {                                               // 其他空間的牆：擋在相機和視線焦點之間的壓低成牆腳；渲染、空間合併時整個藏起來
+  const on = !RM.on && !MG.on;
+  if (ctxGroup.visible !== on) { ctxGroup.visible = on; for (const c of CTX.groups.values()) if (c.G.userData.lbl) c.G.userData.lbl.visible = on && c.G.visible; }
+  if (!on) return;
+  const cv = new V3(), tv = new V3();
+  for (const c of CTX.groups.values()) {
+    const G = c.G; if (!G.visible) continue;
+    G.worldToLocal(cv.copy(persp.position)); G.worldToLocal(tv.copy(controls.target));
+    for (const w of G.userData.walls) {
+      const cut = is3d && (w.sign * cv[w.axis] > w.c) !== (w.sign * tv[w.axis] > w.c);
+      w.m.visible = !w.removed; w.m.scale.y = cut ? 0.1 : 1; w.hideOpen = w.removed || cut;
+    }
+    for (const o of G.userData.opens) { const w = G.userData.walls.find(x => x.key === o.userData.wall); o.visible = w ? !w.hideOpen : true; }
+  }
+}
+function ctxPick() {                                                    // 滑鼠底下是不是別的空間（比目前空間的地板還近才算）
+  if (!CTX.groups.size || !ctxGroup.visible) return null;
+  const h = ray.intersectObjects([...CTX.groups.values()].filter(c => c.G.visible).map(c => c.G), true).filter(x => shown(x.object));
+  if (!h.length) return null;
+  const f = floorHit();
+  if (f && Math.abs(f.x) <= state.room.w / 2 && Math.abs(f.z) <= state.room.d / 2 && f.distanceTo(ray.ray.origin) < h[0].distance) return null;
+  return h[0].object.userData.spaceId || null;
+}
+function ctxSwitch(id) {                                                // 切到另一個空間編輯，畫面視角維持不動
+  const c = CTX.groups.get(id), to = spaces.list.find(sp => sp.id === id); if (!c || !to) return false;
+  ctxGroup.updateMatrixWorld(true);
+  const dlt = c.G.getWorldPosition(new V3()); dlt.y = 0;
+  const same = (curSpace().rot || 0) === (to.rot || 0), cp = persp.position.clone(), ct = controls.target.clone(), op = ortho.position.clone(), ot = orthoCtl.target.clone(), oz = ortho.zoom;
+  switchSpace(id);
+  if (same) {
+    persp.position.copy(cp).sub(dlt); controls.target.copy(ct).sub(dlt); controls.update();
+    ortho.position.copy(op).sub(dlt); orthoCtl.target.copy(ot).sub(dlt); ortho.zoom = oz; ortho.updateProjectionMatrix(); orthoCtl.update();
+  }
+  return true;
+}
 const mDims = G => { const R = G.userData.room, r = ((G.userData.rot || 0) % 180 + 180) % 180; return r ? { w: R.d, d: R.w } : { w: R.w, d: R.d }; };   // 轉 90° 時寬深互換
 function mergeBox() {                                                   // 所有空間合起來的範圍
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -7223,6 +7302,7 @@ function enterMerge() {
   if (spaces.list.length < 2) { flash($('#mergeBtn'), '專案裡只有一個空間'); return; }
   if (RM.shot) setShotMode(false);
   save(); select(null);
+  CTX.busy = true; ctxClear();                                          // 合併畫面自己會把所有空間建出來
   const cur = curSpace();
   let cx = 0;
   for (const sp of spaces.list) {
@@ -7236,7 +7316,7 @@ function enterMerge() {
     mergeGroup.add(G); MG.groups.push(G);
   }
   loadSpaceData(JSON.parse(cur.data));                                  // 還原目前空間的資料（編輯用的物件先藏起來）
-  MG.on = true; document.body.classList.add('mergemode'); $('#mergeBtn').classList.add('on'); $('#mergeBar').hidden = false;
+  MG.on = true; CTX.busy = false; document.body.classList.add('mergemode'); $('#mergeBtn').classList.add('on'); $('#mergeBar').hidden = false;
   for (const g of [roomGroup, wallGroup, structGroup, furnGroup, ceilGroup, overlay]) g.visible = false;
   resize(); fitMerge();
   const V = spaces.mergeView;                                           // 回到上次離開合併畫面時的視角
@@ -7256,7 +7336,7 @@ function exitMerge(openId) {
   document.body.classList.remove('mergemode'); $('#mergeBtn').classList.remove('on'); $('#mergeBar').hidden = true;
   for (const g of [roomGroup, wallGroup, structGroup, furnGroup, ceilGroup, overlay]) g.visible = true;
   persist();
-  if (openId && openId !== spaces.cur) switchSpace(openId); else { rebuildAll(); fitCamera(); syncFinishUI(); }
+  if (openId && openId !== spaces.cur) switchSpace(openId); else { rebuildAll(); fitCamera(); syncFinishUI(); if (ctxOn()) loadSpaceData(JSON.parse(curSpace().data)); }
   resize(); fitOrtho();
 }
 function mergeGhosts(G) {                                               // 拿掉的牆換成半透明材質
@@ -7654,6 +7734,7 @@ function enterRender() {
   for (const G of MG.groups) for (const w of G.userData.walls) w.m.traverse(o => { if (o.isMesh) o.castShadow = true; });
   softGlass(true);
   rComposer(); applyLight(); syncChips(); resize();
+  if (CTX.box && !MG.on) { RM.ctxCam = { p: persp.position.clone(), t: controls.target.clone() }; fitCamera(); }   // 全戶編輯：渲染只拍目前這個空間，鏡頭先對準它
 }
 function exitRender() {
   if (!RM.on) return;
@@ -7671,6 +7752,7 @@ function exitRender() {
   for (const G of MG.groups) for (const w of G.userData.walls) w.m.traverse(o => { if (o.isMesh) o.castShadow = false; });
   sun.target.position.copy(rBase.sunTg); sun.target.updateMatrixWorld(); Object.assign(sun.shadow.camera, rBase.shCam); sun.shadow.camera.updateProjectionMatrix();
   persp.fov = rBase.fov; persp.updateProjectionMatrix();
+  if (RM.ctxCam) { persp.position.copy(RM.ctxCam.p); controls.target.copy(RM.ctxCam.t); controls.update(); RM.ctxCam = null; }   // 回到進渲染前看整個格局的視角
   resize();
 }
 async function renderStill() {
