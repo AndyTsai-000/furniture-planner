@@ -1031,7 +1031,7 @@ function slats(g, x, y, fw, fh, z, m, dark) {
 function mirrorIfLeft(it, g) { if (it.side !== 'left') return g; const o = new THREE.Group(); g.scale.x = -1; o.add(g); return o; }
 const seatList = max => Array.from({ length: max }, (_, i) => opt(String(i + 1), `${i + 1} 人座`));
 const SEATS_OPT = { key: 'seats', label: '座位數', list: seatList(4) };
-const SEATS_OPT_L = { key: 'seats', label: '主座座位數', list: seatList(3) };
+const SEATS_OPT_L = { key: 'seats', label: '主座座位數', list: seatList(4) };
 function seatsOf(it) { const T = TYPES[it.type] || {}; return Math.max(1, parseInt(it.seats || (T.def && T.def.seats) || 1, 10) || 1); }
 const SIDE_OPT = { key: 'side', label: '貴妃位置', list: [opt('right', '貴妃在右'), opt('left', '貴妃在左')] };
 
