@@ -5096,7 +5096,7 @@ dom.addEventListener('pointerup', e => {
     controls.enabled = view === '3d'; orthoCtl.enabled = view === 'top';
     return;
   }
-  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { setRay(e); if (!pick()) { const wk = RM.on || RM.shot ? null : pickWall(), other = wk || RM.on || RM.shot ? null : ctxPick(); if (wk) selectWall(wk); else if (other && ctxSwitch(other)) { setRay(e); const pk = pick(); if (pk) select(pk.k, pk.id); else select(null); } else select(null); } }
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { setRay(e); if (!pick()) { const wk = RM.on || RM.shot ? null : pickWall(), other = wk || RM.on || RM.shot ? null : ctxPick(); if (wk) selectWall(wk); else if (other && ctxSwitch(other)) { setRay(e); const pk = pick(); if (pk) select(pk.k, pk.id); else { if (view === '3d') for (const wl of walls) wl.m.visible = !(wl.sign * persp.position[wl.axis] > wl.c); const w2 = pickWall(); if (w2) selectWall(w2); else select(null); } } else select(null); } }
   down = null;
 });
 // 從家具庫拖曳進來
@@ -5718,6 +5718,13 @@ function renderPanel() {
   if (!sel && selWall) {
     const on = state.items.filter(i => !i.auto && (i.pwall === selWall || i.cwall === selWall));
     p.innerHTML = `<div class="p-head"><div style="font-size:17px;font-weight:700">${WALLS[selWall]}</div><span class="p-type">空間的牆面・已選取</span></div>
+      <h4>牆的尺寸（cm）</h4>
+      <div class="grid2">
+        <label class="mini">牆長（${selWall === 'back' || selWall === 'front' ? '空間的寬' : '空間的深'}）<input class="num" type="number" data-wroom="${selWall === 'back' || selWall === 'front' ? 'w' : 'd'}" min="100" max="3000" value="${selWall === 'back' || selWall === 'front' ? state.room.w : state.room.d}"></label>
+        <label class="mini">牆高（天花板高度）<input class="num" type="number" data-wroom="h" min="150" max="800" value="${state.room.h}"></label>
+        <label class="mini">牆厚（整個專案共用）<input class="num" type="number" data-wroom="t" min="5" max="40" value="${WALL_T}"></label>
+      </div>
+      <div class="muted" style="font-size:12px;line-height:1.5">改牆長就是改這個空間的寬或深，對面那道牆一起變；牆加在空間尺寸的外側。</div>
       <h4>放東西到這面牆</h4>
       <div class="muted" style="font-size:13px;line-height:1.6">這面牆選取中。到左側<b>家具庫</b>點選燈具、配件、擺飾（壁燈、掛畫、掛鐘、鏡子、電視、冷氣…）或家具，就會直接掛到／靠到這面牆上；窗簾會貼齊這面牆的窗戶。</div>
       ${on.length ? `<h4>已放在這面牆的品項</h4><div class="plist">${on.map(i => `<button data-act="pick" data-id="${i.id}"><span>${esc(i.name)}</span><span>${i.w}×${i.d}×${i.h}</span></button>`).join('')}</div>` : ''}
@@ -6104,6 +6111,13 @@ function syncRoomInputs() {
   }
   if ($('#wallT') && $('#wallT') !== document.activeElement) $('#wallT').value = WALL_T;
 }
+$('#panelBody').addEventListener('change', e => {                    // 選取牆面時右側的尺寸欄位
+  const k = e.target.dataset && e.target.dataset.wroom; if (!k) return;
+  const keep = selWall;
+  if (k === 't') { $('#wallT').value = e.target.value; $('#wallT').dispatchEvent(new Event('change')); }
+  else if (applyRoom(k, e.target.value)) commit();
+  if (keep && !sel) { selWall = keep; renderPanel(); updateOverlay(); }
+});
 $('#wallT').onchange = e => {                                           // 改牆厚：整個專案的空間一起套用
   const v = Math.round(parseFloat(e.target.value));
   if (!isFinite(v) || v < 5 || v > 40 || !curProject()) { e.target.value = WALL_T; return; }
