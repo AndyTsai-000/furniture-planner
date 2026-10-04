@@ -1172,6 +1172,30 @@ function buildReclinerSofa(it) { // 電動躺椅沙發：方塊扶手＋獨立�
   }
   return g;
 }
+// 有壓線的蓬鬆靠墊：圓角的墊子，正面沿著縫線淺淺凹下去（cols 欄；橫線在高度 rowAt 的位置），直線會繞過上緣
+function tuftPillowGeo(bw, bh, bt, cols, rowAt) {
+  const geo = new THREE.BoxGeometry(1, 1, 1, 54, 36, 8), P = geo.attributes.position, N = geo.attributes.normal;
+  const A = bw / 2, Bh = bh / 2, Cc = bt / 2, R = Math.min(Cc * 0.86, 10), dep = Math.min(1.5, bt * 0.07), sg = 2.5, ys = (rowAt - 0.5) * bh;
+  const cl = (v, m) => Math.max(-m, Math.min(m, v));
+  for (let i = 0; i < P.count; i++) {
+    let px = P.getX(i) * bw, py = P.getY(i) * bh, pz = P.getZ(i) * bt;
+    const cx = cl(px, A - R), cy = cl(py, Bh - R), cz = cl(pz, Cc - R);
+    let nx = px - cx, ny = py - cy, nz = pz - cz; const ln = Math.hypot(nx, ny, nz) || 1; nx /= ln; ny /= ln; nz /= ln;
+    px = cx + nx * R; py = cy + ny * R; pz = cz + nz * R;
+    // 壓線：直線（正面＋上緣）、橫線（只在正面）
+    const wf = Math.max(0, nz), wv = Math.min(1, wf + Math.max(0, ny) * 0.8);
+    let ev = 0, dev = 0;
+    for (let c = 1; c < cols; c++) { const t = (px - (-A + bw * c / cols)) / sg, e = Math.exp(-t * t); ev += e; dev += -2 * t / sg * e; }
+    const th = (py - ys) / sg, eh = Math.exp(-th * th), deh = -2 * th / sg * eh;
+    const D = dep * (wv * ev + wf * eh * (1 - ev * 0.5));
+    px -= nx * D; py -= ny * D; pz -= nz * D;
+    P.setXYZ(i, px, py, pz);
+    const gx = dep * wv * dev, gy = dep * wf * deh; let mx = nx + gx * Math.max(wf, 0.3), my = ny + gy * wf, mz = nz; const ml = Math.hypot(mx, my, mz) || 1;
+    N.setXYZ(i, mx / ml, my / ml, mz / ml);
+  }
+  P.needsUpdate = true; N.needsUpdate = true; geo.computeBoundingBox(); geo.computeBoundingSphere();
+  return geo;
+}
 function buildDanishSofa(it) { // 丹麥沙發：布面底框＋圓錐木腳、後高前低的弧形扶手、厚坐墊、格紋車線的蓬鬆背墊
   const g = new THREE.Group(), { w, d, h } = it;
   const F = fabMat(it), W = mat(it.color2, 0.55), dark = mat('#2a2826', 0.6);
@@ -1207,18 +1231,13 @@ function buildDanishSofa(it) { // 丹麥沙發：布面底框＋圓錐木腳、�
   RB(g, inner + 2, armB - baseTop, bt, 3, 0, baseTop + (armB - baseTop) / 2, zb + bt / 2, F);
   // 坐墊、背墊
   const n = seatsOf(it), cw = inner / n, sd = zf - (zb + bt) - 0.5, st = seatTop - baseTop;
-  const bH = h - seatTop + 1.6, bT = Math.min(25, d * 0.28), rows = [bH * 0.52, bH * 0.48];
+  const bH = h - seatTop + 1.1, bT = Math.min(25, d * 0.28), rows = [bH * 0.52, bH * 0.48];
   for (let i = 0; i < n; i++) {
     const x = -inner / 2 + cw * (i + 0.5);
     RB(g, cw - 0.6, st, sd, 4.5, x, baseTop + st / 2, zf - sd / 2 - 0.5, F);
-    // 背墊：一整塊蓬鬆的墊子往後靠，正面是 3 欄 × 2 列微微鼓起的格子（縫線處凹下去）
+    // 背墊：一整塊蓬鬆的墊子往後靠，正面有兩條直的、一條橫的淺壓線（3 欄 × 2 列）
     const bg = new THREE.Group(); bg.position.set(x, seatTop - 3, zb + bt - 3); bg.rotation.x = -0.15; g.add(bg);
-    const bw = cw - 0.8, colW = (bw - 5) / 3;
-    RB(bg, bw, bH, bT - 3, Math.min(9, bT * 0.4), 0, bH / 2, (bT - 3) / 2, F);
-    for (let c = 0; c < 3; c++) for (let r = 0; r < 2; r++) {
-      const ch = rows[r] - 3.5, cy = 3 + (r ? rows[0] : 0) + ch / 2 - (r ? 3 : 0);
-      RB(bg, colW + 0.5, ch + 0.5, 8, 3.9, (c - 1) * colW, cy, bT - 3 - 4 + 2.2, F);
-    }
+    add(bg, tuftPillowGeo(cw - 0.8, bH, bT, 3, 0.56), F, 0, bH / 2, bT / 2);
   }
   return g;
 }
