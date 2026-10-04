@@ -1241,6 +1241,16 @@ function buildDanishSofa(it) { // 丹麥沙發：布面底框＋圓錐木腳、�
   }
   return g;
 }
+function softPillowGeo(pw, ph, pt) {
+  const geo = new THREE.BoxGeometry(1, 1, 1, 22, 22, 2), P = geo.attributes.position;
+  for (let i = 0; i < P.count; i++) {
+    const u = P.getX(i) * 2, v = P.getY(i) * 2, q = P.getZ(i) * 2;
+    const f = Math.pow(Math.max(0, 1 - u * u * u * u), 0.55) * Math.pow(Math.max(0, 1 - v * v * v * v), 0.55);
+    P.setXYZ(i, u * pw / 2 * (1 - 0.055 * v * v), v * ph / 2 * (1 - 0.055 * u * u), q * pt / 2 * (0.1 + 0.9 * f));
+  }
+  P.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere();
+  return geo;
+}
 function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不鏽鋼腳、厚坐墊、低矮分段靠背、大靠枕；轉角＋往前伸的貴妃（預設貴妃在右，選左時鏡射）
   const g = new THREE.Group(), { w, d, h } = it;
   const F = fabMat(it), Lt = surfMat('leather', it.color2), Pd = fabMat(it, 'color3'), Mt = mat('#d9dbde', 0.18, 0.95);
@@ -1248,12 +1258,27 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   const sd = Math.min(105, d * 0.4), cwid = Math.min(110, w * 0.3), bt = 16, armW = Math.min(22, w * 0.06);
   const backTop = Math.min(62, h * 0.775), armTop = backTop - 4, zb = -d / 2, xL = -w / 2, xR = w / 2, wingL = xR - cwid;
   // 皮革底框（比坐墊略大一圈）
-  RB(g, wingL - xL + 1, fT, sd, 1.6, (xL + wingL + 1) / 2, legH + fT / 2, zb + sd / 2, Lt);
-  RB(g, cwid, fT, d, 1.6, xR - cwid / 2, legH + fT / 2, 0, Lt);
+  const Dk = mat('#232224', 0.5, 0.4), Ls = surfMat('leather', '#' + new THREE.Color(it.color2).multiplyScalar(0.72).getHexString());
+  RB(g, wingL - xL + 1, fT, sd, 1.2, (xL + wingL + 1) / 2, legH + fT / 2, zb + sd / 2, Lt);
+  RB(g, cwid, fT, d, 1.2, xR - cwid / 2, legH + fT / 2, 0, Lt);
+  // 底下縮進去的深色結構（看起來底框是薄薄一片浮著）
+  B(g, wingL - xL - 9, 2.2, sd - 10, (xL + wingL) / 2 + 0.5, legH - 1.1, zb + sd / 2, Dk);
+  B(g, cwid - 10, 2.2, d - 10, xR - cwid / 2, legH - 1.1, 0, Dk);
+  // 邊框中間的車線（外圈一道）
+  const yS = legH + fT / 2, st = (lw, ld, x, z) => B(g, lw, 0.35, ld, x, yS, z, Ls);
+  st(wingL - xL, 0.3, (xL + wingL) / 2, zb + sd - 0.1); st(w, 0.3, 0, zb + 0.1); st(0.3, sd, xL + 0.1, zb + sd / 2);
+  st(0.3, d, xR - 0.1, 0); st(cwid, 0.3, xR - cwid / 2, d / 2 - 0.1); st(0.3, d - sd, wingL + 0.1, zb + sd + (d - sd) / 2);
+  // 轉角的黑色鋼接頭
+  for (const [x, z] of [[xL + 1.1, zb + 1.1], [xL + 1.1, zb + sd - 1.1], [xR - 1.1, zb + 1.1], [xR - 1.1, d / 2 - 1.1], [wingL + 1.1, d / 2 - 1.1]]) B(g, 2.1, fT + 0.2, 2.1, x, legH + fT / 2, z, Dk);
   // 不鏽鋼腳：上粗下細，底下一小片腳墊
-  const leg = (x, z) => { C(g, 0.9, 1.9, legH - 0.6, x, legH / 2 + 0.3, z, Mt, 16).rotation.x = Math.PI; C(g, 1.5, 1.5, 0.6, x, 0.3, z, Mt, 16); };
-  for (const z of [zb + 9, zb + sd - 9]) { leg(xL + 12, z); leg(wingL - 14, z); if (wingL - xL > 200) leg((xL + wingL) / 2, z); }
-  for (const x of [wingL + 12, xR - 12]) { leg(x, d / 2 - 12); leg(x, zb + 9); }
+  const lh = legH - 2.2, leg = (x, z) => {
+    C(g, 3.4, 3.4, 0.9, x, legH - 2.2 - 0.45, z, Mt, 24);                      // 安裝座
+    C(g, 2.1, 1.5, 2.2, x, lh - 0.9 - 1.1, z, Mt, 20);                         // 腳的肩部
+    C(g, 1.5, 0.75, lh - 3.5, x, (lh - 3.1) / 2 + 0.4, z, Mt, 20);            // 錐形腳身
+    C(g, 1.15, 1.15, 0.4, x, 0.2, z, Mt, 16);                                  // 腳墊
+  };
+  for (const z of [zb + 13, zb + sd - 13]) { leg(xL + 20, z); leg(wingL - 16, z); if (wingL - xL > 200) leg((xL + wingL) / 2, z); }
+  for (const x of [wingL + 15, xR - 15]) { leg(x, d / 2 - 16); leg(x, zb + 13); }
   // 靠背（低矮、一段一段）、主座外端的扶手
   const seatL = xL + armW, inner = wingL - seatL, n = seatsOf(it), cw = inner / n, bh = backTop - pTop;
   for (let i = 0; i < n; i++) RB(g, cw - 1.2, bh, bt, 5, seatL + cw * (i + .5), pTop + bh / 2, zb + bt / 2 + 0.5, F);
@@ -1271,13 +1296,13 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   const chD = d - sd - 2;
   RB(g, cwid - 3, cushT, chD, 6, xR - cwid / 2, pTop + cushT / 2, d / 2 - chD / 2 - 1.5, F);
   // 靠枕：主座每人一個大靠枕、轉角兩個配色抱枕、貴妃側邊一個大靠枕
-  const ph = h - seatTop + 2.3, pz = zb + bt + 9;
-  const pil = (pw, phh, pt, x, z, m, lean, ry, rz) => { const o = new THREE.Group(); o.position.set(x, seatTop - 2, z); o.rotation.set(0, ry || 0, 0); const q = RB(o, pw, phh, pt, Math.min(7, pt * 0.45), 0, phh / 2, 0, m); q.rotation.x = -lean; q.rotation.z = rz || 0; q.position.z = Math.sin(lean) * phh / 2; g.add(o); };
-  for (let i = 0; i < n; i++) pil(Math.min(64, cw * 0.6), ph, 15, seatL + cw * (i + .5) + (i % 2 ? 6 : -4), pz, F, 0.2);
-  if (n > 0) pil(44, 36, 12, seatL + 30, pz + 5, Pd, 0.3, 0, 0.08);
-  pil(48, 40, 13, wingL + cornerW * 0.3, pz + 1, Pd, 0.25, 0, -0.06);
-  pil(44, 38, 12, wingL + cornerW * 0.62, pz + 9, Lt, 0.32, 0, 0.1);
-  pil(Math.min(70, sideLen * 0.6), ph - 3, 17, xR - bt - 9, zb + sideLen * 0.62, F, 0.24, -Math.PI / 2);
+  const ph = h - seatTop - 0.1, pz = zb + bt + 9;
+  const pil = (pw, phh, pt, x, z, m, lean, ry, rz) => { const o = new THREE.Group(); o.position.set(x, seatTop - 2, z); o.rotation.set(0, ry || 0, 0); const q = add(o, softPillowGeo(pw, phh, pt), m, 0, phh / 2, 0); q.rotation.x = -lean; q.rotation.z = rz || 0; q.position.z = Math.sin(lean) * phh / 2; g.add(o); };
+  for (let i = 0; i < n; i++) pil(Math.min(72, cw * 0.66), ph + 1.5, 21, seatL + cw * (i + .5) + (i % 2 ? 8 : -6), pz + 2, F, 0.17);
+  if (n > 0) { pil(50, 41, 17, seatL + 34, pz + 12, Pd, 0.3, 0.12, 0.07); pil(46, 40, 15, seatL + 14, pz + 4, F, 0.2, 0.3, -0.05); }
+  pil(52, 41.5, 17, wingL + cornerW * 0.26, pz + 3, Pd, 0.22, 0, -0.05);
+  pil(48, 41, 16, wingL + cornerW * 0.6, pz + 13, Lt, 0.34, -0.1, 0.09);
+  pil(Math.min(78, sideLen * 0.68), ph, 23, xR - bt - 11, zb + sideLen * 0.6, F, 0.22, -Math.PI / 2);
   return mirrorIfLeft(it, g);
 }
 function buildFloatLSofa(it) { // 懸浮平台 L 型：雙色平台底座＋鐵件雪橇腳＋木作玻璃邊几
