@@ -1297,7 +1297,7 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   RB(g, cwid - bt - 1, bh, bt, 5, wingL + (cwid - bt) / 2, pTop + bh / 2, zb + bt / 2 + 0.5, F);
   RB(g, armW, armTop - pTop, sd - 1, 5, xL + armW / 2 + 0.5, pTop + (armTop - pTop) / 2, zb + sd / 2, F);
   // 貴妃外側的靠背（只到轉角那一段），外面包一片皮革
-  const sideLen = Math.min(sd * 1.05, d * 0.5);
+  const ws = d - sd > 130 ? Math.min(80, (d - sd) * 0.48) : 0, sideLen = ws ? sd + ws - 1.5 : Math.min(sd * 1.05, d * 0.5);   // 貴妃這一側：轉角後面再一個有靠背的座位，最前面才是沒有靠背的貴妃
   RB(g, bt, bh, sideLen, 5, xR - bt / 2 - 0.5, pTop + bh / 2, zb + sideLen / 2 + 0.5, F);
   RB(g, 1.4, bh - 6, sideLen - 8, 0.6, xR - 0.75, pTop + (bh - 6) / 2 + 1, zb + sideLen / 2 + 0.5, Lt);
   // 坐墊：主座每人一塊、轉角一塊、貴妃一塊
@@ -1305,14 +1305,16 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   for (let i = 0; i < n; i++) RB(g, cw - 1, cushT, seatD, 4.5, seatL + cw * (i + .5), pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
   const cornerW = cwid - bt - 2;
   RB(g, cornerW, cushT, seatD, 4.5, wingL + cornerW / 2 + 0.5, pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
-  const chD = d - sd - 2;
+  const chD = d - sd - ws - (ws ? 1.5 : 2);
+  if (ws) RB(g, cornerW, cushT, ws - 1, 4.5, wingL + cornerW / 2 + 0.5, pTop + cushT / 2, zb + sd + ws / 2 - 0.5, F);
   RB(g, cwid - 2.4, cushT, chD, 4.5, xR - cwid / 2, pTop + cushT / 2, d / 2 - chD / 2 - 1.2, F);
   // 背墊：每個座位一塊方正的大背墊，靠在矮背板上、高出背板；轉角在後面和側面各一塊
   const bcH = h - seatTop + 1.5, bcT = 19, lean = 0.2;
   const backCush = (bw, x, z, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 1.5, z); o.rotation.y = ry || 0; const q = RB(o, bw, bcH, bcT, 6.5, 0, bcH / 2, 0, F); q.rotation.x = -lean; q.position.z = bcT / 2 + 1 - Math.sin(lean) * bcH / 2 + Math.sin(lean) * bcH * 0.5; g.add(o); };
   for (let i = 0; i < n; i++) backCush(cw - 7, seatL + cw * (i + .5), zb + bt + 1);
   backCush(cornerW - 9, wingL + cornerW / 2 - 3, zb + bt + 1);
-  backCush(Math.min(sideLen - bt - 24, 78), xR - bt - 1, zb + bt + 22 + Math.min(sideLen - bt - 24, 78) / 2, -Math.PI / 2);
+  if (ws) backCush(ws - 7, xR - bt - 1, zb + sd + ws / 2 - 0.5, -Math.PI / 2);
+  else backCush(Math.min(sideLen - bt - 24, 78), xR - bt - 1, zb + bt + 22 + Math.min(sideLen - bt - 24, 78) / 2, -Math.PI / 2);
   // 抱枕：轉角兩個、扶手那端三個（小的、斜靠著）
   const pil = (pw, phh, pt, x, z, m, ln, ry, rz) => { const o = new THREE.Group(); o.position.set(x, seatTop - 1, z); o.rotation.y = ry || 0; const q = add(o, softPillowGeo(pw, phh, pt), m, 0, phh / 2, 0); q.rotation.x = -ln; q.rotation.z = rz || 0; q.position.z = Math.sin(ln) * phh / 2; g.add(o); };
   const pz = zb + bt + bcT + 9;
@@ -4034,7 +4036,7 @@ const CATS = ['全部', '自家商品', '客廳', '餐廳', '臥室', '書房', 
 const TYPES = {
   ownRecliner: { name: '131型沙發', cat: '自家商品', w: 276, d: 105, h: 105, color: '#b9bcc2', color2: '#86aecb', c1: '布料顏色', c2: '抱枕顏色', build: buildReclinerSofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
   ownDanSofa:  { name: '丹麥沙發', cat: '自家商品', w: 210, d: 90, h: 90, color: '#cfc8b8', color2: '#d9b382', c1: '布料顏色', c2: '木腳顏色', build: buildDanishSofa, opts: [SEATS_OPT], def: { seats: '2' }, wall: true, own: true },
-  ownLetItBe:  { name: 'Let it be沙發', cat: '自家商品', w: 368, d: 267, h: 80, color: '#e3e1dc', color2: '#9a6038', color3: '#a8957e', c1: '布料顏色', c2: '底框皮革顏色', c3: '抱枕顏色', build: buildLetItBeSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'left' }, wall: true, own: true },
+  ownLetItBe:  { name: 'Let it be沙發', cat: '自家商品', w: 368, d: 267, h: 80, color: '#e3e1dc', color2: '#9a6038', color3: '#a8957e', c1: '布料顏色', c2: '底框皮革顏色', c3: '抱枕顏色', build: buildLetItBeSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '3', side: 'left' }, wall: true, own: true },
   ownFloatL:   { name: '103型沙發', cat: '自家商品', w: 306, d: 180, h: 95,  color: '#dcd6cf', color2: '#8e7472', color3: '#d9bd94', c1: '坐墊布料', c2: '底座布料', c3: '邊几木色', build: buildFloatLSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'left' }, wall: true, own: true },
   ownDanish:   { name: '丹麥餐桌', cat: '自家商品', w: 180, d: 90, h: 75, color: '#f2f0ec', color2: '#dcc39c', c1: '桌面顏色', c2: '木腳顏色', build: buildDanishTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownPencil:   { name: '鉛筆腳餐桌', cat: '自家商品', w: 150, d: 85, h: 75, color: '#f2f0ec', color2: '#1f1f1f', c1: '桌面顏色', c2: '鐵件顏色', build: buildPencilTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
