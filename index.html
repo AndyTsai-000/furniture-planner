@@ -1255,8 +1255,8 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   const g = new THREE.Group(), { w, d, h } = it;
   const F = fabMat(it), Lt = surfMat('leather', it.color2), Pd = fabMat(it, 'color3'), Mt = mat('#d9dbde', 0.18, 0.95);
   const legH = Math.min(13, h * 0.16), fT = 4, pTop = legH + fT, cushT = Math.min(22, h * 0.28), seatTop = pTop + cushT;
-  const sd = Math.min(105, d * 0.4), cwid = Math.min(110, w * 0.3), bt = 16, armW = Math.min(22, w * 0.06);
-  const backTop = Math.min(62, h * 0.775), armTop = backTop - 4, zb = -d / 2, xL = -w / 2, xR = w / 2, wingL = xR - cwid;
+  const sd = Math.min(105, d * 0.4), cwid = Math.min(110, w * 0.3), bt = 11, armW = Math.min(25, w * 0.07);
+  const backTop = Math.min(57, h * 0.71), armTop = Math.min(seatTop + 17, backTop), zb = -d / 2, xL = -w / 2, xR = w / 2, wingL = xR - cwid;
   // 底框：皮革包覆的圓管圍一圈（上緣一道白色車線），管子兩端是亮面金屬蓋；裡面一片深色底板托著坐墊
   const Dk = mat('#2b2a2b', 0.7), St = mat('#f1e9da', 0.8), tr = fT / 2 + 0.3, ty = legH + fT / 2, cap = 0.9;
   const tubeX = (x0, x1, z, o) => {                                         // 左右向的管子：兩端有金屬蓋
@@ -1298,14 +1298,18 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   RB(g, cornerW, cushT, seatD, 4.5, wingL + cornerW / 2 + 0.5, pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
   const chD = d - sd - 2;
   RB(g, cwid - 2.4, cushT, chD, 4.5, xR - cwid / 2, pTop + cushT / 2, d / 2 - chD / 2 - 1.2, F);
-  // 靠枕：主座每人一個大靠枕、轉角兩個配色抱枕、貴妃側邊一個大靠枕
-  const ph = h - seatTop - 0.1, pz = zb + bt + 9;
-  const pil = (pw, phh, pt, x, z, m, lean, ry, rz) => { const o = new THREE.Group(); o.position.set(x, seatTop - 2, z); o.rotation.set(0, ry || 0, 0); const q = add(o, softPillowGeo(pw, phh, pt), m, 0, phh / 2, 0); q.rotation.x = -lean; q.rotation.z = rz || 0; q.position.z = Math.sin(lean) * phh / 2; g.add(o); };
-  for (let i = 0; i < n; i++) pil(Math.min(72, cw * 0.66), ph + 1.5, 21, seatL + cw * (i + .5) + (i % 2 ? 8 : -6), pz + 2, F, 0.17);
-  if (n > 0) { pil(50, 41, 17, seatL + 34, pz + 12, Pd, 0.3, 0.12, 0.07); pil(46, 40, 15, seatL + 14, pz + 4, F, 0.2, 0.3, -0.05); }
-  pil(52, 41.5, 17, wingL + cornerW * 0.26, pz + 3, Pd, 0.22, 0, -0.05);
-  pil(48, 41, 16, wingL + cornerW * 0.6, pz + 13, Lt, 0.34, -0.1, 0.09);
-  pil(Math.min(78, sideLen * 0.68), ph, 23, xR - bt - 11, zb + sideLen * 0.6, F, 0.22, -Math.PI / 2);
+  // 背墊：每個座位一塊方正的大背墊，靠在矮背板上、高出背板；轉角在後面和側面各一塊
+  const bcH = h - seatTop + 1.5, bcT = 19, lean = 0.2;
+  const backCush = (bw, x, z, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 1.5, z); o.rotation.y = ry || 0; const q = RB(o, bw, bcH, bcT, 6.5, 0, bcH / 2, 0, F); q.rotation.x = -lean; q.position.z = bcT / 2 + 1 - Math.sin(lean) * bcH / 2 + Math.sin(lean) * bcH * 0.5; g.add(o); };
+  for (let i = 0; i < n; i++) backCush(cw - 7, seatL + cw * (i + .5), zb + bt + 1);
+  backCush(cornerW - 9, wingL + cornerW / 2 - 3, zb + bt + 1);
+  backCush(Math.min(sideLen - bt - 24, 78), xR - bt - 1, zb + bt + 22 + Math.min(sideLen - bt - 24, 78) / 2, -Math.PI / 2);
+  // 抱枕：轉角兩個、扶手那端三個（小的、斜靠著）
+  const pil = (pw, phh, pt, x, z, m, ln, ry, rz) => { const o = new THREE.Group(); o.position.set(x, seatTop - 1, z); o.rotation.y = ry || 0; const q = add(o, softPillowGeo(pw, phh, pt), m, 0, phh / 2, 0); q.rotation.x = -ln; q.rotation.z = rz || 0; q.position.z = Math.sin(ln) * phh / 2; g.add(o); };
+  const pz = zb + bt + bcT + 9;
+  pil(42, 40, 12, wingL + cornerW * 0.42, pz + 2, Pd, 0.3, -0.35, 0.05);
+  pil(40, 38, 12, wingL + cornerW * 0.2, pz + 9, Lt, 0.36, -0.15, -0.06);
+  if (n > 0) { pil(44, 42, 12, seatL + 13, pz + 1, Pd, 0.3, 0.75, 0.04); pil(42, 40, 12, seatL + 29, pz + 7, Lt, 0.36, 0.5, -0.05); pil(40, 38, 11, seatL + 46, pz + 13, Lt, 0.42, 0.35, 0.06); }
   return mirrorIfLeft(it, g);
 }
 function buildFloatLSofa(it) { // 懸浮平台 L 型：雙色平台底座＋鐵件雪橇腳＋木作玻璃邊几
