@@ -255,7 +255,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .pbox{position:absolute;border:2px solid var(--accent);background:rgba(184,104,58,.16);border-radius:3px;cursor:move;box-sizing:border-box}
 .pbox.on{background:rgba(184,104,58,.32);z-index:2}
 .pbox b{position:absolute;left:2px;top:2px;font-size:12px;line-height:1.3;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;white-space:nowrap;pointer-events:none}
-.pbox i{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;background:var(--accent);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
+.pbox i{position:absolute;width:14px;height:14px;background:var(--accent);border:2px solid #fff;border-radius:50%;cursor:nwse-resize;z-index:1}
+.pbox i[data-c="br"]{right:-7px;bottom:-7px}.pbox i[data-c="tl"]{left:-7px;top:-7px}.pbox i[data-c="tr"]{right:-7px;top:-7px;cursor:nesw-resize}.pbox i[data-c="bl"]{left:-7px;bottom:-7px;cursor:nesw-resize}
 .pdim{position:absolute;width:38px;height:20px;margin:-10px 0 0 -19px;border:2px solid #2e9e5b;border-radius:10px;pointer-events:none;z-index:3}
 .planside{max-height:60vh;overflow:auto;font-size:13px}
 .prow{display:grid;grid-template-columns:1fr 62px 62px 26px;gap:5px;align-items:end;padding:7px 0;border-top:1px solid var(--line)}
@@ -576,7 +577,7 @@ body.present.presset #rpanel{display:block}
         <div id="planList"></div>
       </div>
     </div>
-    <div class="mfoot"><button class="btn" id="planCancel">取消</button><span class="muted" style="font-size:12px;margin-right:auto">少框的地方點一下就會自動框出那一格（也可以拖曳自己框）；拖曳框可移動，拖右下角圓點可調整大小。高度先以 240 公分建立。</span><button class="btn primary" id="planOk">建立這些空間 →</button></div>
+    <div class="mfoot"><button class="btn" id="planCancel">取消</button><span class="muted" style="font-size:12px;margin-right:auto">少框的地方點一下就會自動框出那一格（也可以拖曳自己框）；拖曳框可移動，拖四個角的圓點可調整大小。高度先以 240 公分建立。</span><button class="btn primary" id="planOk">建立這些空間 →</button></div>
   </div>
 </div>
 <!-- 設計代碼 -->
@@ -6938,7 +6939,7 @@ function planRun(keep) {
 }
 function planDraw() {
   const iw = PLAN.img.width, ih = PLAN.img.height, pc = v => (v * 100).toFixed(3) + '%';
-  $('#planBoxes').innerHTML = PLAN.rooms.map((r, i) => `<div class="pbox${i === PLAN.sel ? ' on' : ''}" data-pi="${i}" style="left:${pc(r.x / iw)};top:${pc(r.y / ih)};width:${pc(r.w / iw)};height:${pc(r.h / ih)}"><b>${esc(r.name)}　${r.cw}×${r.cd}</b><i data-pr="${i}"></i></div>`).join('') + (PLAN.from === 'dims' ? (PLAN.used || []).map(t => `<i class="pdim" style="left:${pc(t.x / iw)};top:${pc(t.y / ih)}"></i>`).join('') : '');
+  $('#planBoxes').innerHTML = PLAN.rooms.map((r, i) => `<div class="pbox${i === PLAN.sel ? ' on' : ''}" data-pi="${i}" style="left:${pc(r.x / iw)};top:${pc(r.y / ih)};width:${pc(r.w / iw)};height:${pc(r.h / ih)}"><b>${esc(r.name)}　${r.cw}×${r.cd}</b><i data-pr="${i}" data-c="tl"></i><i data-pr="${i}" data-c="tr"></i><i data-pr="${i}" data-c="bl"></i><i data-pr="${i}" data-c="br"></i></div>`).join('') + (PLAN.from === 'dims' ? (PLAN.used || []).map(t => `<i class="pdim" style="left:${pc(t.x / iw)};top:${pc(t.y / ih)}"></i>`).join('') : '');
   $('#planList').innerHTML = PLAN.rooms.length ? PLAN.rooms.map((r, i) => `<div class="prow${i === PLAN.sel ? ' on' : ''}" data-pi="${i}"><label>名稱<input class="num" data-pf2="name" maxlength="20" value="${esc(r.name)}"></label><label>寬 cm<input class="num" type="number" data-pf2="cw" min="50" max="3000" value="${r.cw}"></label><label>深 cm<input class="num" type="number" data-pf2="cd" min="50" max="3000" value="${r.cd}"></label><button class="x" data-pdel="${i}" title="移除這個空間">×</button></div>`).join('')
     : '<div class="muted" style="padding:10px 0;line-height:1.6">沒有偵測到空間。請在左邊的圖上，沿著每個房間的內側拖曳出一個框。</div>';
   const n = PLAN.rooms.length;
@@ -6986,7 +6987,7 @@ $('#planList').addEventListener('click', e => {
   el.addEventListener('pointerdown', e => {
     if (!PLAN.img || e.button) return;
     const q = pos(e), rz = e.target.closest('[data-pr]'), bx = e.target.closest('.pbox');
-    if (rz) { const r = PLAN.rooms[+rz.dataset.pr]; PLAN.drag = { mode: 'size', r, q }; PLAN.sel = +rz.dataset.pr; }
+    if (rz) { const r = PLAN.rooms[+rz.dataset.pr], c = rz.dataset.c || 'br'; PLAN.drag = { mode: 'size', r, q, fx: c[1] === 'l' ? r.x + r.w : r.x, fy: c[0] === 't' ? r.y + r.h : r.y }; PLAN.sel = +rz.dataset.pr; }
     else if (bx) { const r = PLAN.rooms[+bx.dataset.pi]; PLAN.drag = { mode: 'move', r, q, ox: r.x, oy: r.y }; PLAN.sel = +bx.dataset.pi; }
     else { const r = { x: q.x, y: q.y, w: 1, h: 1, name: '', cw: 100, cd: 100, manual: false }; PLAN.drag = { mode: 'new', r, q }; }
     el.setPointerCapture(e.pointerId); e.preventDefault();
@@ -6994,7 +6995,7 @@ $('#planList').addEventListener('click', e => {
   el.addEventListener('pointermove', e => {
     const d = PLAN.drag; if (!d) return; const q = pos(e), W = PLAN.img.width, H = PLAN.img.height, r = d.r;
     if (d.mode === 'move') { r.x = clamp(d.ox + q.x - d.q.x, 0, W - r.w); r.y = clamp(d.oy + q.y - d.q.y, 0, H - r.h); }
-    else if (d.mode === 'size') { r.w = clamp(q.x - r.x, 8, W - r.x); r.h = clamp(q.y - r.y, 8, H - r.y); }
+    else if (d.mode === 'size') { const qx = clamp(q.x, 0, W), qy = clamp(q.y, 0, H); r.x = Math.min(d.fx, qx); r.w = Math.max(8, Math.abs(qx - d.fx)); r.y = Math.min(d.fy, qy); r.h = Math.max(8, Math.abs(qy - d.fy)); }
     else { r.x = clamp(Math.min(d.q.x, q.x), 0, W); r.y = clamp(Math.min(d.q.y, q.y), 0, H); r.w = Math.min(W - r.x, Math.abs(q.x - d.q.x)); r.h = Math.min(H - r.y, Math.abs(q.y - d.q.y));
       if (!d.added && r.w > 10 && r.h > 10) { d.added = true; let n = PLAN.rooms.length + 1; while (PLAN.rooms.some(o => o.name === `空間 ${n}`)) n++; r.name = `空間 ${n}`; PLAN.rooms.push(r); PLAN.sel = PLAN.rooms.length - 1; } }
     if (d.mode !== 'move' && !r.manual) { r.cw = planCm(r.w); r.cd = planCm(r.h); }
