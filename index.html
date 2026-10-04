@@ -1257,28 +1257,31 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   const legH = Math.min(13, h * 0.16), fT = 4, pTop = legH + fT, cushT = Math.min(22, h * 0.28), seatTop = pTop + cushT;
   const sd = Math.min(105, d * 0.4), cwid = Math.min(110, w * 0.3), bt = 16, armW = Math.min(22, w * 0.06);
   const backTop = Math.min(62, h * 0.775), armTop = backTop - 4, zb = -d / 2, xL = -w / 2, xR = w / 2, wingL = xR - cwid;
-  // 皮革底框（比坐墊略大一圈）
-  const Dk = mat('#232224', 0.5, 0.4), Ls = surfMat('leather', '#' + new THREE.Color(it.color2).multiplyScalar(0.72).getHexString());
-  RB(g, wingL - xL + 1, fT, sd, 1.2, (xL + wingL + 1) / 2, legH + fT / 2, zb + sd / 2, Lt);
-  RB(g, cwid, fT, d, 1.2, xR - cwid / 2, legH + fT / 2, 0, Lt);
-  // 底下縮進去的深色結構（看起來底框是薄薄一片浮著）
-  B(g, wingL - xL - 9, 2.2, sd - 10, (xL + wingL) / 2 + 0.5, legH - 1.1, zb + sd / 2, Dk);
-  B(g, cwid - 10, 2.2, d - 10, xR - cwid / 2, legH - 1.1, 0, Dk);
-  // 邊框中間的車線（外圈一道）
-  const yS = legH + fT / 2, st = (lw, ld, x, z) => B(g, lw, 0.35, ld, x, yS, z, Ls);
-  st(wingL - xL, 0.3, (xL + wingL) / 2, zb + sd - 0.1); st(w, 0.3, 0, zb + 0.1); st(0.3, sd, xL + 0.1, zb + sd / 2);
-  st(0.3, d, xR - 0.1, 0); st(cwid, 0.3, xR - cwid / 2, d / 2 - 0.1); st(0.3, d - sd, wingL + 0.1, zb + sd + (d - sd) / 2);
-  // 轉角的黑色鋼接頭
-  for (const [x, z] of [[xL + 1.1, zb + 1.1], [xL + 1.1, zb + sd - 1.1], [xR - 1.1, zb + 1.1], [xR - 1.1, d / 2 - 1.1], [wingL + 1.1, d / 2 - 1.1]]) B(g, 2.1, fT + 0.2, 2.1, x, legH + fT / 2, z, Dk);
-  // 不鏽鋼腳：上粗下細，底下一小片腳墊
-  const lh = legH - 2.2, leg = (x, z) => {
-    C(g, 3.4, 3.4, 0.9, x, legH - 2.2 - 0.45, z, Mt, 24);                      // 安裝座
-    C(g, 2.1, 1.5, 2.2, x, lh - 0.9 - 1.1, z, Mt, 20);                         // 腳的肩部
-    C(g, 1.5, 0.75, lh - 3.5, x, (lh - 3.1) / 2 + 0.4, z, Mt, 20);            // 錐形腳身
-    C(g, 1.15, 1.15, 0.4, x, 0.2, z, Mt, 16);                                  // 腳墊
+  // 底框：皮革包覆的圓管圍一圈（上緣一道白色車線），管子兩端是亮面金屬蓋；裡面一片深色底板托著坐墊
+  const Dk = mat('#2b2a2b', 0.7), St = mat('#f1e9da', 0.8), tr = fT / 2 + 0.3, ty = legH + fT / 2, cap = 0.9;
+  const tubeX = (x0, x1, z, o) => {                                         // 左右向的管子：兩端有金屬蓋
+    const len = x1 - x0 - 2 * cap, cx = (x0 + x1) / 2;
+    C(g, tr, tr, len, cx, ty, z, Lt, 24).rotation.z = Math.PI / 2;
+    for (const e of [x0 + cap / 2, x1 - cap / 2]) C(g, tr + 0.12, tr + 0.12, cap, e, ty, z, Mt, 24).rotation.z = Math.PI / 2;
+    B(g, len - 1, 0.24, 0.3, cx, ty + tr * 0.80, z + o * tr * 0.62, St).rotation.x = o * 0.66;
   };
-  for (const z of [zb + 13, zb + sd - 13]) { leg(xL + 20, z); leg(wingL - 16, z); if (wingL - xL > 200) leg((xL + wingL) / 2, z); }
-  for (const x of [wingL + 15, xR - 15]) { leg(x, d / 2 - 16); leg(x, zb + 13); }
+  const tubeZ = (z0, z1, x, o) => {                                         // 前後向的管子：接在左右向的管子之間
+    C(g, tr, tr, z1 - z0, x, ty, (z0 + z1) / 2, Lt, 24).rotation.x = Math.PI / 2;
+    B(g, 0.3, 0.24, z1 - z0 - 1, x + o * tr * 0.62, ty + tr * 0.80, (z0 + z1) / 2, St).rotation.z = -o * 0.66;
+  };
+  const zB = zb + tr + 0.15, zF = zb + sd - tr, zW = d / 2 - tr - 0.15;
+  tubeX(xL, xR, zB, -1); tubeX(xL, wingL + tr, zF, 1); tubeX(wingL, xR, zW, 1);
+  tubeZ(zB + tr, zF - tr, xL + tr + cap, -1); tubeZ(zB + tr, zW - tr, xR - tr - cap, 1); tubeZ(zF + tr, zW - tr, wingL + tr + cap, -1);
+  B(g, wingL - xL - 8, 1.6, sd - 2 * tr - 6, (xL + wingL) / 2 + 1, ty - 0.6, zb + sd / 2, Dk);
+  B(g, cwid - 10, 1.6, d - 2 * tr - 6, xR - cwid / 2, ty - 0.6, 0, Dk);
+  // 不鏽鋼腳：管子上套一段亮面金屬套，下面接一支上寬下窄的扁腳
+  const leg = (x, z) => {
+    C(g, tr + 0.18, tr + 0.18, 6.5, x, ty, z, Mt, 24).rotation.z = Math.PI / 2;
+    const lg = C(g, 2.3, 1.15, ty - 0.4, x, (ty - 0.4) / 2 + 0.4, z, Mt, 24); lg.scale.z = 0.6;
+    C(g, 1.1, 1.1, 0.4, x, 0.2, z, Mt, 16).scale.z = 0.6;
+  };
+  for (const z of [zB, zF]) { leg(xL + 22, z); leg(wingL - 18, z); if (wingL - xL > 200) leg((xL + wingL) / 2, z); }
+  for (const x of [wingL + 16, xR - 16]) { leg(x, zW); leg(x, zB); }
   // 靠背（低矮、一段一段）、主座外端的扶手
   const seatL = xL + armW, inner = wingL - seatL, n = seatsOf(it), cw = inner / n, bh = backTop - pTop;
   for (let i = 0; i < n; i++) RB(g, cw - 1.2, bh, bt, 5, seatL + cw * (i + .5), pTop + bh / 2, zb + bt / 2 + 0.5, F);
@@ -1290,11 +1293,11 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   RB(g, 1.4, bh - 6, sideLen - 8, 0.6, xR - 0.75, pTop + (bh - 6) / 2 + 1, zb + sideLen / 2 + 0.5, Lt);
   // 坐墊：主座每人一塊、轉角一塊、貴妃一塊
   const seatD = sd - bt - 2.5;
-  for (let i = 0; i < n; i++) RB(g, cw - 1, cushT, seatD, 6, seatL + cw * (i + .5), pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
+  for (let i = 0; i < n; i++) RB(g, cw - 1, cushT, seatD, 4.5, seatL + cw * (i + .5), pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
   const cornerW = cwid - bt - 2;
-  RB(g, cornerW, cushT, seatD, 6, wingL + cornerW / 2 + 0.5, pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
+  RB(g, cornerW, cushT, seatD, 4.5, wingL + cornerW / 2 + 0.5, pTop + cushT / 2, zb + bt + 1 + seatD / 2, F);
   const chD = d - sd - 2;
-  RB(g, cwid - 3, cushT, chD, 6, xR - cwid / 2, pTop + cushT / 2, d / 2 - chD / 2 - 1.5, F);
+  RB(g, cwid - 2.4, cushT, chD, 4.5, xR - cwid / 2, pTop + cushT / 2, d / 2 - chD / 2 - 1.2, F);
   // 靠枕：主座每人一個大靠枕、轉角兩個配色抱枕、貴妃側邊一個大靠枕
   const ph = h - seatTop - 0.1, pz = zb + bt + 9;
   const pil = (pw, phh, pt, x, z, m, lean, ry, rz) => { const o = new THREE.Group(); o.position.set(x, seatTop - 2, z); o.rotation.set(0, ry || 0, 0); const q = add(o, softPillowGeo(pw, phh, pt), m, 0, phh / 2, 0); q.rotation.x = -lean; q.rotation.z = rz || 0; q.position.z = Math.sin(lean) * phh / 2; g.add(o); };
