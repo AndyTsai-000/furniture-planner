@@ -1274,11 +1274,20 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   tubeZ(zB + tr, zF - tr, xL + tr + cap, -1); tubeZ(zB + tr, zW - tr, xR - tr - cap, 1); tubeZ(zF + tr, zW - tr, wingL + tr + cap, -1);
   B(g, wingL - xL - 8, 1.6, sd - 2 * tr - 6, (xL + wingL) / 2 + 1, ty - 0.6, zb + sd / 2, Dk);
   B(g, cwid - 10, 1.6, d - 2 * tr - 6, xR - cwid / 2, ty - 0.6, 0, Dk);
-  // 不鏽鋼腳：管子上套一段亮面金屬套，下面接一支上寬下窄的扁腳
+  // 不鏽鋼腳：和管子上的金屬套是一體的——套住圓管的金屬套往下收成一支上寬下窄的扁腳
+  const sl = 7, legGeo = (() => {
+    const hw = sl / 2, yT = ty - tr * 0.35, sh = new THREE.Shape();
+    sh.moveTo(-hw, yT); sh.lineTo(hw, yT);
+    sh.bezierCurveTo(hw, yT - 2.6, 2.05, yT - 2.4, 1.95, yT - 5.2);      // 肩部：從金屬套的寬度弧線收窄
+    sh.lineTo(1.15, 1.25); sh.quadraticCurveTo(1.1, 0.8, 0.7, 0.8); sh.lineTo(-0.7, 0.8); sh.quadraticCurveTo(-1.1, 0.8, -1.15, 1.25);
+    sh.lineTo(-1.95, yT - 5.2); sh.bezierCurveTo(-2.05, yT - 2.4, -hw, yT - 2.6, -hw, yT);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 1.5, bevelEnabled: true, bevelThickness: 0.7, bevelSize: 0.5, bevelSegments: 3, curveSegments: 14 });
+    geo.translate(0, 0, -0.75); return geo;
+  })();
   const leg = (x, z) => {
-    C(g, tr + 0.18, tr + 0.18, 6.5, x, ty, z, Mt, 24).rotation.z = Math.PI / 2;
-    const lg = C(g, 2.3, 1.15, ty - 0.4, x, (ty - 0.4) / 2 + 0.4, z, Mt, 24); lg.scale.z = 0.6;
-    C(g, 1.1, 1.1, 0.4, x, 0.2, z, Mt, 16).scale.z = 0.6;
+    C(g, tr + 0.2, tr + 0.2, sl, x, ty, z, Mt, 28).rotation.z = Math.PI / 2;   // 套住圓管的金屬套
+    add(g, legGeo, Mt, x, 0, z);                                               // 扁腳（寬的那一面順著管子）
+    C(g, 0.95, 0.95, 0.25, x, 0.125, z, Dk, 14).scale.z = 0.8;                 // 腳底墊片
   };
   for (const z of [zB, zF]) { leg(xL + 22, z); leg(wingL - 18, z); if (wingL - xL > 200) leg((xL + wingL) / 2, z); }
   for (const x of [wingL + 16, xR - 16]) { leg(x, zW); leg(x, zB); }
