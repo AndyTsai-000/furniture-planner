@@ -569,7 +569,7 @@ body.present.presset #rpanel{display:block}
     <div class="planwrap">
       <div class="planview"><div class="planin" id="planIn2"><canvas id="planCv"></canvas><div id="planBoxes"></div></div></div>
       <div class="planside">
-        <div class="stylechips" id="planMode" style="margin-bottom:8px"><button class="chip" data-pm="whole" title="找出外牆，把外牆以內整層當成一個大空間；裡面的房間之後再自己加">整層一個大空間</button><button class="chip" data-pm="rooms" title="依圖上的隔間牆，自動分出每個房間">自動分房間</button></div>
+        <div class="stylechips" id="planMode" style="margin-bottom:8px"><button class="chip" data-pm="whole" title="找出外牆，把外牆以內整層當成一個大空間；裡面的房間之後再自己加">整層一個大空間</button><button class="chip" data-pm="rooms" title="依圖上的隔間牆，自動分出每個房間">自動分空間</button></div>
         <div class="btnrow"><button class="btn sm" id="planFiner" title="偵測到的空間太少、幾個房間連在一起時用">分細一點</button><button class="btn sm" id="planCoarser" title="一個房間被切成好幾塊時用">分粗一點</button><button class="btn sm" id="planClear">全部清除</button></div>
         <div class="btnrow" id="planPages" hidden style="margin-top:6px"><button class="btn sm" id="planPrev">← 上一頁</button><span id="planPageNo" style="align-self:center;font-size:12px"></span><button class="btn sm" id="planNext">下一頁 →</button></div>
         <label class="planchk"><input type="checkbox" id="planScaleAll" checked><span>改某個空間的寬或深時，其他空間依同比例一起調整（先輸入一個確定的尺寸，整張圖就會對上）</span></label>
@@ -6921,7 +6921,7 @@ function planDraw() {
   const n = PLAN.rooms.length;
   const whole = PLAN.mode !== 'rooms' && PLAN.rooms.some(r => r.whole);
   $('#planMsg').textContent = !n ? '系統沒有從這張圖找到封閉的房間，請在圖上自己框出每個空間。'
-    : whole && PLAN.from === 'dims' ? `已找出外牆，外牆以內整層是一個大空間${n > 1 ? `（不是矩形，拆成 ${n} 塊，相接處沒有牆）` : ''}；尺寸依圖面上綠色圈起的 ${(PLAN.used || []).length} 個標註換算。裡面的房間可以按「自動分房間」，或建立後自己加隔間。`
+    : whole && PLAN.from === 'dims' ? `已找出外牆，外牆以內整層是一個大空間${n > 1 ? `（不是矩形，拆成 ${n} 塊，相接處沒有牆）` : ''}；尺寸依圖面上綠色圈起的 ${(PLAN.used || []).length} 個標註換算。裡面的房間可以按「自動分空間」，或建立後自己加隔間。`
     : whole ? `已找出外牆，外牆以內整層是一個大空間${n > 1 ? `（不是矩形，拆成 ${n} 塊）` : ''}，但圖上沒有找到可用的尺寸標註，目前的尺寸只是估計值，請在右邊輸入正確的寬或深。`
     : PLAN.from === 'dims' ? `偵測到 ${n} 個空間，尺寸依圖面上綠色圈起的 ${(PLAN.used || []).length} 個標註換算（其他數字沒有採用，例如家具尺寸）。請核對框的位置和尺寸，有誤可以直接修改。`
     : PLAN.from === 'user' ? `共 ${n} 個空間，已依您輸入的尺寸換算比例。`
