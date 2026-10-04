@@ -569,6 +569,7 @@ body.present.presset #rpanel{display:block}
     <div class="planwrap">
       <div class="planview"><div class="planin" id="planIn2"><canvas id="planCv"></canvas><div id="planBoxes"></div></div></div>
       <div class="planside">
+        <div class="stylechips" id="planMode" style="margin-bottom:8px"><button class="chip" data-pm="whole" title="找出外牆，把外牆以內整層當成一個大空間；裡面的房間之後再自己加">整層一個大空間</button><button class="chip" data-pm="rooms" title="依圖上的隔間牆，自動分出每個房間">自動分房間</button></div>
         <div class="btnrow"><button class="btn sm" id="planFiner" title="偵測到的空間太少、幾個房間連在一起時用">分細一點</button><button class="btn sm" id="planCoarser" title="一個房間被切成好幾塊時用">分粗一點</button><button class="btn sm" id="planClear">全部清除</button></div>
         <div class="btnrow" id="planPages" hidden style="margin-top:6px"><button class="btn sm" id="planPrev">← 上一頁</button><span id="planPageNo" style="align-self:center;font-size:12px"></span><button class="btn sm" id="planNext">下一頁 →</button></div>
         <label class="planchk"><input type="checkbox" id="planScaleAll" checked><span>改某個空間的寬或深時，其他空間依同比例一起調整（先輸入一個確定的尺寸，整張圖就會對上）</span></label>
@@ -6517,7 +6518,7 @@ $('#finish').onclick = () => { $('#modal').hidden = true; select(null); fitCamer
 $('#newBtn').onclick = () => startNewSpace();
 
 /* ================= 加入平面圖：由 PDF／圖片偵測出各個房間，產生多個空間 ================= */
-const PLAN = { img: null, rooms: [], scale: 0, from: '', texts: [], strength: 0, pdf: null, page: 1, pages: 1, sel: -1, drag: null };
+const PLAN = { mode: (() => { try { return localStorage.getItem('fp-planmode') === 'rooms' ? 'rooms' : 'whole'; } catch (e) { return 'whole'; } })(), img: null, rooms: [], scale: 0, from: '', texts: [], strength: 0, pdf: null, page: 1, pages: 1, sel: -1, drag: null };
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 function loadPdfJs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
@@ -6714,6 +6715,42 @@ function planDetect(img, strength) {
     });
     return out;
   };
+  // 整層一個大空間：先把外牆上的門窗開口封起來，連到圖紙邊緣的就是室外；室外以外的範圍扣掉外牆的厚度，就是外牆以內的整層
+  if (PLAN.mode !== 'rooms') {
+    // 只看最大的那一整塊牆體（建築本身）；圖框、標題欄的粗線不算
+    const LW = planLabel(wall, W, H, 1); let big = null, bigI = -1; LW.comps.forEach((c, i) => { const a = (c.x1 - c.x0) * (c.y1 - c.y0); if (!big || a > big.a) { big = { a }; bigI = i + 1; } });
+    const wallB = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) if (LW.lab[i] === bigI) wallB[i] = 1;
+    const tries = FR.map(f => { const R = Math.max(2, Math.round(P * f)), L = planLabel(planMorph(wallB, W, H, R, true), W, H, 0), out = new Uint8Array(W * H); let n = 0;
+      for (let i = 0; i < W * H; i++) { const c = L.comps[L.lab[i] - 1]; if (c && c.edge) { out[i] = 1; n++; } }
+      return { R, out, inN: W * H - n }; });
+    const best = Math.max(...tries.map(o => o.inN)), pick = tries.find(o => o.inN >= best * 0.93);   // 開口沒封好室外會灌進來、室內變小：取室內範圍夠大的裡面封得最少的
+    const outside = planMorph(pick.out, W, H, pick.R, true), inside = new Uint8Array(W * H);          // 室外往回長到牆邊
+    for (let i = 0; i < W * H; i++) inside[i] = outside[i] ? 0 : 1;
+    // 外牆厚度：從室外往裡面走，連續是牆的長度（四個方向都量，取中位數）
+    const runs = [], scan = (n, m, at) => { for (let a = 0; a < n; a += 2) { let b = 0; while (b < m && !inside[at(a, b)]) b++; let c = b; while (c < m && wallB[at(a, c)]) c++; if (b < m && c > b && c - b < m * 0.2) runs.push(c - b); } };
+    scan(H, W, (y, x) => y * W + x); scan(H, W, (y, x) => y * W + (W - 1 - x)); scan(W, H, (x, y) => y * W + x); scan(W, H, (x, y) => (H - 1 - y) * W + x);
+    runs.sort((a, b) => a - b); const te = runs.length ? runs[runs.length >> 1] : t;
+    const inner = planMorph(inside, W, H, te, false), L = planLabel(inner, W, H, 1);
+    let cp = null, ci = -1; L.comps.forEach((c, i) => { if (!cp || c.n > cp.n) { cp = c; ci = i; } });
+    if (cp && cp.x1 - cp.x0 >= minSide && cp.y1 - cp.y0 >= minSide) {
+      const gid = 1, id = ci + 1, qs = [], bw = cp.x1 - cp.x0 + 1, bh = cp.y1 - cp.y0 + 1;
+      if (cp.n >= bw * bh * 0.975) qs.push(cp);
+      else for (let it = 0; it < 6; it++) {
+        const q = planMaxRect(L.lab, W, id, cp), qw = q.x1 - q.x0 + 1, qh = q.y1 - q.y0 + 1;
+        if (it && (qw * qh < cp.n * 0.025 || Math.min(qw, qh) < minSide * 0.55)) break;
+        qs.push(q); for (let y = q.y0; y <= q.y1; y++) for (let x = q.x0; x <= q.x1; x++) L.lab[y * W + x] = -1;
+      }
+      const ed = qs.map(q => ({ x0: q.x0, y0: q.y0, x1: q.x1 + 1, y1: q.y1 + 1, open: new Set() })), lap = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0) + 1;
+      for (let j = 1; j < qs.length; j++) for (let i = 0; i < j; i++) {
+        const A = qs[i], B = qs[j], oy = lap(A.y0, A.y1, B.y0, B.y1), ox = lap(A.x0, A.x1, B.x0, B.x1), link = (sb, sa, len, alen) => { ed[j].open.add(sb); if (len >= alen * 0.25) ed[i].open.add(sa); };
+        if (B.x0 === A.x1 + 1 && oy > 2) link('left', 'right', oy, A.y1 - A.y0 + 1); else if (B.x1 + 1 === A.x0 && oy > 2) link('right', 'left', oy, A.y1 - A.y0 + 1);
+        else if (B.y0 === A.y1 + 1 && ox > 2) link('back', 'front', ox, A.x1 - A.x0 + 1); else if (B.y1 + 1 === A.y0 && ox > 2) link('front', 'back', ox, A.x1 - A.x0 + 1);
+      }
+      const rooms = []; qs.forEach((q, i) => { const e = ed[i]; if (i && !e.open.size) return; rooms.push({ x: e.x0 / k, y: e.y0 / k, w: (e.x1 - e.x0) / k, h: (e.y1 - e.y0) / k, gid, ext: i, open: [...e.open], whole: true, cx: (q.x0 + q.x1) >> 1, cy: (q.y0 + q.y1) >> 1, ...(i ? {} : { bb: { x: cp.x0 / k, y: cp.y0 / k, w: bw / k, h: bh / k } }) }); });
+      PLAN.det = { k, W, H, dark, wall, win, t: te, cols };
+      return rooms;
+    }
+  }
   const ov = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
   const L0 = planLabel(wall, W, H, 0), area = l => l.reduce((t, r) => t + r.w * r.h, 0), mains = a => a.filter(r => !r.ext).length;
   const clean = rooms => {
@@ -6856,15 +6893,19 @@ const planCm = px => clamp(Math.round(px * PLAN.scale), 100, 3000);
 function planRun(keep) {
   if (!PLAN.img) return;
   const cv = $('#planCv'); cv.width = PLAN.img.width; cv.height = PLAN.img.height; cv.getContext('2d').drawImage(PLAN.img, 0, 0);
-  if (!keep) PLAN.rooms = planDetect(PLAN.img, PLAN.strength).map(r => ({ ...r }));
-  PLAN.used = []; PLAN.scale = planDimScale(PLAN.texts) || planScaleFromText(PLAN.rooms, PLAN.texts); PLAN.from = PLAN.scale ? 'dims' : 'guess';   // 先由尺寸線算比例；圖上沒有尺寸線才拿數字去比對房間的寬深
+  if (!keep) {
+    if (PLAN.mode !== 'rooms') { const m = PLAN.mode; PLAN.mode = 'rooms'; PLAN.sr = planDetect(PLAN.img, 0); PLAN.mode = m; }   // 整層模式：換算比例時仍然拿各個房間去比對圖上的數字
+    PLAN.rooms = planDetect(PLAN.img, PLAN.strength).map(r => ({ ...r }));
+    if (PLAN.mode === 'rooms') PLAN.sr = null;
+  }
+  PLAN.used = []; PLAN.scale = planDimScale(PLAN.texts) || planScaleFromText(PLAN.sr && PLAN.sr.length ? PLAN.sr : PLAN.rooms, PLAN.texts); PLAN.from = PLAN.scale ? 'dims' : 'guess';   // 先由尺寸線算比例；圖上沒有尺寸線才拿數字去比對房間的寬深
   if (PLAN.userScale) { PLAN.scale = PLAN.userScale; PLAN.from = 'user'; }   // 使用者已經用確定的尺寸校正過：重新偵測時沿用
   if (!PLAN.scale) { const side = Math.max(1, ...PLAN.rooms.map(r => Math.max(r.w, r.h))); PLAN.scale = PLAN.rooms.length ? 400 / side : 1200 / Math.max(PLAN.img.width, PLAN.img.height); }   // 沒有尺寸：先假設最大的房間長邊 400 公分
   if (!keep && PLAN.from === 'dims') { const okR = PLAN.rooms.filter(r => r.ext || (Math.min(r.w, r.h) * PLAN.scale >= 70 && r.w * r.h * PLAN.scale * PLAN.scale >= 10000)); if (okR.some(r => !r.ext)) PLAN.rooms = okR; }   // 有尺寸可以換算時：太小的框（管道間、櫃子）不算空間
   { let n = 0; const nm = new Map();
     for (const r of PLAN.rooms) if (!r.ext) { r.name = `空間 ${++n}`; if (r.gid) nm.set(r.gid, r.name); }
     PLAN.rooms = PLAN.rooms.filter(r => !r.ext || nm.has(r.gid));
-    PLAN.rooms = PLAN.rooms.filter(r => !r.ext || Math.min(r.w, r.h) * PLAN.scale >= 100);   // 拆出來的部分不到 100 公分寬的不要（空間最小就是 100 公分）
+    PLAN.rooms = PLAN.rooms.filter(r => !r.ext || Math.min(r.w, r.h) * PLAN.scale >= 85);   // 拆出來的部分太窄（不到 85 公分）的不要
     for (const r of PLAN.rooms) if (!r.ext && r.open && r.open.length && !PLAN.rooms.some(o => o.ext && o.gid === r.gid)) r.open = [];   // 拆出來的部分都沒留下：主體的牆照常保留
     const ord = new Map(); PLAN.rooms.forEach(r => { if (!r.ext) ord.set(r.gid, ord.size); });
     PLAN.rooms.sort((p, q) => (ord.get(p.gid) ?? 99) - (ord.get(q.gid) ?? 99) || (p.ext || 0) - (q.ext || 0));   // 拆出來的部分排在主體後面
@@ -6878,7 +6919,10 @@ function planDraw() {
   $('#planList').innerHTML = PLAN.rooms.length ? PLAN.rooms.map((r, i) => `<div class="prow${i === PLAN.sel ? ' on' : ''}" data-pi="${i}"><label>名稱<input class="num" data-pf2="name" maxlength="20" value="${esc(r.name)}"></label><label>寬 cm<input class="num" type="number" data-pf2="cw" min="100" max="3000" value="${r.cw}"></label><label>深 cm<input class="num" type="number" data-pf2="cd" min="100" max="3000" value="${r.cd}"></label><button class="x" data-pdel="${i}" title="移除這個空間">×</button></div>`).join('')
     : '<div class="muted" style="padding:10px 0;line-height:1.6">沒有偵測到空間。請在左邊的圖上，沿著每個房間的內側拖曳出一個框。</div>';
   const n = PLAN.rooms.length;
+  const whole = PLAN.mode !== 'rooms' && PLAN.rooms.some(r => r.whole);
   $('#planMsg').textContent = !n ? '系統沒有從這張圖找到封閉的房間，請在圖上自己框出每個空間。'
+    : whole && PLAN.from === 'dims' ? `已找出外牆，外牆以內整層是一個大空間${n > 1 ? `（不是矩形，拆成 ${n} 塊，相接處沒有牆）` : ''}；尺寸依圖面上綠色圈起的 ${(PLAN.used || []).length} 個標註換算。裡面的房間可以按「自動分房間」，或建立後自己加隔間。`
+    : whole ? `已找出外牆，外牆以內整層是一個大空間${n > 1 ? `（不是矩形，拆成 ${n} 塊）` : ''}，但圖上沒有找到可用的尺寸標註，目前的尺寸只是估計值，請在右邊輸入正確的寬或深。`
     : PLAN.from === 'dims' ? `偵測到 ${n} 個空間，尺寸依圖面上綠色圈起的 ${(PLAN.used || []).length} 個標註換算（其他數字沒有採用，例如家具尺寸）。請核對框的位置和尺寸，有誤可以直接修改。`
     : PLAN.from === 'user' ? `共 ${n} 個空間，已依您輸入的尺寸換算比例。`
     : `偵測到 ${n} 個空間，但圖上沒有找到可用的尺寸標註，目前的尺寸只是估計值。請在右邊輸入任何一個空間的正確寬或深，其他空間會依同比例調整。`;
@@ -6889,6 +6933,9 @@ function planRescale() { for (const r of PLAN.rooms) if (!r.manual) { r.cw = pla
 $('#mPlan').onclick = () => $('#planIn').click();
 $('#planIn').onchange = e => { const f = e.target.files[0]; e.target.value = ''; planOpenFile(f); };
 $('#planCancel').onclick = () => { $('#planModal').hidden = true; };
+const planModeUI = () => { for (const b of document.querySelectorAll('#planMode [data-pm]')) b.classList.toggle('on', b.dataset.pm === PLAN.mode); $('#planFiner').hidden = $('#planCoarser').hidden = PLAN.mode !== 'rooms'; };
+$('#planMode').onclick = e => { const b = e.target.closest('[data-pm]'); if (!b || b.dataset.pm === PLAN.mode) return; PLAN.mode = b.dataset.pm; try { localStorage.setItem('fp-planmode', PLAN.mode); } catch (err) { } planModeUI(); planRun(); };
+planModeUI();
 $('#planFiner').onclick = () => { PLAN.strength = Math.min(6, PLAN.strength + 1); planRun(); };      // 封住更寬的開口 → 分出更多房間
 $('#planCoarser').onclick = () => { PLAN.strength = Math.max(-6, PLAN.strength - 1); planRun(); };
 $('#planClear').onclick = () => { PLAN.rooms = []; PLAN.sel = -1; planDraw(); };
