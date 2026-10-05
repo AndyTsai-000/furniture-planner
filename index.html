@@ -465,6 +465,7 @@ body.present.presset #rpanel{display:block}
   <aside id="rpanel" hidden><div class="sec">
     <h3>渲染</h3>
     <div class="muted" style="font-size:12px;line-height:1.6">拖曳畫面調整角度（右鍵旋轉、左鍵平移、滾輪縮放），白框內就是輸出的範圍。</div>
+    <div class="muted" id="rFocusNote" style="font-size:12px;line-height:1.6;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(201,122,74,.12)" hidden></div>
     <div class="grp" data-g="r-light"><button type="button" class="grpH" data-grp="r-light">燈光與亮度</button><div class="grpB">
     <h4>燈光</h4>
     <div class="stylechips" data-rk="light"><button class="chip" data-v="natural">自然光</button><button class="chip" data-v="white">白光</button><button class="chip" data-v="warm">黃光</button></div>
@@ -6585,9 +6586,11 @@ function loadSpaceData(data) {
 }
 let delArmed = false;
 function renderSpaces() {
-  $('#spaceSel').innerHTML = spaces.list.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const all = ctxAllOk();                                                // 平面圖專案：最上面多一個「全部空間」，選單一空間就只顯示那個空間
+  $('#spaceSel').innerHTML = (all ? '<option value="__all">全部空間</option>' : '') + spaces.list.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   $('#spaceSel').hidden = !spaces.list.length;
-  if (spaces.cur) $('#spaceSel').value = spaces.cur;
+  $('#spaceSel').title = all ? '全部空間：所有空間一起編輯（點哪個空間就編輯哪個）；選單一空間：畫面只留那個空間' : '切換空間';
+  if (spaces.cur) $('#spaceSel').value = all && !spaces.solo ? '__all' : spaces.cur;
   const c = curSpace(), p = curProject();
   if ($('#spaceName') !== document.activeElement) $('#spaceName').value = c ? c.name : '';
   if ($('#projName') !== document.activeElement) $('#projName').value = p ? p.name : '';
@@ -6802,11 +6805,18 @@ $('#delSpace').onclick = () => {
   spaces.cur = spaces.list[spaces.list.length - 1].id;
   markDirty(); loadSpaceData(JSON.parse(curSpace().data)); save(); renderSpaces();
 };
-$('#spaceSel').onchange = e => switchSpace(e.target.value);
+$('#spaceSel').onchange = e => {
+  const v = e.target.value;
+  if (!ctxAllOk()) { switchSpace(v); return; }
+  spaces.solo = v !== '__all';
+  if (v === '__all' || v === spaces.cur) { save(); loadSpaceData(JSON.parse(curSpace().data)); save(); }
+  else switchSpace(v);
+  persist(); renderSpaces();
+};
 $('#spaceName').oninput = e => {
   const c = curSpace(); if (!c || !e.target.value.trim()) return;
   c.name = e.target.value.trim(); markDirty(); persist();
-  const o = $('#spaceSel').selectedOptions[0]; if (o) o.textContent = c.name;
+  const o = [...$('#spaceSel').options].find(x => x.value === c.id); if (o) o.textContent = c.name;
 };
 $('#spaceName').onchange = () => renderSpaces();
 $('#projName').onchange = e => {                                         // 改名撞到別的專案時自動加編號
@@ -7343,7 +7353,7 @@ $('#planOk').onclick = () => {                                           // 依�
   $('#planModal').hidden = true;
   loadSpaceData(JSON.parse(curSpace().data)); renderSpaces(); save();
   $('#modal').hidden = false; showStep(2); renderStructLists(); $('#back1').hidden = true;   // 接著進「加入梁柱與門窗」（第一個空間）；其他空間用上方的空間選單切換
-  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, '現在是第一個空間，可以先加梁柱與門窗。所有空間會一起顯示，直接點畫面上的其他空間就能切換過去編輯（也可以用上方的空間選單）。');
+  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, '現在是第一個空間，可以先加梁柱與門窗。所有空間會一起顯示，直接點畫面上的其他空間就能切換過去編輯。想一次只看一個空間，用上方的選單選那個空間；選「全部空間」就回到一起編輯。');
 };
 
 /* ================= 復原 / 儲存 ================= */
@@ -7756,7 +7766,8 @@ function buildSpaceGroup(sp) {                                          // 用�
 }
 /* ---------- 全戶編輯：由平面圖建立的專案，編輯時其他空間照格局一起顯示在旁邊，點一下就切換過去編輯 ---------- */
 scene.add(ctxGroup);
-const ctxOn = () => { const c = spaces && spaces.plan && !MG.on && spaces.list.length > 1 ? curSpace() : null; return !!(c && c.pos); };
+const ctxAllOk = () => !!(spaces && spaces.plan && spaces.list.length > 1 && spaces.list.every(sp => sp.pos));   // 由平面圖建立、每個空間都有位置：可以全部一起編輯
+const ctxOn = () => { const c = spaces && spaces.plan && !spaces.solo && !MG.on && spaces.list.length > 1 ? curSpace() : null; return !!(c && c.pos); };
 function ctxDrop(id) { const c = CTX.groups.get(id); if (!c) return; c.G.traverse(o => { if (o.isCSS2DObject && o.element) o.element.remove(); }); ctxGroup.remove(c.G); disposeObj(c.G); CTX.groups.delete(id); }
 function ctxClear() { for (const id of [...CTX.groups.keys()]) ctxDrop(id); CTX.box = null; }
 function ctxRefresh(data) {
@@ -8033,7 +8044,27 @@ const ceilOcc = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasi
 ceilOcc.rotation.x = Math.PI / 2; ceilOcc.castShadow = true; ceilOcc.visible = false; scene.add(ceilOcc);
 const LAMP_T = new Set(['lamp', 'pendant', 'ceillight', 'tablelamp', 'walllamp']);
 const LAMPCFG = { white: { c: '#f3f6ff', i: 9000 }, warm: { c: '#ffb45c', i: 14000 } };   // 自然光（白天）燈具不開
-let rLamps = [];
+let rLamps = [], rFill = [];
+// 多個空間一起渲染時，上方點了哪個空間，燈光／亮度／角度就只改那個空間；點「整體」則全部一起改
+const spOfG = G => spaces.list.find(sp => sp.id === G.userData.spaceId) || {};
+const rFocusG = () => MG.on && PRES.on && PRES.cur !== 'all' ? MG.groups.find(G => G.userData.spaceId === PRES.cur) || null : null;
+const rLightOf = G => (spOfG(G).rl || {}).light || RM.light, rExpoOf = G => (spOfG(G).rl || {}).expo || RM.expo;
+const rCur = () => { const G = rFocusG(); return G ? { light: rLightOf(G), expo: rExpoOf(G), G } : { light: RM.light, expo: RM.expo, G: null }; };
+function rSet(k, v) {
+  const G = rFocusG();
+  if (G) { const sp = spOfG(G); sp.rl = { ...(sp.rl || {}), [k]: v }; }
+  else {
+    RM[k] = v;
+    if (MG.on) { for (const sp of spaces.list) if (sp.rl) delete sp.rl[k]; }
+    else { const c = curSpace(); if (c) c.rl = { ...(c.rl || {}), [k]: v }; }
+  }
+  persist();
+}
+const rBox = () => {                                                    // 角度要對準的範圍：選了某個空間就是那個空間
+  const G = rFocusG();
+  if (G) { const R = mDims(G); return { w: R.w, d: R.d, h: G.userData.room.h, cx: G.position.x, cz: G.position.z }; }
+  return MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 };
+};
 function clearLamps() {
   for (const L of rLamps) { if (L.light) { scene.remove(L.light); L.light.dispose(); } for (const x of L.mats) x.m.emissiveIntensity = x.ei; for (const o of L.quiet || []) o.castShadow = true; }
   rLamps = [];
@@ -8044,12 +8075,13 @@ function softGlass(on) {                                                // 渲�
   else { for (const x of rGlass) x.m.roughness = x.r; rGlass = []; }
 }
 function setupLamps() {                                                 // 燈具實際發光：燈罩變亮，並在燈罩位置放光源
-  clearLamps(); const cfg = LAMPCFG[RM.light]; if (!cfg) return;
+  clearLamps(); const ge = rCur().expo;
   let shadows = 0;
-  const lampList = MG.on ? MG.groups.flatMap(G => G.userData.lamps || []) : state.items.filter(it => LAMP_T.has(it.type)).map(it => ({ type: it.type, g: objById.get(it.id) }));
+  const lampList = MG.on ? MG.groups.flatMap(G => (G.userData.lamps || []).map(l => ({ ...l, cfg: LAMPCFG[rLightOf(G)], k: rExpoOf(G) / ge })))   // 每個空間的燈照自己的燈光設定
+    : state.items.filter(it => LAMP_T.has(it.type)).map(it => ({ type: it.type, g: objById.get(it.id), cfg: LAMPCFG[RM.light], k: 1 }));
   for (const it of lampList) {
     if (rLamps.length >= 8) continue;
-    const g = it.g; if (!g) continue;
+    const g = it.g, cfg = it.cfg; if (!g || !cfg) continue;
     g.updateMatrixWorld(true);
     const box = new THREE.Box3(), mats = [], quiet = [];
     g.traverse(o => {
@@ -8061,7 +8093,7 @@ function setupLamps() {                                                 // 燈�
     if (box.isEmpty()) continue;
     for (const x of mats) x.m.emissiveIntensity = Math.max(x.ei, 3);   // 燈罩明顯發亮（會帶出光暈）
     const up = it.type === 'pendant' || it.type === 'ceillight';
-    const light = new THREE.PointLight(cfg.c, cfg.i * (up ? 1.6 : 1), 0, 2);
+    const light = new THREE.PointLight(cfg.c, cfg.i * it.k * (up ? 1.6 : 1), 0, 2);
     light.position.copy(box.getCenter(new V3())); if (up) light.position.y = box.min.y - 3;
     if (shadows < 2) {                                                  // 最主要的兩盞燈投射柔和陰影
       shadows++; light.castShadow = true; light.shadow.mapSize.set(512, 512);
@@ -8069,6 +8101,7 @@ function setupLamps() {                                                 // 燈�
     }
     scene.add(light); rLamps.push({ light, mats, quiet });
   }
+  const cfg = LAMPCFG[RM.light]; if (!cfg || MG.on) return;
   const cm = [];                                                        // 天花板的間接燈條、嵌燈也一起亮
   ceilGroup.traverse(o => { const m = o.material; if (o.isMesh && m && m.emissive && m.emissive.r + m.emissive.g + m.emissive.b > 0.3 && !cm.some(x => x.m === m)) cm.push({ m, ei: m.emissiveIntensity }); });
   for (const x of cm) x.m.emissiveIntensity = 1.6;
@@ -8126,7 +8159,7 @@ const rRoom = () => {                                                  // 渲染
   return { w: B.w, d: B.d, h, cx: B.cx, cz: B.cz };
 };
 function applyLight() {
-  const L = RLIGHT[RM.light], { w, d, h, cx, cz } = rRoom(), S = Math.max(w, d);
+  const cur = rCur(), L = RLIGHT[cur.light], { w, d, h, cx, cz } = rRoom(), S = Math.max(w, d);
   sun.color.set(L.sun); sun.intensity = L.si;
   RM.winLit = false;
   if (L.over) sun.position.set(cx + w * 0.08, h * 3 + S, cz + d * 0.12);   // 室內燈光從正上方打
@@ -8136,9 +8169,15 @@ function applyLight() {
   setupLamps(); setupWindowLight();
   hemi.color.set(L.sky); hemi.groundColor.set(L.gnd); hemi.intensity = L.hi;
   scene.environmentIntensity = L.env;
-  ceilLight.color.set(L.cc); ceilLight.intensity = L.ceil; ceilLight.position.set(cx, h - 15, cz);
+  ceilLight.color.set(L.cc); ceilLight.intensity = MG.on ? 0 : L.ceil; ceilLight.position.set(cx, h - 15, cz);
+  for (const f of rFill) { scene.remove(f); f.dispose(); } rFill = [];
+  if (MG.on) for (const G of MG.groups) {                               // 多個空間：每個空間各一盞天花板補光，顏色、亮度照自己的設定
+    const Lg = RLIGHT[rLightOf(G)]; if (!Lg.ceil) continue;
+    const R = mDims(G), f = new THREE.PointLight(Lg.cc, Lg.ceil * rExpoOf(G) / cur.expo, Math.hypot(R.w, R.d) * 0.75 + 120, 0);
+    f.position.set(G.position.x, G.userData.room.h - 15, G.position.z); scene.add(f); rFill.push(f);
+  }
   scene.background = new THREE.Color(L.bg);
-  renderer.toneMappingExposure = L.expo * RM.expo;
+  renderer.toneMappingExposure = L.expo * cur.expo;
 }
 function setLens(l) { RM.lens = l; persp.fov = l === 'wide' ? 64 : rBase.fov; persp.updateProjectionMatrix(); syncChips(); }
 const OUT_DIR = { 'o-f': [0, 1], 'o-b': [0, -1], 'o-l': [-1, 0], 'o-r': [1, 0], 'o-fl': [-1, 1], 'o-fr': [1, 1], 'o-bl': [-1, -1], 'o-br': [1, -1] };
@@ -8153,7 +8192,7 @@ function outFit(B, h, ux, uz, vHalf, hHalf, pitch, ty) {             // 從 (ux,
   return dist;
 }
 function rAngleOut(k) {                                                 // 整個空間：從外面斜上方往內看，剛好把整個空間放進輸出範圍；靠鏡頭的外牆與天花板自動不顯示
-  const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
+  const B = rBox(), h = B.h;
   const [dx, dz] = OUT_DIR[k], n = Math.hypot(dx, dz), ux = dx / n, uz = dz / n, pitch = 36 * deg;
   setLens('std');
   const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
@@ -8195,16 +8234,24 @@ function rAngleFace(k) {                                                // 正�
   persp.position.set(0, h / 2, sg * (d / 2 + dist)); controls.target.set(0, h / 2, 0); controls.update();
 }
 function rAngleTop() {                                                  // 上方：從正上方垂直往下看，畫面剛好框住牆內的空間（天花板自動隱藏）
-  const B = MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 }, h = MG.on ? Math.max(...MG.groups.map(G => G.userData.room.h)) : B.h;
+  const B = rBox(), h = B.h;
   setLens('std');
   const [W, H] = outSize(), fr = frameRect(W / H), vHalf = Math.atan(Math.tan(persp.fov * Math.PI / 360) * fr.fh / fr.vh), hHalf = Math.atan(Math.tan(vHalf) * W / H);
   const y = h + Math.max(B.w / 2 / Math.tan(hHalf), B.d / 2 / Math.tan(vHalf)) * 1.02;   // 以牆頂的範圍為準：四面牆的內側都看得到
   persp.position.set(B.cx, y, B.cz + 0.5); controls.target.set(B.cx, 0, B.cz); controls.update();
 }
 function rAngle(k) {                                                    // 預設角度：人眼高度站在門口往內看，或從正上方往下看
+  PRES.fly++;
   if (OUT_DIR[k]) { rAngleOut(k); return; }
   if (k === 'top') { rAngleTop(); return; }
   if (!MG.on && (k === 'front' || k === 'back')) { rAngleFace(k); return; }
+  if (MG.on && rFocusG()) {                                             // 多個空間裡選了其中一個：站在那個空間裡面，用人眼高度往內看
+    const B = rBox(), eye = Math.min(150, B.h * 0.55), sx = k === 'right' ? 1 : -1, sg = k === 'back' ? -1 : 1;
+    setLens('wide');
+    if (k === 'left' || k === 'right') { persp.position.set(B.cx + sx * (B.w / 2 - 12), eye, B.cz + B.d / 2 - 12); controls.target.set(B.cx - sx * B.w * 0.12, eye * 0.6, B.cz - B.d * 0.15); }
+    else { persp.position.set(B.cx, eye, B.cz + sg * (B.d / 2 - 12)); controls.target.set(B.cx, eye * 0.75, B.cz - sg * B.d * 0.2); }
+    controls.update(); return;
+  }
   if (MG.on) {                                                          // 合併畫面：從不同方向斜上方俯看整體
     const { w, d, cx, cz } = rRoom(), S = Math.max(w, d);
     const P = { front: [0, 0.75, 1.0], back: [0, 0.75, -1.0], left: [-0.8, 0.75, 0.8], right: [0.8, 0.75, 0.8] }[k];
@@ -8257,7 +8304,11 @@ function clearOut() {
 }
 function busy(on, text) { RM.busy = on; $('#rbusy').hidden = !on; if (text) $('#rbusyT').textContent = text; $('#rbusyBar').style.width = '0'; }
 const syncChips = () => {
-  document.querySelectorAll('#rpanel [data-rk]').forEach(b => b.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === String(RM[b.dataset.rk]))));
+  const cur = rCur();
+  document.querySelectorAll('#rpanel [data-rk]').forEach(b => b.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === String(b.dataset.rk === 'light' ? cur.light : RM[b.dataset.rk]))));
+  $('#rExpo').value = cur.expo;
+  $('#rFocusNote').hidden = !(MG.on && PRES.on);
+  $('#rFocusNote').textContent = cur.G ? `目前設定的是「${spOfG(cur.G).name || '空間'}」：燈光、亮度、角度只會改這個空間。點上方的「整體」可以全部一起改。` : '目前設定的是全部空間。點上方的空間名稱，可以單獨設定那個空間的燈光、亮度和角度。';
   $('#rDirRow').hidden = RM.path !== 'orbit';                           // 環繞方向只有環繞一圈用得到
   $('#rCamRow').hidden = MG.on;                                         // 空間合併：動畫固定從高處往下看
   $('#rWalkRow').hidden = MG.on;                                        // 人物走動只在單一空間的動畫
@@ -8270,6 +8321,7 @@ function enterRender() {
   select(null);
   rBase = { sunTg: sun.target.position.clone(), shCam: { ...['left', 'right', 'top', 'bottom', 'near', 'far'].reduce((o, k) => (o[k] = sun.shadow.camera[k], o), {}) }, sunC: sun.color.clone(), si: sun.intensity, sunPos: sun.position.clone(), sky: hemi.color.clone(), gnd: hemi.groundColor.clone(), hi: hemi.intensity, env: scene.environmentIntensity, expo: renderer.toneMappingExposure, bg: scene.background.clone(), fov: persp.fov };
   RM.on = true; RM.lens = 'std';
+  if (!MG.on) { const rl = (curSpace() || {}).rl; if (rl) { if (RLIGHT[rl.light]) RM.light = rl.light; if (rl.expo) RM.expo = rl.expo; } }   // 這個空間上次的燈光、亮度
   document.body.classList.add('rmode'); $('#renderBtn').classList.add('on');
   $('#rpanel').hidden = $('#rframe').hidden = false; $('#labels').hidden = $('#hint').hidden = true; overlay.visible = false;
   wallGroup.traverse(o => { if (o.isMesh) o.castShadow = true; });      // 牆會擋光、在牆角留下陰影
@@ -8295,7 +8347,12 @@ function exitRender() {
   sun.target.position.copy(rBase.sunTg); sun.target.updateMatrixWorld(); Object.assign(sun.shadow.camera, rBase.shCam); sun.shadow.camera.updateProjectionMatrix();
   persp.fov = rBase.fov; persp.updateProjectionMatrix();
   if (RM.ctxCam) { persp.position.copy(RM.ctxCam.p); controls.target.copy(RM.ctxCam.t); controls.update(); RM.ctxCam = null; }   // 回到進渲染前看整個格局的視角
+  for (const f of rFill) { scene.remove(f); f.dispose(); } rFill = [];
   resize();
+  if (RM.viaCtx) {                                                       // 從「全部空間一起編輯」進來的：收掉合併畫面，回到編輯
+    const k = RM.viaCtx; RM.viaCtx = null; exitMerge(); spaces.mergeView = k.mv; persist();
+    persp.position.copy(k.p); controls.target.copy(k.t); controls.update(); $('#presExit').textContent = '✕ 返回空間合併';
+  }
 }
 async function renderStill() {
   const r = await renderBlob();
@@ -8341,6 +8398,7 @@ function presGo(id, fly = true) {
   setLens('std');
   const v = presView(id); if (!v) return;
   PRES.cur = id;
+  if (RM.on) { applyLight(); syncChips(); }                              // 換到這個空間自己的燈光、亮度
   if (fly) flyTo(v.pos, v.tg); else { PRES.fly++; persp.position.copy(v.pos); controls.target.copy(v.tg); controls.update(); }
   $('#presTabs').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.sp === id));
 }
@@ -8466,7 +8524,14 @@ function showShot(kind) {
   const vb = $('#shotVidDl'); vb.hidden = img || off(vb); vb.textContent = `下載影片 (.${img ? 'mp4' : shotData.ext})`;
   $('#shotModal').hidden = false;
 }
-$('#renderBtn').onclick = () => RM.on ? exitRender() : MG.on ? enterPresent() : enterRender();   // 空間合併時直接進展示頁
+function enterAllRender() {                                             // 全部空間一起編輯時按渲染：所有空間一起渲染（借用空間合併的畫面），離開後回到原本的編輯畫面
+  const keep = { p: persp.position.clone(), t: controls.target.clone(), mv: spaces.mergeView };
+  if (view !== '3d') setView('3d');
+  spaces.mergeView = null; enterMerge(); spaces.mergeView = keep.mv;
+  if (!MG.on) { enterRender(); return; }
+  RM.viaCtx = keep; enterPresent(); $('#presExit').textContent = '✕ 返回編輯';
+}
+$('#renderBtn').onclick = () => RM.on ? exitRender() : MG.on ? enterPresent() : ctxOn() ? enterAllRender() : enterRender();   // 空間合併、全部空間一起編輯時直接進展示頁
 let rMoveT = 0;
 controls.addEventListener('start', () => { clearTimeout(rMoveT); RM.moving = true; });
 controls.addEventListener('end', () => { clearTimeout(rMoveT); rMoveT = setTimeout(() => { RM.moving = false; }, 200); });
@@ -8506,13 +8571,13 @@ $('#rExit').onclick = exitRender;
 $('#rShot').onclick = renderStill;
 $('#rAnim').onclick = recordAnim;
 $('#rbusyStop').onclick = () => { if (RM.anim) { RM.anim.cancel = true; RM.anim.rec.stop(); } };
-$('#rExpo').oninput = e => { RM.expo = +e.target.value; applyLight(); };
+$('#rExpo').oninput = e => { rSet('expo', +e.target.value); applyLight(); };
 $('#rpanel').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
   if (c.dataset.ang) { rAngle(c.dataset.ang); return; }
   const box = c.closest('[data-rk]'); if (!box) return;
+  if (box.dataset.rk === 'light') { rSet('light', c.dataset.v); applyLight(); syncChips(); return; }
   RM[box.dataset.rk] = c.dataset.v;
-  if (box.dataset.rk === 'light') applyLight();
   if (box.dataset.rk === 'lens') setLens(c.dataset.v);
   if (box.dataset.rk === 'size') placeFrame();
   syncChips();
