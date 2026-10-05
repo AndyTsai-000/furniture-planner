@@ -700,9 +700,34 @@ const canFS = (() => { try { return !!window.showSaveFilePicker && window.top ==
 
 /* ================= 材質與幾何工具 ================= */
 const MATS = new Map();
+// 專案自訂顏色的紋路：顏色是由圖片加入的，就把那張圖片的紋路貼上去
+const CTEX = new Map();
+function customTex(col) {
+  try {
+    const o = spaces && Array.isArray(spaces.colors) ? spaces.colors.find(q => q.c === col && q.tex) : null; if (!o) return null;
+    let t = CTEX.get(o.tex);
+    if (!t) { t = new THREE.TextureLoader().load(o.tex); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; t.anisotropy = 4; CTEX.set(o.tex, t); }   // 鏡射重複：接縫處看不出來
+    return t;
+  } catch (e) { return null; }
+}
+// 紋路不照模型原本的貼圖座標拉伸，而是照實際尺寸（每張圖 TRI_CM 公分）從三個方向投影上去：大沙發、小椅腳上的紋路一樣大，轉彎的地方自然銜接
+const TRI_CM = 42;
+function triMat(m, tx) {
+  m.map = null; m.color.set('#ffffff');
+  m.onBeforeCompile = sh => {
+    sh.uniforms.triMap = { value: tx }; sh.uniforms.triS = { value: TRI_CM };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriP = transformed * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));\nvTriN = objectNormal;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D triMap;\nuniform float triS;\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
+      .replace('#include <map_fragment>', 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS) * triW.x + texture2D(triMap, vTriP.xz / triS) * triW.y + texture2D(triMap, vTriP.xy / triS) * triW.z).rgb;');
+  };
+  m.customProgramCacheKey = () => 'tri';
+  m.needsUpdate = true;
+  return m;
+}
 function mat(color, rough = 0.75, metal = 0) {
-  const k = color + '|' + rough + '|' + metal;
-  if (!MATS.has(k)) MATS.set(k, new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: rough, metalness: metal }));
+  const tx = customTex(color), k = color + '|' + rough + '|' + metal + (tx ? '|' + tx.uuid : '');
+  if (!MATS.has(k)) { const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: rough, metalness: metal }); if (tx) triMat(m, tx); MATS.set(k, m); }
   return MATS.get(k);
 }
 function add(g, geo, m, x, y, z) {
@@ -2420,7 +2445,7 @@ function surfTex(kind) {
 // 依材質種類產生材質（同種類同顏色共用）
 function surfMat(kind, col) {
   col = col || '#ffffff';
-  const k = 'surf|' + kind + '|' + col;
+  const tx = kind === 'glass' ? null : customTex(col), k = 'surf|' + kind + '|' + col + (tx ? '|' + tx.uuid : '');
   if (MATS.has(k)) return MATS.get(k);
   let m;
   switch (kind) {
@@ -2439,6 +2464,7 @@ function surfMat(kind, col) {
     case 'metal': m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.32, metalness: 0.75 }); break;
     default: m = new THREE.MeshStandardMaterial({ color: col, map: surfTex('wood'), roughness: 0.55 });
   }
+  if (tx) triMat(m, tx);
   MATS.set(k, m);
   return m;
 }
@@ -6111,20 +6137,28 @@ function renderStructLists() {
 /* ---------- 專案自訂顏色：使用者加入顏色圖片檔，取出圖片的顏色存在這個專案裡（存檔、重新開啟都還在；別的專案要用得重新加入） ---------- */
 const projColors = () => (spaces && Array.isArray(spaces.colors) ? spaces.colors : []);
 // mk(c)：這一組色票的按鈕怎麼寫（回傳 class 與 data 屬性），cur：目前的顏色
-const customSw = (mk, cur) => projColors().map(o => `<button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + '<button type="button" class="swadd" data-addcolor="1" title="加入顏色圖片檔，把圖片的顏色存在這個專案裡">＋ 新增</button>';
+const customSw = (mk, cur) => projColors().map(o => `<button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + '<button type="button" class="swadd" data-addcolor="1" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡">＋ 新增</button>';
 let addCtx = null;
-function imgColor(file) {                                                // 讀圖片：取中間區域的平均色，另外縮一張小圖當色票
+function imgColor(file) {                                                // 讀圖片：做一張貼紋路用的圖（拍照時一邊亮一邊暗的部分先拉平，鋪開來才不會一塊亮一塊暗）、取平均色、縮一張小圖當色票
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => {
       try {
-        const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d', { willReadFrequently: true });
-        const sz = Math.min(im.width, im.height); x.drawImage(im, (im.width - sz) / 2, (im.height - sz) / 2, sz, sz, 0, 0, 48, 48);
-        const d = x.getImageData(8, 8, 32, 32).data; let r = 0, g = 0, b = 0, n = 0;
-        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) continue; r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+        const S = 192, mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; };
+        const c = mk(S), x = c.getContext('2d', { willReadFrequently: true }), sz = Math.min(im.width, im.height);
+        x.drawImage(im, (im.width - sz) / 2, (im.height - sz) / 2, sz, sz, 0, 0, S, S);
+        const sm = mk(6); sm.getContext('2d').drawImage(c, 0, 0, 6, 6);
+        const bl = mk(S), bx = bl.getContext('2d', { willReadFrequently: true }); bx.imageSmoothingQuality = 'high'; bx.drawImage(sm, 0, 0, S, S);
+        const I = x.getImageData(0, 0, S, S), d = I.data, lo = bx.getImageData(0, 0, S, S).data, av = [0, 0, 0]; let n = 0;
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) continue; av[0] += d[i]; av[1] += d[i + 1]; av[2] += d[i + 2]; n++; }
         if (!n) throw new Error('empty');
-        const hex = '#' + [r, g, b].map(v => Math.round(v / n).toString(16).padStart(2, '0')).join('');
-        res({ c: hex, img: c.toDataURL('image/jpeg', 0.8) });
+        for (let k = 0; k < 3; k++) av[k] /= n;
+        for (let i = 0; i < d.length; i += 4) { for (let k = 0; k < 3; k++) { const flat = d[i + k] * av[k] / Math.max(10, lo[i + k]); d[i + k] = Math.max(0, Math.min(255, d[i + k] * 0.3 + flat * 0.7)); } d[i + 3] = 255; }
+        x.putImageData(I, 0, 0);
+        const th = mk(48); th.getContext('2d').drawImage(c, 0, 0, 48, 48);
+        let h = 0; for (let i = 0; i < d.length; i += 97) h = (h * 31 + d[i]) & 7;   // 同樣顏色、不同紋路的圖也能分開存
+        const hex = '#' + av.map((v, k) => Math.max(0, Math.min(255, Math.round(v) ^ (k === 2 ? h & 1 : 0))).toString(16).padStart(2, '0')).join('');
+        res({ c: hex, img: th.toDataURL('image/jpeg', 0.8), tex: c.toDataURL('image/jpeg', 0.78) });
       } catch (e) { rej(e); } finally { URL.revokeObjectURL(url); }
     };
     im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('load')); };
@@ -6144,7 +6178,7 @@ document.addEventListener('click', e => {
       const f = inp.files[0]; inp.value = ''; if (!f) return;
       let o; try { o = await imgColor(f); } catch (err) { if (addCtx && addCtx.btn.isConnected) flash(addCtx.btn, '這個檔案讀不出顏色'); return; }
       const list = spaces.colors = projColors().filter(q => q.c !== o.c); list.push(o); if (list.length > 24) list.shift();   // 最多留 24 個
-      markDirty(); persist(); refreshColorUI();
+      markDirty(); persist(); try { rebuildAll(); } catch (err) { } refreshColorUI();
       const ds = addCtx && addCtx.ds;                                     // 套用到剛剛按「新增」的那個顏色欄位
       if (ds) { const t = [...document.querySelectorAll(`[data-cc="${o.c}"]`)].find(el => Object.entries(ds).every(([k, v]) => el.dataset[k] === v)); if (t) t.click(); }
     }; }
@@ -7765,7 +7799,7 @@ function loadDesign(text, fileName, opt = {}) {
   if (d.mergeView && Array.isArray(d.mergeView.p)) p.mergeView = d.mergeView;
   if (d.plan) p.plan = true;
   if (d.wallT >= 5 && d.wallT <= 40) p.wallT = Math.round(d.wallT);
-  if (Array.isArray(d.colors)) p.colors = d.colors.filter(o => o && /^#[0-9a-f]{6}$/i.test(o.c) && typeof o.img === 'string' && o.img.startsWith('data:image/')).slice(0, 24); else if (mine && mine.colors) p.colors = mine.colors;
+  if (Array.isArray(d.colors)) p.colors = d.colors.filter(o => o && /^#[0-9a-f]{6}$/i.test(o.c) && typeof o.img === 'string' && o.img.startsWith('data:image/')).map(o => ({ c: o.c, img: o.img, ...(typeof o.tex === 'string' && o.tex.startsWith('data:image/') ? { tex: o.tex } : {}) })).slice(0, 24); else if (mine && mine.colors) p.colors = mine.colors;
   p.srcAt = d.savedAt || 0; p.impAt = p.updated;                         // 記下對方的儲存時間與收到當下的時間，之後收到更新版本可以直接更新
   done();
   let replaced = null;
