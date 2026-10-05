@@ -130,6 +130,9 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .sws{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 .sw{width:24px;height:24px;border-radius:50%;border:1px solid rgba(0,0,0,.15);padding:0}
 .sw.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.swx{position:relative;display:inline-flex}
+.swx>i{position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:#3a3531;color:#fff;font:700 11px/14px sans-serif;text-align:center;cursor:pointer;opacity:.85}
+.swx>i:hover{opacity:1;background:#c0392b}
 .swadd{width:auto;height:24px;border:1px dashed var(--line2);border-radius:12px;padding:0 8px;background:none;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
 .swadd:hover{color:var(--accent);border-color:var(--accent)}
 .finsw .swadd{height:20px;padding:0 6px}
@@ -6138,7 +6141,7 @@ function renderStructLists() {
 const projColors = () => (spaces && Array.isArray(spaces.colors) ? spaces.colors : []);
 // mk(c)：這一組色票的按鈕怎麼寫（回傳 class 與 data 屬性），cur：目前的顏色
 const slotOf = t => String(t || '').replace(/顏色|色$/g, '').trim();
-const customSw = (mk, cur, slot = '') => projColors().filter(o => !o.slot || !slot || o.slot === slot).map(o => `<button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + `<button type="button" class="swadd" data-addcolor="1" data-slot="${esc(slot)}" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡，之後在同名的顏色欄位都能選">＋ 新增</button>`;
+const customSw = (mk, cur, slot = '') => projColors().filter(o => !o.slot || !slot || o.slot === slot).map(o => `<span class="swx"><button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button><i data-delcolor="${o.c}" data-slot="${esc(o.slot || '')}" title="移除這個自訂顏色">×</i></span>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + `<button type="button" class="swadd" data-addcolor="1" data-slot="${esc(slot)}" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡，之後在同名的顏色欄位都能選">＋ 新增</button>`;
 
 let addCtx = null;
 function imgColor(file) {                                                // 讀圖片：做一張貼紋路用的圖（拍照時一邊亮一邊暗的部分先拉平，鋪開來才不會一塊亮一塊暗）、取平均色、縮一張小圖當色票
@@ -6169,6 +6172,12 @@ function imgColor(file) {                                                // 讀�
 }
 function refreshColorUI() { try { renderPanel(); } catch (e) { } try { syncFinishUI(); } catch (e) { } try { renderScColor(); } catch (e) { } try { syncInputs(); } catch (e) { } }
 document.addEventListener('click', e => {
+  const x = e.target.closest('[data-delcolor]');
+  if (x) {                                                               // 色票上的 ×：把這個自訂顏色從專案移除（已經用了它的家具保留顏色，紋路不再顯示）
+    e.preventDefault(); e.stopPropagation();
+    spaces.colors = projColors().filter(q => !(q.c === x.dataset.delcolor && (q.slot || '') === (x.dataset.slot || '')));
+    markDirty(); persist(); try { rebuildAll(); } catch (err) { } refreshColorUI(); return;
+  }
   const b = e.target.closest('[data-addcolor]'); if (!b) return;
   if (!curProject()) { flash(b, '請先建立專案'); return; }
   const ref = b.parentElement.querySelector('.sw, .fsw'), ds = ref ? { ...ref.dataset } : null;   // 記住是在哪一組色票按的，加入後直接套用到那裡
