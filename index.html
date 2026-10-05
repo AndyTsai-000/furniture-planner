@@ -1476,8 +1476,16 @@ function build120Sofa(it) { // 120 型：合成皮 U 形外殼（底框＋薄扶
   // 高背墊：往後靠，上緣圓圓的，中間一顆包釦
   const lean = 0.2, bT = 16, by0 = seatTop - 3, bH = (h - by0 - bT * Math.sin(lean)) / Math.cos(lean) + 1.6, bz = zb + 0.6 + bH * Math.sin(lean);
   for (let i = 0; i < n; i++) { const o = new THREE.Group(); o.position.set(-inner / 2 + cw * (i + .5), by0, bz); o.rotation.x = -lean; g.add(o);
-    add(o, seamBoxGeo(cw - 1, bH, bT, 7.6, [], {}), F, 0, bH / 2, bT / 2);
-    add(o, new THREE.SphereGeometry(1.5, 16, 10), F, 0, bH * 0.5, bT + 0.1).scale.z = 0.45; }
+    // 背墊：上窄下寬、上薄下厚，上面兩個角是大圓角；釦子的位置微微凹下去
+    const bg = seamBoxGeo(cw - 1, bH, bT, 7.6, [], {}), BP = bg.attributes.position, A = (cw - 1) / 2, Rc = Math.min(13, A * 0.4);
+    for (let q = 0; q < BP.count; q++) { let px = BP.getX(q), py = BP.getY(q), pz = BP.getZ(q); const t = py / bH + 0.5;
+      const dx = Math.abs(px) - (A - Rc), dy = py - (bH / 2 - Rc); if (dx > 0 && dy > 0) { const r = Math.hypot(dx, dy); if (r > Rc) { px = Math.sign(px) * (A - Rc + dx / r * Rc); py = bH / 2 - Rc + dy / r * Rc; } }
+      px *= 1 - 0.07 * t; pz = -bT / 2 + (pz + bT / 2) * (1 - 0.28 * t * t);
+      if (pz > 0) { const rr = Math.hypot(px, py) / 9; pz -= 1.1 * Math.exp(-rr * rr); }
+      BP.setXYZ(q, px, py, pz); }
+    BP.needsUpdate = true; bg.computeBoundingBox(); bg.computeBoundingSphere();
+    add(o, bg, F, 0, bH / 2, bT / 2);
+    add(o, new THREE.SphereGeometry(1.5, 16, 10), F, 0, bH * 0.5, bT * 0.93 - 0.75).scale.z = 0.45; }
   // 模組接縫（最右邊一個座位是獨立一座）
   const zFace = bz + bT * Math.cos(lean), jx = n > 1 ? inner / 2 - cw : null;
   if (jx !== null) B(g, 0.5, 4.7, d - 2, jx, legH + 2.3, 0.4, mat('#2a2a2c', 0.8));
