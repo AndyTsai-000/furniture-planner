@@ -1518,7 +1518,7 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
   const g = new THREE.Group(), { w, d, h } = it;
   const F = surfMat(it.fabric || 'leather', it.color), Wd = surfMat('wood', it.color2 || '#7a4a2b'), M = mat(it.color3 || '#4d4a48', 0.16, 0.95);
   const legH = Math.min(15, h * 0.17), seatTop = Math.min(40, h * 0.46), pH = seatTop - legH;
-  const D = Math.min(110, d), Ww = Math.min(110, w * 0.28), aw = Math.min(15, w * 0.04), xL = -w / 2, xR = w / 2, zb = -d / 2, wingL = xR - Ww;
+  const D = Math.min(110, d), Ww = Math.min(110, w * 0.28), aw = Math.min(8.5, w * 0.022), xL = -w / 2, xR = w / 2, zb = -d / 2, wingL = xR - Ww;
   const xs = xL + aw + 0.4, n = seatsOf(it), inner = wingL - xs, cw = inner / n, top = (nx, ny) => Math.max(0, ny), zT = zb + 64;   // xs：座台從扶手和實木條的內側開始
   const body = (x0, x1, z0, z1, seams, rc) => { const bw = x1 - x0 - 0.5, bd = z1 - z0 - 0.5, geo = seamBoxGeo(bw, pH, bd, 6.5, seams, { dep: 0.4, sg: 0.7, taper: { y: -pH / 2 + pH * 0.35, amt: 2 } });
     if (rc) { const P = geo.attributes.position, A = bw / 2, C = bd / 2; for (let i = 0; i < P.count; i++) { const dx = P.getX(i) - (A - rc), dz = (-C + rc) - P.getZ(i); if (dx > 0 && dz > 0) { const r = Math.hypot(dx, dz); if (r > rc) { P.setX(i, A - rc + dx / r * rc); P.setZ(i, -C + rc - dz / r * rc); } } } P.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere(); }
@@ -1563,13 +1563,13 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
     body(wingL, xR, zb + D, d / 2, sm);
     const Lc = Math.min(100, ext * 0.62); if (Lc > 40) { block(xR - 34, xR - 16, zb + D + 3, zb + D + 3 + Lc, true); cushion(Lc - 3, xR - 38, zb + D + 3 + Lc / 2, -Math.PI / 2); } }
   // 扶手：中間是一片實木立板，皮革從上面包下來——外側一片垂到座台底、內側一片只到坐面，上緣是圓的；前後端看得到夾在中間的實木
-  const aTop = Math.min(seatTop + 17, h - 10), aH = aTop - legH - 2, wT = 2.6, pT = (aw - wT) / 2, ax = xL + aw / 2, az = zb + D / 2;
+  const aTop = Math.min(seatTop + 17, h - 10), aH = aTop - legH - 2, wT = 2.4, pT = (aw - wT) / 2, ax = xL + aw / 2, az = zb + D / 2;
   RB(g, wT, aH - 5, D - 1, 0.9, ax, legH + 2 + (aH - 5) / 2, az, Wd);
   const sideSeam = sx => [{ a: 'z', at: -D * 0.17, f: nx => nx * sx > 0.3 ? 1 : 0 }, { a: 'z', at: D * 0.17, f: nx => nx * sx > 0.3 ? 1 : 0 }];
-  add(g, seamBoxGeo(pT + 0.6, aH, D - 5, 2.6, sideSeam(-1), { dep: 0.35, sg: 0.6 }), F, xL + (pT + 0.6) / 2, legH + 2 + aH / 2, az - 0.5);
-  const iH = aTop - (seatTop - 7);
-  add(g, seamBoxGeo(pT + 0.6, iH, D - 5, 2.6, sideSeam(1), { dep: 0.35, sg: 0.6 }), F, xL + aw - (pT + 0.6) / 2, seatTop - 7 + iH / 2, az - 0.5);
-  RB(g, aw + 0.6, 7.5, D - 6, 3.6, ax, aTop - 3.6, az - 0.8, F);
+  add(g, seamBoxGeo(pT + 0.4, aH, D - 5, 1.5, sideSeam(-1), { dep: 0.3, sg: 0.6 }), F, xL + (pT + 0.4) / 2, legH + 2 + aH / 2, az - 0.5);   // 外側：薄薄一片垂到座台底
+  const iH = aTop - (seatTop + 2.5);                                     // 內側：只有上面一小段，搭在坐面上方
+  RB(g, pT + 0.4, iH, D - 5, 1.5, xL + aw - (pT + 0.4) / 2, seatTop + 2.5 + iH / 2, az - 0.5, F);
+  RB(g, aw + 0.5, 6, D - 6, 2.9, ax, aTop - 2.9, az - 0.8, F);
   // 抱枕（布面）：轉角兩顆、扶手這端兩顆
   const PL = [surfMat('fabric', '#c9c8c4'), surfMat('fabric', '#8791a6')], pz = bz1 + 4 + cT + 6;
   const pil = (x, z, m, rz, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 0.6, z); o.rotation.y = ry; g.add(o); const q = add(o, softPillowGeo(45, 45, 13), m, 0, 22.5, 0); q.rotation.x = -0.34; q.rotation.z = rz; q.position.z = Math.sin(0.34) * 22.5; };
