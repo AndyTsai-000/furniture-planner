@@ -3261,7 +3261,7 @@ function buildClock(it) {
 function buildDanishTable(it) {
   const g = new THREE.Group(), { w, d, h } = it;
   const T = topMat(it), L = surfMat('wood', it.color2), pad = mat('#3b3632', 0.8);
-  const tt = 1.2, apH = 6.5, inset = 0, cr = Math.min(2.7, w * 0.05, d * 0.05);
+  const tt = 1, apH = 6, sT = Math.min(6.5, w * 0.08, d * 0.12), cr = Math.min(2.6, sT * 0.42);
   // 圓角桌面：用圓角矩形擠出，並把貼圖座標換算成 0～1
   const sh = new THREE.Shape(), x0 = -w / 2, y0 = -d / 2;
   sh.moveTo(x0 + cr, y0); sh.lineTo(x0 + w - cr, y0); sh.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + cr);
@@ -3272,17 +3272,32 @@ function buildDanishTable(it) {
   const uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + w / 2) / w, (uv.getY(i) + d / 2) / d);
   const top = add(g, geo, T, 0, h - tt, 0); top.rotation.x = -Math.PI / 2;
-  // 木框、桌腳的外緣和桌面邊緣平齊
-  const ay = h - tt - apH / 2, lx = w / 2 - inset - 2.7, lz = d / 2 - inset - 2.7;
+  // 木框：外緣和桌面邊緣、桌腳平齊，兩端接在桌腳上段的方塊之間（看得到接縫）
+  const yA = h - tt - apH, ay = yA + apH / 2;
   for (const s of [-1, 1]) {
-    B(g, 2 * lx, apH, 2.2, 0, ay, s * (d / 2 - inset - 1.1), L);
-    B(g, 2.2, apH, 2 * lz, s * (w / 2 - inset - 1.1), ay, 0, L);
+    B(g, w - 2 * sT, apH, 2.4, 0, ay, s * (d / 2 - 1.2 - 0.12), L);
+    B(g, 2.4, apH, d - 2 * sT, s * (w / 2 - 1.2 - 0.12), ay, 0, L);
   }
-  // 上粗下細的實木腳＋腳墊
-  const lh = h - tt;
+  // 實木腳：上段是和木框等高的圓角方塊，往下內側以弧線收窄，再一路收細到接近圓形；外側兩面是直的、和桌面平齊
+  const fil = Math.min(7, yA * 0.12), sB = sT * 0.5, sM = sT * 0.74, ys = [0.6];
+  for (let y = 8; y < yA - fil - 1; y += 9) ys.push(y);
+  for (let i = 0; i <= 8; i++) ys.push(yA - fil + fil * i / 8);
+  ys.push(h - tt);
+  const M = 32, pos = [], uvs = [], idx = [];
+  ys.forEach((y, j) => {
+    const lin = sB + (sM - sB) * Math.min(1, y / yA), t = Math.max(0, Math.min(1, (y - (yA - fil)) / fil));
+    const sz = y >= yA ? sT : lin + (sT - lin) * (1 - Math.sqrt(1 - t * t)), k = Math.min(1, y / yA), r = Math.min(sz / 2, cr + (sz * 0.46 - cr) * (1 - k) * (1 - k));
+    for (let i = 0; i <= M; i++) {
+      const q = Math.min(3, Math.floor(i / (M / 4))) , a = (i / M) * Math.PI * 2, cx = [1, -1, -1, 1][q] * (sz / 2 - r), cz = [1, 1, -1, -1][q] * (sz / 2 - r);
+      pos.push(sz / 2 + cx + Math.cos(a) * r, y, sz / 2 + cz + Math.sin(a) * r); uvs.push(i / M * 0.35, y / 70);
+    }
+    if (j) for (let i = 0; i < M; i++) { const p0 = (j - 1) * (M + 1) + i, p1 = j * (M + 1) + i; idx.push(p0, p1, p0 + 1, p0 + 1, p1, p1 + 1); }
+  });
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); lg.setIndex(idx); lg.computeVertexNormals();
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    C(g, 2.7, 1.8, lh - 0.6, sx * lx, 0.6 + (lh - 0.6) / 2, sz * lz, L, 20);
-    C(g, 1.6, 1.6, 0.6, sx * lx, 0.3, sz * lz, pad, 12);
+    add(g, lg, L, sx * w / 2, 0, sz * d / 2).scale.set(-sx, 1, -sz);
+    C(g, sB * 0.42, sB * 0.42, 0.6, sx * (w / 2 - sB / 2), 0.3, sz * (d / 2 - sB / 2), pad, 12);
   }
   return g;
 }
