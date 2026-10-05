@@ -1328,6 +1328,97 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   }
   return mirrorIfLeft(it, g);
 }
+// 有車線的皮面軟墊：圓角的方塊，沿著指定的平面淺淺凹一圈（皮面拼接的車線），兩條線交會的地方凹得更深（像拉釦）
+// seams：[{ a: 'x'|'y'|'z', at: 位置, f: 只在哪些面出現（傳入法線，回傳 0~1）}]；o.taper：下半段往內收
+function seamBoxGeo(bw, bh, bd, R, seams, o = {}) {
+  const dep = o.dep || 0.42, sg = o.sg || 0.75, dims = { x: bw, y: bh, z: bd };
+  R = Math.max(0.3, Math.min(R, bw / 2 - 0.1, bh / 2 - 0.1, bd / 2 - 0.1));
+  const cuts = a => {
+    const L = dims[a], v = [-L / 2, L / 2], push = q => { if (q > -L / 2 + 0.05 && q < L / 2 - 0.05) v.push(q); };
+    for (const k of [0.15, 0.4, 0.7, 1]) { push(-L / 2 + R * k); push(L / 2 - R * k); }
+    for (const q of seams) if (q.a === a) for (const k of [-3.2, -2.2, -1.5, -1, -0.6, -0.3, 0, 0.3, 0.6, 1, 1.5, 2.2, 3.2]) push(q.at + k * sg);
+    if (a === 'y' && o.taper) push(o.taper.y);
+    v.sort((p, q) => p - q);
+    const u = [v[0]]; for (const q of v) if (q - u[u.length - 1] > 0.08) u.push(q);
+    const out = [u[0]]; for (let i = 1; i < u.length; i++) { const gap = u[i] - u[i - 1], n = Math.ceil(gap / 14); for (let j = 1; j <= n; j++) out.push(u[i - 1] + gap * j / n); }
+    return out;
+  };
+  const X = cuts('x'), Y = cuts('y'), Z = cuts('z'), nx_ = X.length - 1, ny_ = Y.length - 1, nz_ = Z.length - 1;
+  const geo = new THREE.BoxGeometry(1, 1, 1, nx_, ny_, nz_), P = geo.attributes.position, N = geo.attributes.normal;
+  const A = bw / 2, Bh = bh / 2, Cc = bd / 2, cl = (v, m) => Math.max(-m, Math.min(m, v));
+  for (let i = 0; i < P.count; i++) {
+    let px = X[Math.round((P.getX(i) + 0.5) * nx_)], py = Y[Math.round((P.getY(i) + 0.5) * ny_)], pz = Z[Math.round((P.getZ(i) + 0.5) * nz_)];
+    const cx = cl(px, A - R), cy = cl(py, Bh - R), cz = cl(pz, Cc - R);
+    let nx = px - cx, ny = py - cy, nz = pz - cz; const ln = Math.hypot(nx, ny, nz) || 1; nx /= ln; ny /= ln; nz /= ln;
+    px = cx + nx * R; py = cy + ny * R; pz = cz + nz * R;
+    let D = 0, gx = 0, gy = 0, gz = 0;
+    for (const q of seams) {
+      const nn = q.a === 'x' ? nx : q.a === 'y' ? ny : nz; let wt = 1 - nn * nn; if (q.f) wt *= q.f(nx, ny, nz);
+      if (wt <= 0.001) continue;
+      const t = ((q.a === 'x' ? px : q.a === 'y' ? py : pz) - q.at) / sg, e = Math.exp(-t * t) * wt * dep, ge = -2 * t / sg * e;
+      D += e; if (q.a === 'x') gx += ge; else if (q.a === 'y') gy += ge; else gz += ge;
+    }
+    px -= nx * D; py -= ny * D; pz -= nz * D;
+    let mx = nx + gx, my = ny + gy, mz = nz + gz;
+    if (o.taper && py < o.taper.y) {
+      const span = o.taper.y + Bh, t = (o.taper.y - py) / span, k = o.taper.amt * t * t;
+      px *= 1 - k / A; pz *= 1 - k / Cc; my -= 2 * o.taper.amt * t / span * Math.hypot(nx, nz);
+    }
+    P.setXYZ(i, px, py, pz);
+    const ml = Math.hypot(mx, my, mz) || 1; N.setXYZ(i, mx / ml, my / ml, mz / ml);
+  }
+  P.needsUpdate = true; N.needsUpdate = true; geo.computeBoundingBox(); geo.computeBoundingSphere();
+  return geo;
+}
+function build171Sofa(it) { // 171 型：牛皮 L 型——懸浮的厚座體（整片坐面、車線分格）、矮胖扶手、可往後靠的三塊背墊、布面長腰枕、黑鐵翼型腳；預設貴妃在右，選左時鏡射
+  const g = new THREE.Group(), { w, d, h } = it;
+  const F = surfMat(it.fabric || 'leather', it.color), Pl = surfMat('fabric', it.color2), M = mat(it.color3 || '#232325', 0.5, 0.55);
+  const legH = Math.min(13, h * 0.145), seatTop = Math.min(44, h * 0.49), armTop = Math.min(55, h * 0.61), bodyH = seatTop - legH;
+  const awL = Math.min(20, w * 0.07), awR = Math.min(22, w * 0.077), cwid = Math.min(103, w * 0.3614), sd = Math.min(102, d);
+  const zb = -d / 2, xL = -w / 2, xR = w / 2, wingL = xR - cwid, seatL = xL + awL, n = seatsOf(it), inner = wingL - seatL, cw = inner / n;
+  const ext = d - sd, ySeam = -bodyH / 2 + bodyH * 0.44, side = (nx, ny) => 1 - Math.max(0, ny);
+  // 背墊：厚厚一塊往後靠，正面一條直線、一條橫線，交會處凹下去
+  const lean = 0.3, bT = 15, by0 = seatTop + 2, bHs = (h - by0 - bT * Math.sin(lean)) / Math.cos(lean) + 1.35, bz = zb + bHs * Math.sin(lean) + 0.5;
+  const zFace = bz + bT * Math.cos(lean);                                  // 背墊正面底部的位置
+  const backCush = (bw, x) => { const o = new THREE.Group(); o.position.set(x, by0, bz); o.rotation.x = -lean; g.add(o);
+    add(o, seamBoxGeo(bw, bHs, bT, 5, [{ a: 'x', at: 0 }, { a: 'y', at: -bHs / 2 + bHs * 0.47 }], { dep: 0.55, sg: 0.9 }), F, 0, bHs / 2, bT / 2); };
+  // 腰枕：布面長方形，立在坐面上靠著背墊
+  const lumbar = (pw, x) => { const ph = 22, o = new THREE.Group(); o.position.set(x, seatTop - 0.6, zFace + 2.5); g.add(o);
+    const q = add(o, softPillowGeo(pw, ph, 12), Pl, 0, ph / 2, 0); q.rotation.x = -0.26; q.position.z = Math.sin(0.26) * ph / 2 + 3; };
+  for (let i = 0; i < n; i++) { const x = seatL + cw * (i + .5); backCush(cw - 0.8, x); lumbar(cw * 0.93, x); }
+  const cbw = cwid - awR; backCush(cbw - 0.8, wingL + cbw / 2); lumbar(cbw * 0.93, wingL + cbw / 2);
+  // 背墊後面固定的矮背
+  RB(g, xR - awR - seatL, armTop - 3 - legH, 7, 2.5, (seatL + xR - awR) / 2, legH + (armTop - 3 - legH) / 2, zb + 3.6, F);
+  // 主座：一整片坐面，直的車線在每個座位中間，橫的一條；線順著前緣往下，正面下方再一條橫線，底部往內收
+  const mz0 = zb + 5, mz1 = zb + sd - 2, mD = mz1 - mz0, mW = inner - 0.3, zs = (zFace + 12 + mz1) / 2;
+  const ms = [{ a: 'z', at: zs - (mz0 + mz1) / 2 }, { a: 'y', at: ySeam, f: side }];
+  for (let i = 0; i < n; i++) ms.push({ a: 'x', at: -inner / 2 + cw * (i + .5) });
+  add(g, seamBoxGeo(mW, bodyH, mD, 6.5, ms, { taper: { y: ySeam, amt: 2.6 } }), F, seatL + mW / 2, legH + bodyH / 2, (mz0 + mz1) / 2);
+  // 貴妃：比主座長，中間一條直線，橫線和主座對齊，前段再一條
+  const cD = d - 5, cz = zb + 5 + cD / 2, cs = [{ a: 'x', at: -awR * 0.3 }, { a: 'z', at: zs - cz }, { a: 'y', at: ySeam, f: side }];
+  if (ext > 50) cs.push({ a: 'z', at: zb + sd + ext * 0.3 - cz });
+  add(g, seamBoxGeo(cwid - 0.3, bodyH, cD, 6.5, cs, { taper: { y: ySeam, amt: 2.6 } }), F, wingL + 0.3 + (cwid - 0.3) / 2, legH + bodyH / 2, cz);
+  // 扶手：左邊整塊落到底（和座體一樣懸空），外側一條橫線、一條直線，正面一條直線；右邊短的坐在貴妃上
+  const aH = armTop - legH;
+  add(g, seamBoxGeo(awL, aH, sd, 5.5, [{ a: 'y', at: -aH / 2 + aH * 0.54, f: (nx, ny, nz) => nx < 0.5 ? 1 : 0 }, { a: 'z', at: -sd * 0.03, f: nx => nx < 0.5 ? 1 : 0 }, { a: 'x', at: -awL * 0.08, f: (nx, ny, nz) => Math.max(0, nz) }], { taper: { y: -aH / 2 + aH * 0.3, amt: 1.6 } }), F, xL + awL / 2, legH + aH / 2, zb + sd / 2);
+  const rH = armTop - seatTop + 1.5, rL = Math.min(78, sd * 0.76);
+  add(g, seamBoxGeo(awR, rH, rL, 5.5, [{ a: 'z', at: 0, f: nx => nx > -0.5 ? 1 : 0 }, { a: 'x', at: 0, f: (nx, ny, nz) => Math.max(0, nz) }]), F, xR - awR / 2, seatTop - 1.5 + rH / 2, zb + rL / 2);
+  // 黑鐵翼型腳：貼地的長桿（中間厚、兩端薄，兩端有腳墊）＋中間兩支扁立柱撐住座體
+  const sled = (x, z, L, alongZ) => {
+    const o = new THREE.Group(); o.position.set(x, 0, z); if (alongZ) o.rotation.y = Math.PI / 2; g.add(o);
+    const px = L * 0.2, sh = new THREE.Shape();
+    sh.moveTo(-L / 2, 0.6); sh.lineTo(L / 2, 0.6); sh.lineTo(L / 2, 2.4); sh.lineTo(px + 4, 4.3); sh.lineTo(-px - 4, 4.3); sh.lineTo(-L / 2, 2.4); sh.lineTo(-L / 2, 0.6);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 2.4, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.2, bevelSegments: 1 }); geo.translate(0, 0, -1.2);
+    add(o, geo, M, 0, 0, 0);
+    for (const sx of [-1, 1]) { B(o, 5, legH - 3.8, 1.2, sx * px, 4 + (legH - 3.8) / 2, 0, M); C(o, 0.8, 0.8, 0.6, sx * (L / 2 - 4), 0.3, 0, M, 12); }
+    B(o, px * 2 + 5, 1.2, 2.4, 0, legH - 1.6, 0, M);
+  };
+  const lz = zb + sd / 2 + 1, lL = sd * 0.63;
+  sled(seatL + 8, lz, lL, true); sled(wingL - 8, lz, lL, true);
+  if (inner > 230) sled((seatL + wingL) / 2, lz, lL, true);
+  if (ext > 40) sled(xR - cwid / 2, d / 2 - Math.min(24, ext * 0.4), cwid * 0.66, false); else sled(xR - 12, lz, lL, true);
+  return mirrorIfLeft(it, g);
+}
 function buildFloatLSofa(it) { // 懸浮平台 L 型：雙色平台底座＋鐵件雪橇腳＋木作玻璃邊几
   const g = new THREE.Group(), { w, d, h } = it;
   const F = fabMat(it), Bs = fabMat(it, 'color2'), Wd = surfMat('wood', it.color3 || '#d9bd94'), Mt = mat('#2a2a2c', 0.35, 0.7), Pd = mat('#5b5b60', 0.95);
@@ -1510,6 +1601,101 @@ function buildChair(it) {
   for (const s of [-1, 1]) B(g, 3.5, h - seatH + t, 3.5, s * (w / 2 - 3), seatH - t + (h - seatH + t) / 2, -d / 2 + 3, L);
   const ph = Math.min(30, (h - seatH) * 0.6);
   RB(g, w - 4, ph, 3, 1.2, 0, h - ph / 2 - 2, -d / 2 + 3, S);
+  return g;
+}
+
+/* ---------- 吧檯桌、吧檯椅 ---------- */
+const BAR_BASES = { key: 'base', label: '腳座', list: baseList(['legs', 'sled', 'panel']) };
+const BARROUND_BASES = { key: 'base', label: '腳座', list: baseList(['pedestal', 'tulip', 'cross']) };
+const BAR_LEGMAT = { key: 'legmat', label: '腳材質', list: [opt('metal', '鐵件'), opt('wood', '木頭')] };
+function buildBarTable(it, kind) {
+  const g = new THREE.Group(), { w, d, h } = it, t = 4, metal = it.legmat !== 'wood', M = metal ? mat(it.color2, 0.32, 0.75) : mat(it.color2, 0.55);
+  const fy = Math.min(28, h * 0.27), fr = metal ? 2.2 : 3.5;                 // 踏腳桿的高度、粗細
+  if (kind === 'island') {                                                    // 中島吧檯：櫃體＋往座位那一側伸出去的檯面
+    const Bd = bodyMat(it), Tp = surfMat(it.topmat || 'slate', it.color3 || it.color), Dk = mat('#2b2a2a', 0.7), St = mat('#8a8d91', 0.3, 0.8);
+    const over = Math.min(28, d * 0.38), bd = d - over - 1.5, bz = -d / 2 + 1.5 + bd / 2, kick = 8, bh = h - t - kick;
+    B(g, w - 4, kick, bd - 6, 0, kick / 2, bz - 1, Dk);
+    B(g, w, bh, bd, 0, kick + bh / 2, bz, Bd);
+    const nd = Math.max(2, Math.round(w / 45)), dw = w / nd;                  // 工作那一側的門片
+    for (let i = 1; i < nd; i++) B(g, 0.4, bh - 1, 0.3, -w / 2 + dw * i, kick + bh / 2, -d / 2 + 1.45, Dk);
+    for (let i = 0; i < nd; i++) B(g, 1.2, 12, 1.2, -w / 2 + dw * (i + (i % 2 ? 0.14 : 0.86)), kick + bh - 12, -d / 2 + 0.9, St);
+    RB(g, w, t, d, 1, 0, h - t / 2, 0, Tp);
+    const rz = -d / 2 + 1.5 + bd + 5;                                               // 座位這一側的踏腳桿
+    C(g, 1.3, 1.3, w - 16, 0, 20, rz, St, 14).rotation.z = Math.PI / 2;
+    for (const sx of [-1, 0, 1]) B(g, 1.6, 1.6, 5, sx * (w / 2 - 14), 20, rz - 2.5, St);
+    return g;
+  }
+  if (kind === 'wall') {                                                      // 靠牆吧檯：固定在牆上的檯面＋三角支架
+    tableTop(g, 'rect', w, d, t, h - t / 2, topMat(it));
+    B(g, w - 4, 7, 1.8, 0, h - t - 3.5, -d / 2 + 0.9, M);
+    const bl = Math.min(30, h * 0.3);
+    for (const sx of [-1, 1]) { const x = sx * (w / 2 - Math.min(18, w * 0.15));
+      B(g, 2.4, bl, 2.4, x, h - t - bl / 2, -d / 2 + 1.2, M); B(g, 2.4, 2.4, d - 6, x, h - t - 1.2, -1, M);
+      rod(g, new V3(x, h - t - bl + 1.5, -d / 2 + 1.5), new V3(x, h - t - 2, d / 2 - 6), 1, M); }
+    return g;
+  }
+  if (kind === 'round') {                                                     // 圓形高腳桌
+    const base = it.base || 'pedestal';
+    tableTop(g, 'round', w, d, t, h - t / 2, topMat(it));
+    tableBase(g, base, 'round', w, d, h - t, M, metal);
+    if (base !== 'tulip') { const r = Math.min(w, d) * 0.3;
+      add(g, new THREE.TorusGeometry(r, 1.1, 10, 44), M, 0, fy, 0).rotation.x = Math.PI / 2;
+      B(g, 2 * r, 1.5, 1.5, 0, fy, 0, M); B(g, 1.5, 1.5, 2 * r, 0, fy, 0, M); }
+    return g;
+  }
+  const base = it.base || 'legs';                                             // 長型吧檯桌
+  tableTop(g, 'rect', w, d, t, h - t / 2, topMat(it));
+  tableBase(g, base, 'rect', w, d, h - t, M, metal);
+  if (base === 'legs') { for (const sz of [-1, 1]) B(g, w - 12, fr, fr, 0, fy, sz * (d / 2 - 6), M); for (const sx of [-1, 1]) B(g, fr, fr, d - 12, sx * (w / 2 - 6), fy + 12, 0, M); }
+  else if (base === 'sled') for (const sz of [-1, 1]) B(g, w - 20, fr, fr, 0, fy, sz * ((d - 16) / 2 - (metal ? 1.25 : 2.5)), M);
+  else B(g, w - 4, fr + 1, fr, 0, fy, 0, M);
+  return g;
+}
+function buildBarStool(it, style) {
+  const g = new THREE.Group(), { w, d, h } = it, S = fabMat(it), metal = it.legmat !== 'wood';
+  const L = metal ? mat(it.color2, 0.3, 0.75) : mat(it.color2, 0.55), lr = metal ? 1.1 : 1.7;
+  const seatH = style === 'round' ? h : Math.min(76, h * 0.76), fy = Math.max(18, seatH - 45);
+  // 四支外張的腳＋一圈踏腳：top／bot 是腳在坐面下和地面的位置（相對寬深的比例）
+  const splay = (top, bot, yTop, ring) => {
+    const at = y => { const k = (yTop - y) / yTop, f = top + (bot - top) * k; return [w * f, d * f]; };
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) rod(g, new V3(sx * w * top, yTop, sz * d * top), new V3(sx * w * bot, 0, sz * d * bot), lr, L);
+    const [fx, fz] = at(fy);
+    if (ring) { const m = add(g, new THREE.TorusGeometry(Math.SQRT2 * fx, lr * 0.8, 10, 44), L, 0, fy, 0); m.rotation.x = Math.PI / 2; m.scale.y = fz / fx; }
+    else for (const s of [-1, 1]) { rod(g, new V3(-fx, fy, s * fz), new V3(fx, fy, s * fz), lr * 0.8, L); rod(g, new V3(s * fx, fy, -fz), new V3(s * fx, fy, fz), lr * 0.8, L); }
+  };
+  if (style === 'round') {                                                    // 圓凳：圓形軟墊、沒有靠背
+    C(g, .5, .5, 2, 0, seatH - 8.2, 0, L, 40).scale.set(w * 0.9, 1, d * 0.9);
+    const m = add(g, new THREE.CylinderGeometry(.5, .5, 6, 40), S, 0, seatH - 4.2, 0); m.scale.set(w, 1, d);
+    add(g, new THREE.SphereGeometry(.5, 40, 12, 0, Math.PI * 2, 0, Math.PI / 2), S, 0, seatH - 1.25, 0).scale.set(w * 0.985, 2.4, d * 0.985);
+    splay(0.26, 0.45, seatH - 8.2, true);
+    return g;
+  }
+  if (style === 'swivel') {                                                   // 升降旋轉：圓盤底座＋中柱＋踏腳環
+    const Mt = mat(it.color2, 0.2, 0.85), r = Math.min(w, d) * 0.5;
+    C(g, r * 0.9, r, 2, 0, 1, 0, Mt, 44); C(g, 2.6, 2.6, seatH - 12, 0, 2 + (seatH - 12) / 2, 0, Mt, 20); C(g, 4.2, 4.6, 22, 0, 13, 0, Mt, 20);
+    add(g, new THREE.TorusGeometry(r * 0.78, 1, 10, 44), Mt, 0, fy, 0).rotation.x = Math.PI / 2;
+    B(g, r * 1.56, 1.4, 1.4, 0, fy, 0, Mt);
+    C(g, 9, 6, 3, 0, seatH - 10.5, 0, Mt, 20);
+    RB(g, w, 9, d - 3, 4, 0, seatH - 4.5, 1.5, S);
+    const bk = RB(g, w, Math.min(26, h - seatH + 4), 6, 2.8, 0, seatH - 4 + Math.min(26, h - seatH + 4) / 2, -d / 2 + 4, S); bk.rotation.x = -0.12;
+    return g;
+  }
+  if (style === 'wood') {                                                     // 實木高腳椅：後腳往上延伸成椅背
+    const W = L, ps = metal ? 2.6 : 3.6, x = w / 2 - ps / 2 - 1, z = d / 2 - ps / 2 - 1;
+    RB(g, w, 4.5, d - 2, 1.6, 0, seatH - 2.25, 1, S);
+    for (const sx of [-1, 1]) { B(g, ps, seatH - 4.5, ps, sx * x, (seatH - 4.5) / 2, z, W); B(g, ps, h, ps, sx * x, h / 2, -z, W); B(g, ps * 0.7, ps * 0.7, 2 * z, sx * x, fy + 14, 0, W); }
+    B(g, 2 * x, ps * 0.8, ps * 0.8, 0, fy, z, W); B(g, 2 * x, ps * 0.7, ps * 0.7, 0, fy + 8, -z, W);
+    B(g, 2 * x, 4, ps * 0.7, 0, seatH - 6.5, z, W);
+    RB(g, 2 * x + ps, 9, ps * 0.8, 1.2, 0, h - 5.5, -z, W);
+    const sh = h - 11 - seatH - 4; if (sh > 8) for (let i = -1; i <= 1; i++) B(g, 3.2, sh, 1.6, i * x * 0.55, seatH + 2 + sh / 2, -z, W);
+    return g;
+  }
+  // 低背吧檯椅：軟包坐墊＋一段矮靠背
+  RB(g, w, 8, d - 4, 3.2, 0, seatH - 4, 2, S);
+  const bh = Math.min(22, h - seatH + 2);
+  const bk = RB(g, w - 2, bh, 5, 2.4, 0, h - bh / 2, -d / 2 + 3.5, S); bk.rotation.x = -0.1;
+  for (const sx of [-1, 1]) rod(g, new V3(sx * (w / 2 - 8), seatH - 6, -d / 2 + 5), new V3(sx * (w / 2 - 8), h - bh + 3, -d / 2 + 3), lr * 0.8, L);
+  splay(0.36, 0.47, seatH - 8, false);
   return g;
 }
 
@@ -1906,7 +2092,7 @@ function buildPillow(it) {
   }
   return g;
 }
-const SOFA_LIKE = ['ownRecliner', 'ownDanSofa', 'ownLetItBe', 'ownFloatL', 'armchair', 'sofa2', 'sofa', 'baysofa', 'lsofa', 'lounge', 'shellchair', 'wingchair', 'woodchair', 'bench', 'bed', 'queen', 'single'];   // 抱枕會自動放到這些家具上
+const SOFA_LIKE = ['ownRecliner', 'ownDanSofa', 'ownLetItBe', 'own171', 'ownFloatL', 'armchair', 'sofa2', 'sofa', 'baysofa', 'lsofa', 'lounge', 'shellchair', 'wingchair', 'woodchair', 'bench', 'bed', 'queen', 'single'];   // 抱枕會自動放到這些家具上
 const NIGHT_OPTS = [{ key: 'style', label: '款式', list: [opt('drawer', '雙抽屜'), opt('open', '抽屜＋開放格'), opt('round', '圓形邊櫃')] }];
 function buildNight(it) {
   const g = new THREE.Group(), { w, d, h } = it, style = it.style || 'drawer';
@@ -4042,6 +4228,7 @@ const TYPES = {
   ownRecliner: { name: '131型沙發', cat: '自家商品', w: 276, d: 105, h: 105, color: '#b9bcc2', color2: '#86aecb', c1: '布料顏色', c2: '抱枕顏色', build: buildReclinerSofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
   ownDanSofa:  { name: '丹麥沙發', cat: '自家商品', w: 210, d: 90, h: 90, color: '#cfc8b8', color2: '#d9b382', c1: '布料顏色', c2: '木腳顏色', build: buildDanishSofa, opts: [SEATS_OPT], def: { seats: '2' }, wall: true, own: true },
   ownLetItBe:  { name: 'Let it be沙發', cat: '自家商品', w: 368, d: 267, h: 80, color: '#e3e1dc', color2: '#9a6038', c1: '布料顏色', c2: '底框皮革顏色', build: buildLetItBeSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '3', side: 'left' }, wall: true, own: true },
+  own171:      { name: '171型沙發', cat: '自家商品', w: 285, d: 185, h: 90, color: '#8f9291', color2: '#b5b1b2', color3: '#232325', c1: '牛皮顏色', c2: '腰枕顏色', c3: '鐵腳顏色', build: build171Sofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'right' }, wall: true, own: true },
   ownFloatL:   { name: '103型沙發', cat: '自家商品', w: 306, d: 180, h: 95,  color: '#dcd6cf', color2: '#8e7472', color3: '#d9bd94', c1: '坐墊布料', c2: '底座布料', c3: '邊几木色', build: buildFloatLSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'left' }, wall: true, own: true },
   ownDanish:   { name: '丹麥餐桌', cat: '自家商品', w: 180, d: 90, h: 75, color: '#f2f0ec', color2: '#dcc39c', c1: '桌面顏色', c2: '木腳顏色', build: buildDanishTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownPencil:   { name: '鉛筆腳餐桌', cat: '自家商品', w: 150, d: 85, h: 75, color: '#f2f0ec', color2: '#1f1f1f', c1: '桌面顏色', c2: '鐵件顏色', build: buildPencilTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
@@ -4114,6 +4301,14 @@ const TYPES = {
   dining:   { name: '餐桌',       cat: '餐廳', w: 160, d: 90,  h: 75,  color: '#c49a6c', color2: '#5a3a28', c1: '桌面',     c2: '桌腳',     build: buildDining, opts: DINING_OPTS },
   round:    { name: '圓餐桌',     cat: '餐廳', w: 110, d: 110, h: 75,  color: '#f1ebe1', color2: '#222222', color3: '#e3ddd3', c1: '桌面', c2: '桌腳', build: buildRound, opts: ROUND_OPTS },
   chair:    { name: '餐椅',       cat: '餐廳', w: 45,  d: 50,  h: 85,  color: '#e9e4da', color2: '#8b5a3c', c1: '椅面',     c2: '椅腳',     build: buildChair, opts: CHAIR_OPTS },
+  bartable: { name: '長型吧檯桌', cat: '餐廳', w: 140, d: 50,  h: 105, color: '#c49a6c', color2: '#222222', c1: '桌面', c2: '桌腳', build: it => buildBarTable(it, 'long'), opts: [BAR_BASES, BAR_LEGMAT, TOPMAT_OPT] },
+  barround: { name: '圓形高腳桌', cat: '餐廳', w: 60,  d: 60,  h: 105, color: '#f1ebe1', color2: '#222222', c1: '桌面', c2: '桌腳', build: it => buildBarTable(it, 'round'), opts: [BARROUND_BASES, BAR_LEGMAT, TOPMAT_OPT], def: { topmat: 'marble' } },
+  barisland:{ name: '中島吧檯',   cat: '餐廳', w: 180, d: 75,  h: 95,  color: '#f2f0ec', color2: '#4a4d52', color3: '#3a3c40', c1: '櫃體', c2: null, build: it => buildBarTable(it, 'island') },
+  barwall:  { name: '靠牆吧檯',   cat: '餐廳', w: 120, d: 38,  h: 105, color: '#c49a6c', color2: '#222222', c1: '檯面', c2: '支架', build: it => buildBarTable(it, 'wall'), opts: [TOPMAT_OPT], wall: true },
+  barstool: { name: '圓凳吧檯椅', cat: '餐廳', w: 36,  d: 36,  h: 75,  color: '#8b5a3c', color2: '#222222', c1: '椅面', c2: '椅腳', build: it => buildBarStool(it, 'round'), opts: [BAR_LEGMAT] },
+  barstoolBack: { name: '低背吧檯椅', cat: '餐廳', w: 42, d: 46, h: 95, color: '#b9b4ad', color2: '#222222', c1: '椅面', c2: '椅腳', build: it => buildBarStool(it, 'back'), opts: [BAR_LEGMAT] },
+  barstoolWood: { name: '實木吧檯椅', cat: '餐廳', w: 42, d: 44, h: 102, color: '#3d3a38', color2: '#c49a6c', c1: '椅面', c2: '椅架', build: it => buildBarStool(it, 'wood'), opts: [BAR_LEGMAT], def: { legmat: 'wood' } },
+  barstoolSwivel: { name: '升降旋轉吧椅', cat: '餐廳', w: 42, d: 42, h: 95, color: '#2f2f31', color2: '#c9cdd1', c1: '椅面', c2: '金屬', build: it => buildBarStool(it, 'swivel') },
   sideboard:{ name: '餐櫃',       cat: '餐廳', w: 160, d: 45,  h: 85,  color: '#f2f0ec', color2: '#5a3a28', c1: '檯面', c2: '櫃體', build: buildSideboard, opts: SIDEBOARD_OPTS, def: { topmat: 'marble' }, wall: true },
   kitchen:  { name: '廚具流理台', cat: '餐廳', w: 240, d: 60,  h: 86,  color: '#f4f2ee', color2: '#4a4d52', c1: '門板',     c2: '檯面',     build: it => buildCabinet(it, { counter: true, doorW: 45 }), opts: KITCHEN_OPTS, def: { topmat: 'slate' }, wall: true },
   fridge:   { name: '冰箱',       cat: '家電', w: 70,  d: 70,  h: 180, color: '#d9dcdf', color2: '#8a8f98', c1: '機身',     c2: '把手',     build: buildFridge, wall: true },
@@ -4137,7 +4332,7 @@ const TYPES = {
   pillowLumbar: { name: '長方形腰枕', cat: '配件', w: 50, d: 12, h: 30, color: '#3d5a80', color2: '#d8cfc0', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'lumbar', cmat: 'velvet' }, noHit: true, pillow: true, on: SOFA_LIKE },
   pillowRound: { name: '圓形抱枕', cat: '配件', w: 40, d: 12, h: 40, color: '#d9a441', color2: '#8b5a3c', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'round', cmat: 'velvet' }, noHit: true, pillow: true, on: SOFA_LIKE },
   pillowBolster: { name: '圓筒抱枕', cat: '配件', w: 45, d: 18, h: 18, color: '#5f7d63', color2: '#f1ebe1', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'bolster', cmat: 'fabric' }, noHit: true, pillow: true, on: SOFA_LIKE },
-  seatpad:  { name: '坐墊',       cat: '配件', w: 45, d: 45, h: 8, color: '#b9b4ad', color2: '#5a3a28', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'seat', cmat: 'fabric' }, noHit: true, pillow: true, on: ['chair', 'ownVChair', 'ownMiyazaki', 'ownDanishBench', 'bench', 'pouf', 'vstool', 'office', ...SOFA_LIKE] },
+  seatpad:  { name: '坐墊',       cat: '配件', w: 45, d: 45, h: 8, color: '#b9b4ad', color2: '#5a3a28', c1: '布料顏色', c2: '滾邊／包釦', build: buildPillow, opts: PILLOW_OPTS, def: { style: 'seat', cmat: 'fabric' }, noHit: true, pillow: true, on: ['chair', 'barstoolBack', 'barstoolWood', 'ownVChair', 'ownMiyazaki', 'ownDanishBench', 'bench', 'pouf', 'vstool', 'office', ...SOFA_LIKE] },
   entrycab: { name: '玄關櫃',     cat: '玄關', w: 120, d: 38, h: 100, color: '#e9e4da', color2: '#2b2b2b', c1: '櫃體', c2: '把手／坐墊', build: buildEntryCab, opts: ENTRY_OPTS, def: { style: 'low', bodymat: 'wood' }, wall: true },
   desk:     { name: '書桌',       cat: '書房', w: 120, d: 60, h: 75,  color: '#e8d3b0', color2: '#2b2b2b', c1: '桌面', c2: '桌架', build: buildDesk, opts: DESK_OPTS, wall: true },
   bookshelf:{ name: '書櫃',       cat: '書房', w: 80,  d: 30, h: 180, color: '#e8d3b0', color2: '#2b2b2b', c1: '櫃體', c2: null,   build: buildBookshelf, opts: BOOK_OPTS, wall: true },
@@ -4223,14 +4418,15 @@ const LEGMAT_OPT = { key: 'legmat', label: '腳材質', list: LEGMATS };
 const POT_OPT = { key: 'potmat', label: '盆器材質', list: [opt('ceramic', '陶瓷'), opt('cement', '水泥'), opt('rattan', '藤編')] };
 const CAB_TOP = { key: 'topmat', label: '檯面材質', list: TOPMAT_LIST, c3: '檯面顏色' };
 const EXTRA_OPTS = {
-  ownRecliner: [FABRIC_OPT], ownDanSofa: [FABRIC_OPT], ownLetItBe: [FABRIC_OPT], ownFloatL: [FABRIC_OPT], ownVChair: [FABRIC_OPT], ownMiyazaki: [FABRIC_OPT], ownDanishBench: [FABRIC_OPT], armchair: [FABRIC_OPT], sofa2: [FABRIC_OPT], sofa: [FABRIC_OPT], lsofa: [FABRIC_OPT], baysofa: [FABRIC_OPT],
+  ownRecliner: [FABRIC_OPT], ownDanSofa: [FABRIC_OPT], ownLetItBe: [FABRIC_OPT], own171: [FABRIC_OPT], ownFloatL: [FABRIC_OPT], ownVChair: [FABRIC_OPT], ownMiyazaki: [FABRIC_OPT], ownDanishBench: [FABRIC_OPT], armchair: [FABRIC_OPT], sofa2: [FABRIC_OPT], sofa: [FABRIC_OPT], lsofa: [FABRIC_OPT], baysofa: [FABRIC_OPT],
   lounge: [FABRIC_OPT], shellchair: [FABRIC_OPT], wingchair: [FABRIC_OPT], woodchair: [FABRIC_OPT], pouf: [FABRIC_OPT], bench: [FABRIC_OPT],
-  chair: [FABRIC_OPT, LEGMAT_OPT], vstool: [FABRIC_OPT], office: [FABRIC_OPT], desk: [LEGMAT_OPT], plant: [POT_OPT],
+  chair: [FABRIC_OPT, LEGMAT_OPT], barstool: [FABRIC_OPT], barstoolBack: [FABRIC_OPT], barstoolWood: [FABRIC_OPT], barstoolSwivel: [FABRIC_OPT], barisland: [BODYMAT_OPT, CAB_TOP], vstool: [FABRIC_OPT], office: [FABRIC_OPT], desk: [LEGMAT_OPT], plant: [POT_OPT],
   bed: [FRAMEMAT_OPT], queen: [FRAMEMAT_OPT], single: [FRAMEMAT_OPT],
   tvcab: [BODYMAT_OPT, CAB_TOP], cabinet: [BODYMAT_OPT, CAB_TOP], night: [BODYMAT_OPT, CAB_TOP],
   wardrobe: [BODYMAT_OPT], slidewardrobe: [BODYMAT_OPT], bookshelf: [BODYMAT_OPT], kitchen: [BODYMAT_OPT], sideboard: [BODYMAT_OPT], vanity: [BODYMAT_OPT],
 };
 const EXTRA_DEF = { // 白色系櫃體預設烤漆，木色系預設木頭；檯面顏色預設同櫃體
+  own171: { fabric: 'leather' }, barstool: { fabric: 'leather' }, barstoolBack: { fabric: 'fabric' }, barstoolWood: { fabric: 'leather' }, barstoolSwivel: { fabric: 'leather' }, barisland: { bodymat: 'lacquer', topmat: 'slate' },
   ownVChair: { fabric: 'leather' }, ownMiyazaki: { fabric: 'leather' }, ownDanishBench: { fabric: 'leather' },
   tvcab: { bodymat: 'lacquer' }, cabinet: { bodymat: 'lacquer' }, wardrobe: { bodymat: 'lacquer' }, slidewardrobe: { bodymat: 'lacquer' },
   kitchen: { bodymat: 'lacquer' }, vanity: { bodymat: 'lacquer' },
@@ -5890,7 +6086,7 @@ const thumbs = {};
 const SUB_ORDER = {
   '自家商品': ['沙發', '餐桌', '餐椅', '長凳', '茶几', '邊几'],
   '客廳': ['沙發', '單椅', '椅凳', '茶几', '電視櫃'],
-  '餐廳': ['餐桌', '餐椅', '餐櫃', '廚房'],
+  '餐廳': ['餐桌', '餐椅', '吧檯桌', '吧檯椅', '餐櫃', '廚房'],
   '臥室': ['床', '床頭櫃', '衣櫃', '化妝台'],
   '書房': ['書桌', '辦公椅', '書櫃收納'],
   '窗簾': ['布簾', '捲簾', '百葉簾'],
@@ -5902,10 +6098,10 @@ const SUB_ORDER = {
   '擺飾': ['掛畫', '藝術品', '花藝植栽', '香氛', '相框', '托盤收納', '餐具', '時鐘', '書本'],
 };
 const TYPE_SUB = {
-  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownFloatL: '沙發', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
+  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', own171: '沙發', ownFloatL: '沙發', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
   lounge: '單椅', shellchair: '單椅', wingchair: '單椅', woodchair: '單椅', pouf: '椅凳', bench: '椅凳',
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
-  dining: '餐桌', round: '餐桌', chair: '餐椅', sideboard: '餐櫃', kitchen: '廚房',
+  dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barisland: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
   bed: '床', queen: '床', single: '床', night: '床頭櫃', wardrobe: '衣櫃', slidewardrobe: '衣櫃', vanity: '化妝台', vstool: '化妝台',
   shoecab: '鞋櫃', shoecabTall: '鞋櫃', shoecabSlim: '鞋櫃', shoecabLouver: '鞋櫃', shoerack: '鞋櫃', shoebench: '鞋櫃',
   pillowSq: '抱枕', pillowLumbar: '抱枕', pillowRound: '抱枕', pillowBolster: '抱枕', seatpad: '抱枕',
