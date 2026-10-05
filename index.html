@@ -5042,8 +5042,8 @@ function clampStruct(s) {
   if (s.kind === 'partition') {
     s.len = clamp(+s.len || 100, 10, Math.max(state.room.w, state.room.d) * 1.5); s.t = clamp(+s.t || 10, 1, 80); s.h = clamp(+s.h || state.room.h, 20, state.room.h);
     s.rot = ((+s.rot || 0) % 360 + 360) % 360;
-    const { ex, ez } = partExt(s);
-    s.x = clamp(s.x, -W + Math.min(ex, 2 * W) / 2, W - Math.min(ex, 2 * W) / 2); s.z = clamp(s.z, -D + Math.min(ez, 2 * D) / 2, D - Math.min(ez, 2 * D) / 2);
+    const { ex, ez } = partExt(s), mg = s.edge ? s.t : 0;                 // 平面圖補上的外牆段：可以落在牆的位置（空間範圍外一個牆厚）
+    s.x = clamp(s.x, -W - mg + Math.min(ex, 2 * W) / 2, W + mg - Math.min(ex, 2 * W) / 2); s.z = clamp(s.z, -D - mg + Math.min(ez, 2 * D) / 2, D + mg - Math.min(ez, 2 * D) / 2);
     return;
   }
   if (s.kind === 'column') {
@@ -7042,16 +7042,31 @@ function planDetect(img, strength) {
   // 整層一個大空間：先把外牆上的門窗開口封起來，連到圖紙邊緣的就是室外；室外以外的範圍扣掉外牆的厚度，就是外牆以內的整層
   const wholeInner = () => {
     // 只看最大的那一整塊牆體（建築本身）；圖框、標題欄的粗線不算
-    const LW = planLabel(wall, W, H, 1); let big = null, bigI = -1; LW.comps.forEach((c, i) => { const a = (c.x1 - c.x0) * (c.y1 - c.y0); if (!big || a > big.a) { big = { a }; bigI = i + 1; } });
+    const LW = planLabel(wall, W, H, 1); let big = null, bigI = -1; LW.comps.forEach((c, i) => { const a = (c.x1 - c.x0) * (c.y1 - c.y0); if (!big || a > big.a) { big = { a, c }; bigI = i + 1; } });
+    // 兩扇窗中間的那段外牆和主體不相連，但一樣是建築的牆：落在主體範圍內的牆塊都算進來
+    const keepW = new Set([bigI]); if (big) LW.comps.forEach((c, i) => { const m = 2 * t + 2, B = big.c; if (c.x0 >= B.x0 - m && c.x1 <= B.x1 + m && c.y0 >= B.y0 - m && c.y1 <= B.y1 + m) keepW.add(i + 1); });
     // 四周先加一圈空白再算：圖裁得很貼時，建築和圖邊之間太窄，封門洞時會連室外一起封掉
     const pad = Math.round(P * 0.12) + 3, Wq = W + 2 * pad, Hq = H + 2 * pad, wallB = new Uint8Array(Wq * Hq);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (LW.lab[y * W + x] === bigI) wallB[(y + pad) * Wq + x + pad] = 1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (keepW.has(LW.lab[y * W + x])) wallB[(y + pad) * Wq + x + pad] = 1;
     const tries = FR.map(f => { const R = Math.max(2, Math.round(P * f)), L = planLabel(planMorph(wallB, Wq, Hq, R, true), Wq, Hq, 0), out = new Uint8Array(Wq * Hq); let n = 0;
       for (let i = 0; i < Wq * Hq; i++) { const c = L.comps[L.lab[i] - 1]; if (c && c.edge) { out[i] = 1; n++; } }
       return { R, out, inN: Wq * Hq - n }; });
     const best = Math.max(...tries.map(o => o.inN)), pick = tries.find(o => o.inN >= best * 0.93);   // 開口沒封好室外會灌進來、室內變小：取室內範圍夠大的裡面封得最少的
     const outside = planMorph(pick.out, Wq, Hq, pick.R, true), inside = new Uint8Array(Wq * Hq);          // 室外往回長到牆邊
     for (let i = 0; i < Wq * Hq; i++) inside[i] = outside[i] ? 0 : 1;
+    // 外牆上有很寬的窗或開口時，室外會從那裡灌進來、整塊室內被當成室外。用牆體的輪廓補回來：
+    // 每一橫排最左、最右的牆，每一直排最上、最下的牆圍出來的範圍；開窗的那幾排沒有牆，就沿用上下鄰近幾排的邊界（凹進去的缺口照樣保留）
+    { const big = 1e9, close = (a, r, lo) => { const n = a.length, d = new Float64Array(n), o = new Float64Array(n), f = lo ? Math.min : Math.max, g = lo ? Math.max : Math.min;
+        for (let i = 0; i < n; i++) { let v = a[i]; for (let j = Math.max(0, i - r); j <= Math.min(n - 1, i + r); j++) v = f(v, a[j]); d[i] = v; }
+        for (let i = 0; i < n; i++) { let v = d[i]; for (let j = Math.max(0, i - r); j <= Math.min(n - 1, i + r); j++) v = g(v, d[j]); o[i] = v; }
+        return o; };
+      let x0 = new Float64Array(Hq).fill(big), x1 = new Float64Array(Hq).fill(-big), y0 = new Float64Array(Wq).fill(big), y1 = new Float64Array(Wq).fill(-big), bx0 = big, bx1 = -big, by0 = big, by1 = -big;
+      for (let y = 0; y < Hq; y++) for (let x = 0; x < Wq; x++) if (wallB[y * Wq + x]) { if (x < x0[y]) x0[y] = x; if (x > x1[y]) x1[y] = x; if (y < y0[x]) y0[x] = y; if (y > y1[x]) y1[x] = y; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+      if (bx1 > bx0 && by1 > by0) {
+        const ry = Math.round((by1 - by0) * 0.3), rx = Math.round((bx1 - bx0) * 0.3);
+        x0 = close(x0, ry, true); x1 = close(x1, ry, false); y0 = close(y0, rx, true); y1 = close(y1, rx, false);
+        for (let y = by0; y <= by1; y++) for (let x = Math.max(bx0, x0[y]); x <= Math.min(bx1, x1[y]); x++) if (y >= y0[x] && y <= y1[x]) inside[y * Wq + x] = 1;
+      } }
     // 外牆厚度：從室外往裡面走，連續是牆的長度（四個方向都量，取中位數）
     const runs = [], scan = (n, m, at) => { for (let a = 0; a < n; a += 2) { let b = 0; while (b < m && !inside[at(a, b)]) b++; let c = b; while (c < m && wallB[at(a, c)]) c++; if (b < m && c > b && c - b < m * 0.2) runs.push(c - b); } };
     scan(Hq, Wq, (y, x) => y * Wq + x); scan(Hq, Wq, (y, x) => y * Wq + (Wq - 1 - x)); scan(Wq, Hq, (x, y) => y * Wq + x); scan(Wq, Hq, (x, y) => (Hq - 1 - y) * Wq + x);
@@ -7346,17 +7361,44 @@ $('#planOk').onclick = () => {                                           // 依�
   if (!PLAN.rooms.length || !draft || !draft.isProject) return;
   const now = Date.now(), p = { id: uid('p'), name: $('#mProj').value.trim() || nextProjName(), cur: null, list: [], updated: now };
   const cx = Math.min(...PLAN.rooms.map(r => r.x)), cy = Math.min(...PLAN.rooms.map(r => r.y));
+  const wt0 = PLAN.det && PLAN.scale ? Math.round(PLAN.det.t / PLAN.det.k * PLAN.scale) : 0, T = wt0 >= 5 && wt0 <= 40 ? wt0 : WALL_T;
+  // 不規則的空間拆成幾塊：兩塊相接的那一段不要牆，同一面上沒有相接的部分要補上牆段（不然那一段會整面沒有牆）
+  const rc = PLAN.rooms.map(r => { const cx_ = (r.x + r.w / 2) * PLAN.scale, cy_ = (r.y + r.h / 2) * PLAN.scale; return { x0: cx_ - r.cw / 2, x1: cx_ + r.cw / 2, y0: cy_ - r.cd / 2, y1: cy_ + r.cd / 2 }; });
+  const edgeWalls = i => {
+    const r = PLAN.rooms[i], A = rc[i], tol = 2 * T + 10, open = new Set(), segs = [];
+    const sides = { back: ['y0', 'y1', 'x0', 'x1'], front: ['y1', 'y0', 'x0', 'x1'], left: ['x0', 'x1', 'y0', 'y1'], right: ['x1', 'x0', 'y0', 'y1'] };
+    for (const [side, [mine, theirs, lo, hi]] of Object.entries(sides)) {
+      const cov = [];
+      PLAN.rooms.forEach((o, j) => { if (j === i || o.gid === undefined || o.gid !== r.gid) return; const B_ = rc[j];
+        if (Math.abs(B_[theirs] - A[mine]) > tol) return;
+        const a = Math.max(A[lo], B_[lo]), b = Math.min(A[hi], B_[hi]); if (b - a > 8) cov.push([a, b]); });
+      if (!cov.length) { if ((r.open || []).includes(side)) open.add(side); continue; }
+      open.add(side); cov.sort((a, b) => a[0] - b[0]);
+      let at = A[lo]; const gaps = [];
+      for (const [a, b] of cov) { if (a - at > 8) gaps.push([at, a]); at = Math.max(at, b); }
+      if (A[hi] - at > 8) gaps.push([at, A[hi]]);
+      for (let [a, b] of gaps) {
+        if (a <= A[lo] + 0.5) a -= T; if (b >= A[hi] - 0.5) b += T;       // 到房間轉角的那一端多蓋住轉角
+        const mid = (a + b) / 2, horiz = side === 'back' || side === 'front', sg = side === 'back' || side === 'left' ? -1 : 1;
+        segs.push({ kind: 'partition', sub: 'wall', edge: true, len: Math.round(b - a), t: T, h: 240, rot: horiz ? 0 : 90, mat: 'paint',
+          x: horiz ? mid - (A.x0 + A.x1) / 2 : sg * (r.cw / 2 + T / 2), z: horiz ? sg * (r.cd / 2 + T / 2) : mid - (A.y0 + A.y1) / 2 });
+      }
+    }
+    return { open: [...open], segs };
+  };
   PLAN.rooms.forEach((r, i) => {
-    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs: [], nextId: 1, noWalls: (r.open || []).slice() };   // 梁柱、門、窗都由使用者在下一步自己加；不規則空間拆成幾塊時，相接的那一面不要牆
+    const ew = edgeWalls(i), structs = ew.segs.map((sg, n) => ({ id: n + 1, ...sg }));
+    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs, nextId: structs.length + 1, noWalls: ew.open };   // 梁柱、門、窗都由使用者在下一步自己加
     p.list.push({ id: uid('s') + i, name: cleanName(r.name) || `空間 ${i + 1}`, data: JSON.stringify(d), updated: now, pos: { x: Math.round((r.x + r.w / 2 - cx) * PLAN.scale), z: Math.round((r.y + r.h / 2 - cy) * PLAN.scale) } });
   });
   if (PLAN.det && PLAN.scale) { const wt = Math.round(PLAN.det.t / PLAN.det.k * PLAN.scale); if (wt >= 5 && wt <= 40) p.wallT = wt; }   // 牆厚照圖上量到的
-  p.plan = true;                                                        // 由平面圖建立：編輯時所有空間一起顯示，點哪個空間就編輯哪個
+  p.plan = true;                                                        // 由平面圖建立：空間照平面圖的位置排好
+  if (PLAN.mode === 'rooms') p.solo = true;                              // 自動分空間：編輯畫面一次一個空間（空間合併才整層一起看）；整層一個大空間拆成幾塊時則一起顯示
   projects.list.push(p); projects.cur = p.id; spaces = p; spaces.cur = p.list[0].id; draft = null;
   $('#planModal').hidden = true;
   loadSpaceData(JSON.parse(curSpace().data)); renderSpaces(); save();
   $('#modal').hidden = false; showStep(2); renderStructLists(); $('#back1').hidden = true;   // 接著進「加入梁柱與門窗」（第一個空間）；其他空間用上方的空間選單切換
-  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, '現在是第一個空間，可以先加梁柱與門窗。所有空間會一起顯示，直接點畫面上的其他空間就能切換過去編輯。想一次只看一個空間，用上方的選單選那個空間；選「全部空間」就回到一起編輯。');
+  showInfo(`已由平面圖建立 ${p.list.length} 個空間`, p.solo ? '現在是第一個空間，可以先加梁柱與門窗。其他空間用上方的選單切換；按「空間合併」可以看到照平面圖排好的整層，渲染時每個空間都能各自設定燈光。' : '現在是第一個空間，可以先加梁柱與門窗。所有空間會一起顯示，直接點畫面上的其他空間就能切換過去編輯。');
 };
 
 /* ================= 復原 / 儲存 ================= */
