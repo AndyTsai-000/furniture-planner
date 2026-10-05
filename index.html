@@ -1519,17 +1519,24 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
   const F = surfMat(it.fabric || 'leather', it.color), Wd = surfMat('wood', it.color2 || '#7a4a2b'), M = mat(it.color3 || '#4d4a48', 0.16, 0.95);
   const legH = Math.min(15, h * 0.17), seatTop = Math.min(40, h * 0.46), pH = seatTop - legH;
   const D = Math.min(110, d), Ww = Math.min(110, w * 0.28), aw = Math.min(15, w * 0.04), xL = -w / 2, xR = w / 2, zb = -d / 2, wingL = xR - Ww;
-  const xs = xL + aw + 3.2, n = seatsOf(it), inner = wingL - xs, cw = inner / n, top = (nx, ny) => Math.max(0, ny), zT = zb + 64;   // xs：座台從扶手和實木條的內側開始
+  const xs = xL + aw + 0.4, n = seatsOf(it), inner = wingL - xs, cw = inner / n, top = (nx, ny) => Math.max(0, ny), zT = zb + 64;   // xs：座台從扶手和實木條的內側開始
   const body = (x0, x1, z0, z1, seams, rc) => { const bw = x1 - x0 - 0.5, bd = z1 - z0 - 0.5, geo = seamBoxGeo(bw, pH, bd, 6.5, seams, { dep: 0.4, sg: 0.7, taper: { y: -pH / 2 + pH * 0.35, amt: 2 } });
     if (rc) { const P = geo.attributes.position, A = bw / 2, C = bd / 2; for (let i = 0; i < P.count; i++) { const dx = P.getX(i) - (A - rc), dz = (-C + rc) - P.getZ(i); if (dx > 0 && dz > 0) { const r = Math.hypot(dx, dz); if (r > rc) { P.setX(i, A - rc + dx / r * rc); P.setZ(i, -C + rc - dz / r * rc); } } } P.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere(); }
     add(g, geo, F, (x0 + x1) / 2, legH + pH / 2, (z0 + z1) / 2); };
   // 背靠塊（固定、矮矮一塊）和斜靠在上面的大背墊（邊緣一圈車線）
-  const bz0 = zb + 16, bz1 = zb + 34, bkH = Math.min(24, (h - seatTop) * 0.5), lean = 0.24, cT = 20, cH = (h - seatTop + 1 - cT * Math.sin(lean)) / Math.cos(lean) + 1.4;
+  const bz0 = zb + 16, bz1 = zb + 34, bkH = Math.min(24, (h - seatTop) * 0.5), lean = 0.3, cT = 22, cH = (h - seatTop + 1 - cT * 0.7 * Math.sin(lean)) / Math.cos(lean) + 0.7;
   const block = (x0, x1, z0, z1, alongZ) => { const bw = x1 - x0, bd = z1 - z0, L = alongZ ? bd : bw, k = Math.max(1, Math.round(L / 32)), sm = [];
     for (let i = 1; i < k; i++) sm.push({ a: alongZ ? 'z' : 'x', at: -L / 2 + L * i / k });
     add(g, seamBoxGeo(bw, bkH + 1, bd, 3, sm, { dep: 0.3, sg: 0.6 }), F, (x0 + x1) / 2, seatTop - 1 + (bkH + 1) / 2, (z0 + z1) / 2); };
   const cushion = (bw, x, z, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 1, z); o.rotation.y = ry || 0; g.add(o);
-    const q = add(o, seamBoxGeo(bw, cH, cT, 8.5, [{ a: 'z', at: 0 }], { dep: 0.55, sg: 0.6 }), F, 0, cH / 2, cT / 2); const pv = new THREE.Group(); pv.rotation.x = -lean; o.add(pv); pv.add(q); };
+    // 大背墊：像一顆飽滿的枕頭——邊緣一圈凸起的滾邊、上面兩個角微微翹起，上薄下厚
+    const cg = seamBoxGeo(bw, cH, cT, 8.5, [{ a: 'z', at: 0 }], { dep: -0.7, sg: 0.55 }), CP = cg.attributes.position, A = bw / 2, Bh = cH / 2;
+    for (let i = 0; i < CP.count; i++) { let px = CP.getX(i), py = CP.getY(i), pz = CP.getZ(i); const t = py / cH + 0.5, u = Math.abs(px) / A;
+      pz *= (1 - 0.3 * t * t) * (1 - 0.16 * u * u * u * u);                // 上緣、左右兩側比較薄，中間鼓
+      const e = Math.max(0, u - 0.86) / 0.14 * Math.max(0, t - 0.86) / 0.14; if (e > 0) { px += Math.sign(px) * 1.6 * e; py += 2.2 * e; }   // 上面兩個角的小耳朵
+      CP.setXYZ(i, px, py, pz); }
+    CP.needsUpdate = true; cg.computeBoundingBox(); cg.computeBoundingSphere();
+    const q = add(o, cg, F, 0, cH / 2, cT / 2); const pv = new THREE.Group(); pv.rotation.x = -lean; o.add(pv); pv.add(q); };
   // 主座：靠扶手那一座是 n−1 人、靠轉角那一座是 1 人；每個座位三條直線，後段一條橫的拉點線
   const mods = n > 1 ? [[xs, wingL - cw], [wingL - cw, wingL]] : [[xs, wingL]];
   for (const [x0, x1] of mods) { const k = Math.round((x1 - x0) / cw) * 3, sm = [{ a: 'z', at: zT - (zb + D / 2), f: top }];
@@ -1538,22 +1545,27 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
   for (let i = 0; i < n; i++) cushion(cw - 3, xs + cw * (i + .5), bz1 + 4);
   // 轉角：後外角是大圓弧，背靠塊和背墊短一點、避開圓角
   const rc = Math.min(42, Ww * 0.4), cb = Ww - rc * 0.55;
-  body(wingL, xR, zb, zb + D, [{ a: 'z', at: zT - (zb + D / 2), f: top }, { a: 'x', at: -Ww / 2 + cb * 0.5, f: top }], rc);
-  block(wingL + 2, wingL + cb, bz0, bz1); cushion(cb - 3, wingL + 1 + cb / 2, bz1 + 4);
+  const cz0 = zb + rc * 0.5, cL = zb + D - 1.5 - cz0;                    // 轉角的背靠：沿著貴妃那一側，避開圓角
+  body(wingL, xR, zb, zb + D, [{ a: 'x', at: Ww / 2 - 62, f: top }, { a: 'z', at: -D / 2 + rc * 0.5 + cL * 0.5, f: (nx, ny, nz) => nx > 0.5 || ny > 0.5 ? 1 : 0 }], rc);
+  block(xR - 34, xR - 16, cz0, cz0 + cL, true); cushion(cL - 3, xR - 38, cz0 + cL / 2, -Math.PI / 2);
   // 貴妃：長長一片往前伸，車線是橫的；外側一塊背靠和背墊（只到一半），前段沒有靠背
   const ext = d - D;
   if (ext > 30) { const k = Math.max(1, Math.round(ext / 30)), sm = [{ a: 'x', at: Ww / 2 - 60, f: top }]; for (let i = 1; i < k; i++) sm.push({ a: 'z', at: -ext / 2 + ext * i / k });
     body(wingL, xR, zb + D, d / 2, sm);
     const Lc = Math.min(100, ext * 0.62); if (Lc > 40) { block(xR - 34, xR - 16, zb + D + 3, zb + D + 3 + Lc, true); cushion(Lc - 3, xR - 38, zb + D + 3 + Lc / 2, -Math.PI / 2); } }
-  // 扶手：矮矮的皮墊從座台側面包上來，外側兩條直的車線；前端和座台之間夾一條實木
-  const aTop = Math.min(seatTop + 17, h - 10), aH = aTop - legH - 2;
-  add(g, seamBoxGeo(aw, aH, D - 1, 6, [{ a: 'z', at: -D * 0.17, f: nx => nx < 0.3 ? 1 : 0 }, { a: 'z', at: D * 0.17, f: nx => nx < 0.3 ? 1 : 0 }], { dep: 0.35, sg: 0.6 }), F, xL + aw / 2, legH + 2 + aH / 2, zb + D / 2);
-  RB(g, 3.4, aH - 4, D * 0.5, 1.2, xL + aw + 1.5, legH + 2.5 + (aH - 4) / 2, zb + D - D * 0.25 - 0.4, Wd);
+  // 扶手：中間是一片實木立板，皮革從上面包下來——外側一片垂到座台底、內側一片只到坐面，上緣是圓的；前後端看得到夾在中間的實木
+  const aTop = Math.min(seatTop + 17, h - 10), aH = aTop - legH - 2, wT = 2.6, pT = (aw - wT) / 2, ax = xL + aw / 2, az = zb + D / 2;
+  RB(g, wT, aH - 5, D - 1, 0.9, ax, legH + 2 + (aH - 5) / 2, az, Wd);
+  const sideSeam = sx => [{ a: 'z', at: -D * 0.17, f: nx => nx * sx > 0.3 ? 1 : 0 }, { a: 'z', at: D * 0.17, f: nx => nx * sx > 0.3 ? 1 : 0 }];
+  add(g, seamBoxGeo(pT + 0.6, aH, D - 5, 2.6, sideSeam(-1), { dep: 0.35, sg: 0.6 }), F, xL + (pT + 0.6) / 2, legH + 2 + aH / 2, az - 0.5);
+  const iH = aTop - (seatTop - 7);
+  add(g, seamBoxGeo(pT + 0.6, iH, D - 5, 2.6, sideSeam(1), { dep: 0.35, sg: 0.6 }), F, xL + aw - (pT + 0.6) / 2, seatTop - 7 + iH / 2, az - 0.5);
+  RB(g, aw + 0.6, 7.5, D - 6, 3.6, ax, aTop - 3.6, az - 0.8, F);
   // 抱枕（布面）：轉角兩顆、扶手這端兩顆
   const PL = [surfMat('fabric', '#c9c8c4'), surfMat('fabric', '#8791a6')], pz = bz1 + 4 + cT + 6;
-  const pil = (x, m, rz, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 0.6, pz); o.rotation.y = ry; g.add(o); const q = add(o, softPillowGeo(45, 45, 13), m, 0, 22.5, 0); q.rotation.x = -0.34; q.rotation.z = rz; q.position.z = Math.sin(0.34) * 22.5; };
-  pil(xL + aw + 28, PL[1], 0.05, 0.3); pil(xL + aw + 60, PL[0], -0.04, 0.12);
-  pil(wingL - 12, PL[0], 0.04, -0.1); pil(wingL + 24, PL[1], -0.05, -0.3);
+  const pil = (x, z, m, rz, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 0.6, z); o.rotation.y = ry; g.add(o); const q = add(o, softPillowGeo(45, 45, 13), m, 0, 22.5, 0); q.rotation.x = -0.34; q.rotation.z = rz; q.position.z = Math.sin(0.34) * 22.5; };
+  pil(xL + aw + 28, pz, PL[1], 0.05, 0.3); pil(xL + aw + 60, pz, PL[0], -0.04, 0.12);
+  const px = xR - 38 - cT - 6; pil(px, cz0 + cL * 0.3, PL[1], 0.05, -Math.PI / 2 + 0.25); pil(px - 4, cz0 + cL * 0.72, PL[0], -0.04, -Math.PI / 2 - 0.12);
   // 金屬刀腳：每一座的四個角
   const pts = [], quad = (x0, x1, z0, z1, cut) => { for (const [x, sx] of [[x0 + 8, -1], [x1 - 8, 1]]) for (const [z, sz] of [[z0 + 9, -1], [z1 - 9, 1]]) pts.push(cut && sx > 0 && sz < 0 ? [x - rc * 0.35, z + rc * 0.35, sx, sz] : [x, z, sx, sz]); };
   for (const [x0, x1] of mods) quad(x0, x1, zb, zb + D);
