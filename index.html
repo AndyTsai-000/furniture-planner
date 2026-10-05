@@ -5725,7 +5725,7 @@ function setField(k, id, f, raw) {
   if (!F.text && !isFinite(v)) return;
   F.set(o, v);
   if (k === 'item') { if (f !== 'name') { buildItem(o); fitItem(o); followCab(o); } if ((f === 'ht' || f === 'wt') && $('#pinfo')) $('#pinfo').textContent = personInfo(o); }
-  else { buildStructs(); if (f === 'axis' || f === 'wall') renderStructLists(); if (f === 'wall') renderPanel(); }
+  else { buildStructs(); if (f === 'axis' || f === 'wall' || f === 'rot') renderStructLists(); if (f === 'wall') renderPanel(); }
   updateOverlay(); syncInputs();
   if (f === 'name') renderPanelList();
 }
@@ -5967,6 +5967,7 @@ function doAct(a, arg, key) {
 /* ================= 側欄與面板 UI ================= */
 const numIn = (k, id, f, extra = '') => `<input class="num" type="number" data-k="${k}" data-id="${id}" data-f="${f}" ${extra}>`;
 const mini = (s, f, lbl) => `<label class="mini"><span>${lbl}</span>${numIn('struct', s.id, f)}</label>`;
+const rotOpts = s => { const cur = Math.round(+s.rot || 0), list = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165]; if (!list.includes(cur)) list.push(cur); return list.sort((a, b) => a - b).map(a => `<option value="${a}">${a === 0 ? '0°（左右向）' : a === 90 ? '90°（前後向）' : a + '°'}</option>`).join(''); };   // 牆壁／隔間的角度選單（自己輸入的角度也列進去）
 const wallOpts = () => Object.entries(WALLS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
 function structRow(s, idx) {
   if (isOpening(s)) return `<div class="srow" data-sel="${s.id}">
@@ -5975,7 +5976,9 @@ function structRow(s, idx) {
       <button class="x" data-del="${s.id}" title="刪除">×</button></div>
     <div class="sgrid${s.kind === 'door' ? ' three' : ''}">${mini(s, 'off', offLabel(s.wall))}${mini(s, 'w', '寬')}${mini(s, 'h', '高')}${s.kind === 'window' ? mini(s, 'sill', '離地') : ''}</div></div>`;
   if (s.kind === 'partition') return `<div class="srow" data-sel="${s.id}">
-    <div class="srow-h"><b>${s.sub === 'part' ? '隔間' : '牆壁'} ${idx}</b><button class="x" data-del="${s.id}" title="刪除">×</button></div>
+    <div class="srow-h"><b>${s.sub === 'part' ? '隔間' : '牆壁'} ${idx}</b>
+      <select data-k="struct" data-id="${s.id}" data-f="rot" title="角度">${rotOpts(s)}</select>
+      <button class="x" data-del="${s.id}" title="刪除">×</button></div>
     <div class="sgrid">${mini(s, 'left', '距左牆')}${mini(s, 'back', '距後牆')}${mini(s, 'len', '長')}${mini(s, 't', '厚')}</div></div>`;
   if (s.kind === 'column') return `<div class="srow" data-sel="${s.id}">
     <div class="srow-h"><b>柱 ${idx}</b><button class="x" data-del="${s.id}" title="刪除">×</button></div>
@@ -6158,7 +6161,7 @@ function renderPanel() {
         <label class="mini"><span>高度</span>${numIn('struct', o.id, 'h')}</label>
         <label class="mini"><span>角度 °</span>${numIn('struct', o.id, 'rot', 'step="1" min="0" max="359"')}</label>
       </div>
-      <div class="stylechips" style="margin:6px 0">${chips('rot', [opt(0, '左右向'), opt(90, '前後向')], +o.rot || 0)}<button class="chip" data-act="sopt" data-key="fullh" data-id="1">高度到天花板</button></div>
+      <div class="stylechips" style="margin:6px 0">${chips('rot', [opt(0, '左右向'), opt(45, '45°'), opt(90, '前後向'), opt(135, '135°')], +o.rot || 0)}<button class="chip" data-act="sopt" data-key="fullh" data-id="1">高度到天花板</button></div>
       <h4>位置（cm）</h4>
       <div class="grid2">
         <label class="mini"><span>距左牆</span>${numIn('struct', o.id, 'left')}</label>
