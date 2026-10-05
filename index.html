@@ -4874,7 +4874,7 @@ function buildWalls() {
     { key: 'left', axis: 'x', sign: -1, c: w / 2, along: 'z', start: -d / 2, len: d, pos: -w / 2 - T / 2, base: -d / 2 },
     { key: 'right', axis: 'x', sign: 1, c: w / 2, along: 'z', start: -d / 2, len: d, pos: w / 2 + T / 2, base: -d / 2 },
   ];
-  const gone = wallsAll ? [] : state.noWalls || [];                     // 使用者拿掉的牆
+  const gone = wallsAll ? [] : goneWalls();                             // 使用者拿掉的牆（合在一起看時，再加上和旁邊空間相接的牆）
   walls = defs.map(df => {
     const g = new THREE.Group();
     if (gone.includes(df.key)) { wallGroup.add(g); return { m: g, axis: df.axis, sign: df.sign, c: df.c, key: df.key, removed: true }; }
@@ -4971,6 +4971,8 @@ function buildOpening(s) {
 const PART_TYPES = { ...WALL_TYPES, wood: { name: '木作', size: 120, color: '#c9a37a', rough: 0.55 } };
 const PART_MATS = [opt('paint', '乳膠漆'), opt('wood', '木作'), opt('brick', '文化石'), opt('woodpanel', '木作格柵'), opt('concrete', '清水模'), opt('marble', '大理石'), opt('glass', '玻璃隔間')];
 const partExt = s => { const a = (+s.rot || 0) * deg, c = Math.abs(Math.cos(a)), n = Math.abs(Math.sin(a)); return { ex: s.len * c + s.t * n, ez: s.len * n + s.t * c }; };   // 在平面上佔的寬、深
+function aloneView() { try { return !ctxOn(); } catch (e) { return true; } }   // 畫面上只有目前這一個空間（不是全部空間一起看）
+function goneWalls() { const a = state.noWalls || []; return aloneView() ? a : [...a, ...(state.autoOpen || [])]; }
 function buildPartition(s) {
   const g = new THREE.Group(), L = s.len, T = s.t, H = s.h, top = view === 'top';
   if (s.mat === 'glass') {                                              // 玻璃隔間：金屬框＋玻璃
@@ -5012,9 +5014,9 @@ function buildStructs() {
   structById.clear();
   for (const s of state.structs) {
     clampStruct(s);
-    if (s.kind === 'partition') { const g = buildPartition(s); structGroup.add(g); structById.set(s.id, g); continue; }
+    if (s.kind === 'partition') { const g = buildPartition(s); if (s.edge && !wallsAll && aloneView()) g.visible = false; structGroup.add(g); structById.set(s.id, g); continue; }   // 補在相接那一面的牆段：單看這個空間時整面牆都在，不用它
     if (isOpening(s)) {
-      if (!wallsAll && (state.noWalls || []).includes(s.wall)) continue;   // 牆拿掉了，門窗也不顯示
+      if (!wallsAll && goneWalls().includes(s.wall)) continue;   // 牆拿掉了，門窗也不顯示
       const g = buildOpening(s);
       g.traverse(c => { c.userData.id = s.id; });
       g.userData.wall = s.wall;
@@ -5991,7 +5993,7 @@ function structRow(s, idx) {
 }
 function renderStructLists() {
   const cnt = {};
-  const html = state.structs.map(s => structRow(s, cnt[s.kind] = (cnt[s.kind] || 0) + 1)).join('');
+  const html = state.structs.filter(s => !(s.edge && aloneView())).map(s => structRow(s, cnt[s.kind] = (cnt[s.kind] || 0) + 1)).join('');
   $('#sStructs').innerHTML = html; $('#mStructs').innerHTML = html;
   document.querySelectorAll('.srow').forEach(r => r.classList.toggle('on', !!sel && sel.k === 'struct' && +r.dataset.sel === sel.id));
   syncInputs();
@@ -6574,7 +6576,7 @@ function openModal() { showStep(1); syncRoomInputs(); $('#modal').hidden = false
 let projects = { cur: null, list: [] };
 const emptyProj = () => ({ id: null, name: '', cur: null, list: [] });
 let spaces = emptyProj(), draft = null; // draft：新空間／新專案建立中（可取消）
-const blankSpace = () => ({ room: { w: 400, d: 350, h: 280 }, finish: defFinish(), items: [], structs: [], nextId: 1, noWalls: [] });
+const blankSpace = () => ({ room: { w: 400, d: 350, h: 280 }, finish: defFinish(), items: [], structs: [], nextId: 1, noWalls: [], autoOpen: [] });   // autoOpen：和旁邊空間相接的牆（由平面圖算出來的），只有合在一起看時才打開
 const curSpace = () => spaces.list.find(s => s.id === spaces.cur);
 const curProject = () => projects.list.find(p => p.id === projects.cur);
 const uid = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -7388,7 +7390,7 @@ $('#planOk').onclick = () => {                                           // 依�
   };
   PLAN.rooms.forEach((r, i) => {
     const ew = edgeWalls(i), structs = ew.segs.map((sg, n) => ({ id: n + 1, ...sg }));
-    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs, nextId: structs.length + 1, noWalls: ew.open };   // 梁柱、門、窗都由使用者在下一步自己加
+    const d = { room: { w: r.cw, d: r.cd, h: 240 }, finish: defFinish(), items: [], structs, nextId: structs.length + 1, noWalls: [], autoOpen: ew.open };   // 梁柱、門、窗都由使用者在下一步自己加
     p.list.push({ id: uid('s') + i, name: cleanName(r.name) || `空間 ${i + 1}`, data: JSON.stringify(d), updated: now, pos: { x: Math.round((r.x + r.w / 2 - cx) * PLAN.scale), z: Math.round((r.y + r.h / 2 - cy) * PLAN.scale) } });
   });
   if (PLAN.det && PLAN.scale) { const wt = Math.round(PLAN.det.t / PLAN.det.k * PLAN.scale); if (wt >= 5 && wt <= 40) p.wallT = wt; }   // 牆厚照圖上量到的
@@ -7402,7 +7404,7 @@ $('#planOk').onclick = () => {                                           // 依�
 };
 
 /* ================= 復原 / 儲存 ================= */
-const snap = () => JSON.stringify({ room: state.room, finish: fin(), items: state.items, structs: state.structs, nextId: state.nextId, noWalls: state.noWalls || [] });
+const snap = () => JSON.stringify({ room: state.room, finish: fin(), items: state.items, structs: state.structs, nextId: state.nextId, noWalls: state.noWalls || [], autoOpen: state.autoOpen || [] });
 let last = snap(); const undoS = [], redoS = [];
 function commit() {
   syncRel();
@@ -7524,7 +7526,7 @@ function normSpace(d) {
   o.structs = o.structs || [];
   o.nextId = o.nextId || 1 + Math.max(0, ...o.items.map(i => i.id), ...o.structs.map(s => s.id));
   if (!o.room || !(o.room.w > 0) || !(o.room.d > 0) || !(o.room.h > 0)) throw 0;
-  return JSON.stringify({ room: o.room, finish: { ...defFinish(), ...(o.finish || {}) }, items: o.items, structs: o.structs, nextId: o.nextId, noWalls: Array.isArray(o.noWalls) ? o.noWalls : [] });
+  return JSON.stringify({ room: o.room, finish: { ...defFinish(), ...(o.finish || {}) }, items: o.items, structs: o.structs, nextId: o.nextId, noWalls: Array.isArray(o.noWalls) ? o.noWalls : [], autoOpen: Array.isArray(o.autoOpen) ? o.autoOpen : [] });
 }
 function projectCode() {
   save();
@@ -7798,7 +7800,7 @@ function buildSpaceGroup(sp) {                                          // 用�
   wallsAll = false;
   take(roomGroup); take(wallGroup); take(structGroup); take(furnGroup);
   objById.clear(); structById.clear();
-  for (const w of wl) w.removed = (state.noWalls || []).includes(w.key);
+  for (const w of wl) w.removed = (state.noWalls || []).includes(w.key) || (state.autoOpen || []).includes(w.key);
   const junk = [];
   G.traverse(o => { if (o.isCSS2DObject || o === gridLines) junk.push(o); if (o.isMesh && o.material === wallMat) o.material = wm; });
   for (const o of junk) { if (o.element) o.element.remove(); o.parent.remove(o); }
@@ -8017,8 +8019,9 @@ function mergeSelect(G, wall = null) {
 }
 function mergeWallSet(G, keys, keepWall) {                              // 更新這個空間拿掉的牆（存回空間資料，單一空間編輯也一致）
   const sp = spaces.list.find(s => s.id === G.userData.spaceId); if (!sp) return;
-  if (sp.id === spaces.cur) { state.noWalls = keys; save(); }
-  else { const d = JSON.parse(sp.data); d.noWalls = keys; sp.data = JSON.stringify(d); }
+  const put = d => { const au = (d.autoOpen || []).filter(k => keys.includes(k)); d.autoOpen = au; d.noWalls = keys.filter(k => !au.includes(k)); };   // 相接的牆仍然記成「自動打開」，其餘才是使用者拿掉的
+  if (sp.id === spaces.cur) { put(state); save(); }
+  else { const d = JSON.parse(sp.data); put(d); sp.data = JSON.stringify(d); }
   markDirty(); persist();
   const wl = MG.wall; mergeSelect(G);                                   // 先還原選取材質
   for (const w of G.userData.walls) w.removed = keys.includes(w.key);
@@ -8094,7 +8097,15 @@ let rLamps = [], rFill = [];
 const spOfG = G => spaces.list.find(sp => sp.id === G.userData.spaceId) || {};
 const rFocusG = () => MG.on && PRES.on && PRES.cur !== 'all' ? MG.groups.find(G => G.userData.spaceId === PRES.cur) || null : null;
 const rLightOf = G => (spOfG(G).rl || {}).light || RM.light, rExpoOf = G => (spOfG(G).rl || {}).expo || RM.expo;
-const rCur = () => { const G = rFocusG(); return G ? { light: rLightOf(G), expo: rExpoOf(G), G } : { light: RM.light, expo: RM.expo, G: null }; };
+const rMixed = () => MG.on && (new Set(MG.groups.map(rLightOf)).size > 1 || new Set(MG.groups.map(rExpoOf)).size > 1);   // 各空間的燈光或亮度不一樣
+const rCur = () => {
+  const G = rFocusG(); if (G) return { light: rLightOf(G), expo: rExpoOf(G), G };
+  if (MG.on && MG.groups.length && !rMixed()) return { light: rLightOf(MG.groups[0]), expo: rExpoOf(MG.groups[0]), G: null };   // 每個空間都一樣：整體就是那個設定
+  return { light: MG.on && rMixed() ? null : RM.light, expo: RM.expo, G: null, mixed: MG.on && rMixed() };
+};
+// 各空間燈光不一樣時：整體環境用中性的底光，每個空間自己一盞主燈（被牆擋住，不會照到隔壁），整體和單看某個空間都是同一個樣子
+const RMIX = { sun: '#ffffff', si: 0.3, sky: '#ffffff', gnd: '#dcdcdc', hi: 0.14, env: 0.2, ceil: 0, cc: '#ffffff', expo: 1.05, bg: '#e9e9e9', over: true };
+const RFILL = { natural: ['#fff3dc', 1.9], white: ['#e6eeff', 1.5], warm: ['#ff9a38', 1.6] };
 function rSet(k, v) {
   const G = rFocusG();
   if (G) { const sp = spOfG(G); sp.rl = { ...(sp.rl || {}), [k]: v }; }
@@ -8120,7 +8131,7 @@ function softGlass(on) {                                                // 渲�
   else { for (const x of rGlass) x.m.roughness = x.r; rGlass = []; }
 }
 function setupLamps() {                                                 // 燈具實際發光：燈罩變亮，並在燈罩位置放光源
-  clearLamps(); const ge = rCur().expo;
+  clearLamps(); const ge = RM.gE || rCur().expo;
   let shadows = 0;
   const lampList = MG.on ? MG.groups.flatMap(G => (G.userData.lamps || []).map(l => ({ ...l, cfg: LAMPCFG[rLightOf(G)], k: rExpoOf(G) / ge })))   // 每個空間的燈照自己的燈光設定
     : state.items.filter(it => LAMP_T.has(it.type)).map(it => ({ type: it.type, g: objById.get(it.id), cfg: LAMPCFG[RM.light], k: 1 }));
@@ -8204,7 +8215,8 @@ const rRoom = () => {                                                  // 渲染
   return { w: B.w, d: B.d, h, cx: B.cx, cz: B.cz };
 };
 function applyLight() {
-  const cur = rCur(), L = RLIGHT[cur.light], { w, d, h, cx, cz } = rRoom(), S = Math.max(w, d);
+  const cur = rCur(), mixed = rMixed(), L = mixed ? RMIX : RLIGHT[cur.light], gE = mixed ? RM.expo : cur.expo, { w, d, h, cx, cz } = rRoom(), S = Math.max(w, d);
+  RM.gE = gE;
   sun.color.set(L.sun); sun.intensity = L.si;
   RM.winLit = false;
   if (L.over) sun.position.set(cx + w * 0.08, h * 3 + S, cz + d * 0.12);   // 室內燈光從正上方打
@@ -8217,12 +8229,17 @@ function applyLight() {
   ceilLight.color.set(L.cc); ceilLight.intensity = MG.on ? 0 : L.ceil; ceilLight.position.set(cx, h - 15, cz);
   for (const f of rFill) { scene.remove(f); f.dispose(); } rFill = [];
   if (MG.on) for (const G of MG.groups) {                               // 多個空間：每個空間各一盞天花板補光，顏色、亮度照自己的設定
-    const Lg = RLIGHT[rLightOf(G)]; if (!Lg.ceil) continue;
-    const R = mDims(G), f = new THREE.PointLight(Lg.cc, Lg.ceil * rExpoOf(G) / cur.expo, Math.hypot(R.w, R.d) * 0.75 + 120, 0);
-    f.position.set(G.position.x, G.userData.room.h - 15, G.position.z); scene.add(f); rFill.push(f);
+    const Lg = RLIGHT[rLightOf(G)], R = mDims(G);
+    if (!mixed) { if (!Lg.ceil) continue; const f = new THREE.PointLight(Lg.cc, Lg.ceil, Math.hypot(R.w, R.d) * 0.75 + 120, 0); f.position.set(G.position.x, G.userData.room.h - 15, G.position.z); scene.add(f); rFill.push(f); continue; }
+    const [fc, fi] = RFILL[rLightOf(G)] || RFILL.white, f = new THREE.PointLight(fc, fi * rExpoOf(G) / gE, Math.hypot(R.w, R.d) * 0.8 + 150, 0);
+    f.position.set(G.position.x, G.userData.room.h - 25, G.position.z);
+    if (rFill.filter(x => x.castShadow).length < 4) {                   // 牆會擋住這盞燈：各空間的燈光不會混在一起
+      f.castShadow = true; f.shadow.mapSize.set(512, 512); f.shadow.bias = -0.003; f.shadow.normalBias = 1; f.shadow.radius = 5; f.shadow.camera.near = 5; f.shadow.camera.far = 2500;
+    }
+    scene.add(f); rFill.push(f);
   }
   scene.background = new THREE.Color(L.bg);
-  renderer.toneMappingExposure = L.expo * cur.expo;
+  renderer.toneMappingExposure = L.expo * gE;
 }
 function setLens(l) { RM.lens = l; persp.fov = l === 'wide' ? 64 : rBase.fov; persp.updateProjectionMatrix(); syncChips(); }
 const OUT_DIR = { 'o-f': [0, 1], 'o-b': [0, -1], 'o-l': [-1, 0], 'o-r': [1, 0], 'o-fl': [-1, 1], 'o-fr': [1, 1], 'o-bl': [-1, -1], 'o-br': [1, -1] };
@@ -8353,7 +8370,7 @@ const syncChips = () => {
   document.querySelectorAll('#rpanel [data-rk]').forEach(b => b.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === String(b.dataset.rk === 'light' ? cur.light : RM[b.dataset.rk]))));
   $('#rExpo').value = cur.expo;
   $('#rFocusNote').hidden = !(MG.on && PRES.on);
-  $('#rFocusNote').textContent = cur.G ? `目前設定的是「${spOfG(cur.G).name || '空間'}」：燈光、亮度、角度只會改這個空間。點上方的「整體」可以全部一起改。` : '目前設定的是全部空間。點上方的空間名稱，可以單獨設定那個空間的燈光、亮度和角度。';
+  $('#rFocusNote').textContent = cur.G ? `目前設定的是「${spOfG(cur.G).name || '空間'}」：燈光、亮度、角度只會改這個空間。點上方的「整體」可以全部一起改。` : cur.mixed ? '目前是全部空間，各空間的燈光或亮度不一樣（照各自的設定顯示）。在這裡選燈光會把全部空間改成同一種。' : '目前設定的是全部空間。點上方的空間名稱，可以單獨設定那個空間的燈光、亮度和角度。';
   $('#rDirRow').hidden = RM.path !== 'orbit';                           // 環繞方向只有環繞一圈用得到
   $('#rCamRow').hidden = MG.on;                                         // 空間合併：動畫固定從高處往下看
   $('#rWalkRow').hidden = MG.on;                                        // 人物走動只在單一空間的動畫
