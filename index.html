@@ -711,15 +711,15 @@ function customTex(col) {
   } catch (e) { return null; }
 }
 // 紋路不照模型原本的貼圖座標拉伸，而是照實際尺寸（每張圖 TRI_CM 公分）從三個方向投影上去：大沙發、小椅腳上的紋路一樣大，轉彎的地方自然銜接
-const TRI_CM = 42;
+const TRI_CM = 42, TRI_GAIN = 0.5, TRI_SAT = 1.2;   // 場景的燈光和色調映射會讓顏色變亮、變淡：貼圖先壓暗一點、彩度補一點，受光面看起來才接近原圖
 function triMat(m, tx) {
-  m.map = null; m.color.set('#ffffff');
+  m.map = null; m.color.set('#ffffff'); if (m.clearcoat !== undefined) m.clearcoat = Math.min(m.clearcoat, 0.08); if (m.sheen !== undefined) m.sheen = 0;   // 表面的反光、絨光會把顏色洗白：自訂的紋路以圖片的顏色為準
   m.onBeforeCompile = sh => {
-    sh.uniforms.triMap = { value: tx }; sh.uniforms.triS = { value: TRI_CM };
+    sh.uniforms.triMap = { value: tx }; sh.uniforms.triS = { value: TRI_CM }; sh.uniforms.triG = { value: new THREE.Vector2(TRI_GAIN, TRI_SAT) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriP = transformed * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));\nvTriN = objectNormal;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D triMap;\nuniform float triS;\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
-      .replace('#include <map_fragment>', 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS) * triW.x + texture2D(triMap, vTriP.xz / triS) * triW.y + texture2D(triMap, vTriP.xy / triS) * triW.z).rgb;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D triMap;\nuniform float triS;\nuniform vec2 triG;\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
+      .replace('#include <map_fragment>', 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS) * triW.x + texture2D(triMap, vTriP.xz / triS) * triW.y + texture2D(triMap, vTriP.xy / triS) * triW.z).rgb * triG.x;\nfloat triL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = max(vec3(0.0), mix(vec3(triL), diffuseColor.rgb, triG.y));');
   };
   m.customProgramCacheKey = () => 'tri';
   m.needsUpdate = true;
@@ -6137,7 +6137,9 @@ function renderStructLists() {
 /* ---------- 專案自訂顏色：使用者加入顏色圖片檔，取出圖片的顏色存在這個專案裡（存檔、重新開啟都還在；別的專案要用得重新加入） ---------- */
 const projColors = () => (spaces && Array.isArray(spaces.colors) ? spaces.colors : []);
 // mk(c)：這一組色票的按鈕怎麼寫（回傳 class 與 data 屬性），cur：目前的顏色
-const customSw = (mk, cur) => projColors().map(o => `<button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + '<button type="button" class="swadd" data-addcolor="1" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡">＋ 新增</button>';
+const slotOf = t => String(t || '').replace(/顏色|色$/g, '').trim();
+const customSw = (mk, cur, slot = '') => projColors().filter(o => !o.slot || !slot || o.slot === slot).map(o => `<button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + `<button type="button" class="swadd" data-addcolor="1" data-slot="${esc(slot)}" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡，之後在同名的顏色欄位都能選">＋ 新增</button>`;
+
 let addCtx = null;
 function imgColor(file) {                                                // 讀圖片：做一張貼紋路用的圖（拍照時一邊亮一邊暗的部分先拉平，鋪開來才不會一塊亮一塊暗）、取平均色、縮一張小圖當色票
   return new Promise((res, rej) => {
@@ -6172,12 +6174,12 @@ document.addEventListener('click', e => {
   const ref = b.parentElement.querySelector('.sw, .fsw'), ds = ref ? { ...ref.dataset } : null;   // 記住是在哪一組色票按的，加入後直接套用到那裡
   if (ds) for (const k of ['color', 'c', 'cc', 'con']) delete ds[k];
   if (ds && ds.act === 'partColor') delete ds.id;
-  addCtx = { ds, btn: b };
+  addCtx = { ds, btn: b, slot: b.dataset.slot || '' };
   let inp = $('#colorIn'); if (!inp) { inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'colorIn'; inp.hidden = true; document.body.appendChild(inp);
     inp.onchange = async () => {
       const f = inp.files[0]; inp.value = ''; if (!f) return;
       let o; try { o = await imgColor(f); } catch (err) { if (addCtx && addCtx.btn.isConnected) flash(addCtx.btn, '這個檔案讀不出顏色'); return; }
-      const list = spaces.colors = projColors().filter(q => q.c !== o.c); list.push(o); if (list.length > 24) list.shift();   // 最多留 24 個
+      if (addCtx && addCtx.slot) o.slot = addCtx.slot; const list = spaces.colors = projColors().filter(q => !(q.c === o.c && (q.slot || '') === (o.slot || ''))); list.push(o); if (list.length > 24) list.shift();   // 最多留 24 個
       markDirty(); persist(); try { rebuildAll(); } catch (err) { } refreshColorUI();
       const ds = addCtx && addCtx.ds;                                     // 套用到剛剛按「新增」的那個顏色欄位
       if (ds) { const t = [...document.querySelectorAll(`[data-cc="${o.c}"]`)].find(el => Object.entries(ds).every(([k, v]) => el.dataset[k] === v)); if (t) t.click(); }
@@ -6187,7 +6189,7 @@ document.addEventListener('click', e => {
 function swatches(it, f, k = 'item') {
   const board = k === 'item' && isCab(TYPES[it.type]) ? `<div class="muted" style="font-size:12px;margin:2px 0 6px">系統板材常用色</div><div class="sws" style="margin-bottom:8px">${SC_SW.map(([c, n]) => `<button class="sw" style="background:${c}" title="${n}" data-k="${k}" data-id="${it.id}" data-f="${f}" data-color="${c}"></button>`).join('')}</div><div class="muted" style="font-size:12px;margin:0 0 6px">其他顏色</div>` : '';
   return `${board}<div class="sws">${PALETTE.map(c => `<button class="sw" style="background:${c}" title="${c}" data-k="${k}" data-id="${it.id}" data-f="${f}" data-color="${c}"></button>`).join('')}
-    <input type="color" class="cpick" title="自訂顏色" data-k="${k}" data-id="${it.id}" data-f="${f}">${customSw(c => `class="sw" data-k="${k}" data-id="${it.id}" data-f="${f}" data-color="${c}"`)}</div>
+    <input type="color" class="cpick" title="自訂顏色" data-k="${k}" data-id="${it.id}" data-f="${f}">${customSw(c => `class="sw" data-k="${k}" data-id="${it.id}" data-f="${f}" data-color="${c}"`, '', k === 'item' ? slotOf(colorLabel(it, f === 'color' ? 1 : f === 'color2' ? 2 : 3)) : (it.kind || k) + ':' + f)}</div>
     <div class="shade">
       <span>深淺</span><input type="range" class="shade-l" min="3" max="97" step="1" data-k="${k}" data-id="${it.id}" data-f="${f}_l" aria-label="顏色深淺">
       <span>彩度</span><input type="range" class="shade-s" min="0" max="100" step="1" data-k="${k}" data-id="${it.id}" data-f="${f}_s" aria-label="顏色彩度">
@@ -6260,7 +6262,7 @@ function renderPanel() {
         <button class="btn" data-act="partBack" style="width:100%;margin-bottom:6px">← 回到整座櫃子</button>
         <h4>這一片的顏色</h4>
         <div class="sws">${pal.map(c => `<button class="sw${ov.color === c ? ' on' : ''}" style="background:${c}" title="${c}" data-act="partColor" data-id="${c}"></button>`).join('')}
-          <input type="color" class="cpick" id="partPick" title="自訂顏色" value="${ov.color || '#c49a6c'}">${customSw(c => `class="sw" data-act="partColor" data-id="${c}"`, ov.color)}</div>
+          <input type="color" class="cpick" id="partPick" title="自訂顏色" value="${ov.color || '#c49a6c'}">${customSw(c => `class="sw" data-act="partColor" data-id="${c}"`, ov.color, '板材')}</div>
         <div class="stylechips" style="margin-top:8px"><button class="chip${ov.color ? '' : ' on'}" data-act="partColor" data-id="">跟整座櫃子同色</button></div>
         ${(() => { const z = partSize(o, selPart) || { w: 0, h: 0, d: 0 }, fld = (k, lbl, v, extra = '') => `<label class="mini"><span>${lbl}</span><input class="num" type="number" step="0.1" data-pf="${k}" value="${v}" ${extra}></label>`;
           return `<h4>這一片的尺寸（cm）</h4>
@@ -6476,7 +6478,7 @@ function renderScColor() {
   el.innerHTML = `<div class="muted" style="font-size:12px;margin-bottom:4px">${cur ? '正在調整選取的櫃子' : '沒有選取櫃子時，設定的是之後新加入櫃子的顏色'}</div>` + SCC.map(([key, lbl]) => {
     const v = scColOf(key);
     return `<div style="margin-top:8px;font-size:13px;font-weight:600">${lbl}</div>
-      <div class="sws" style="margin-top:6px">${SC_SW.map(([c, n]) => `<button class="sw${c === v ? ' on' : ''}" style="background:${c}" title="${n}" data-scc="${key}" data-c="${c}"></button>`).join('')}<input type="color" class="cpick" title="自訂顏色" data-scpick="${key}" value="${v}">${customSw(c => `class="sw" data-scc="${key}" data-c="${c}"`, v)}</div>
+      <div class="sws" style="margin-top:6px">${SC_SW.map(([c, n]) => `<button class="sw${c === v ? ' on' : ''}" style="background:${c}" title="${n}" data-scc="${key}" data-c="${c}"></button>`).join('')}<input type="color" class="cpick" title="自訂顏色" data-scpick="${key}" value="${v}">${customSw(c => `class="sw" data-scc="${key}" data-c="${c}"`, v, '板材')}</div>
       <div class="shade" data-scshade="${key}"><span>深淺</span><input type="range" class="shade-l sc-l" min="3" max="97" step="1" aria-label="${lbl}深淺"><span>彩度</span><input type="range" class="shade-s sc-s" min="0" max="100" step="1" aria-label="${lbl}彩度"><span>色碼</span><div class="hexrow"><span class="prev"></span><input class="num sc-hex" maxlength="7" spellcheck="false" aria-label="${lbl}色碼"><span>可貼上板材色碼</span></div></div>`;
   }).join('');
   syncScColor();
@@ -6666,14 +6668,14 @@ function syncFinishUI() {
   const f = fin();
   $('#floorType').value = f.floor; $('#wallType').value = f.wall;
   $('#floorColor').value = f.floorColor; $('#wallColor').value = f.wallColor;
-  $('#floorSw').innerHTML = FLOOR_SW.map(c => `<button class="fsw${c === f.floorColor ? ' on' : ''}" style="background:${c}" title="${c}" data-fin="floorColor" data-c="${c}"></button>`).join('') + customSw(c => `class="fsw" data-fin="floorColor" data-c="${c}"`, f.floorColor);
-  $('#wallSw').innerHTML = WALL_SW.map(c => `<button class="fsw${c === f.wallColor ? ' on' : ''}" style="background:${c}" title="${c}" data-fin="wallColor" data-c="${c}"></button>`).join('') + customSw(c => `class="fsw" data-fin="wallColor" data-c="${c}"`, f.wallColor);
+  $('#floorSw').innerHTML = FLOOR_SW.map(c => `<button class="fsw${c === f.floorColor ? ' on' : ''}" style="background:${c}" title="${c}" data-fin="floorColor" data-c="${c}"></button>`).join('') + customSw(c => `class="fsw" data-fin="floorColor" data-c="${c}"`, f.floorColor, '地板');
+  $('#wallSw').innerHTML = WALL_SW.map(c => `<button class="fsw${c === f.wallColor ? ' on' : ''}" style="background:${c}" title="${c}" data-fin="wallColor" data-c="${c}"></button>`).join('') + customSw(c => `class="fsw" data-fin="wallColor" data-c="${c}"`, f.wallColor, '牆面');
   const ct = CEIL_TYPES[f.ceil] ? f.ceil : 'flat', cc = ceilColorOf(f);
   $('#ceilType').value = ct; $('#ceilColor').value = cc; $('#ceilLamp').value = f.ceilLamp || 'none';
   $('#ceilColor').disabled = $('#ceilLamp').disabled = ct === 'none';
   syncFinShade();
   $('#ceilSw').innerHTML = ct === 'none' ? '' : (ct === 'slat' ? '' : `<button class="chip${f.ceilColor ? '' : ' on'}" style="font-size:12px;padding:2px 9px" data-fin="ceilColor" data-c="">跟牆面同色</button>`)
-    + (ct === 'slat' ? CEIL_SW : WALL_SW).map(c => `<button class="fsw${f.ceilColor && c === cc ? ' on' : ''}" style="background:${c}" title="${c}" data-fin="ceilColor" data-c="${c}"></button>`).join('') + customSw(c => `class="fsw" data-fin="ceilColor" data-c="${c}"`, f.ceilColor ? cc : '');
+    + (ct === 'slat' ? CEIL_SW : WALL_SW).map(c => `<button class="fsw${f.ceilColor && c === cc ? ' on' : ''}" style="background:${c}" title="${c}" data-fin="ceilColor" data-c="${c}"></button>`).join('') + customSw(c => `class="fsw" data-fin="ceilColor" data-c="${c}"`, f.ceilColor ? cc : '', '天花板');
 }
 // 地板／牆面／天花板的深淺、彩度滑桿與色碼（跟家具顏色同樣的操作）
 const FIN_CUR = { floorColor: f => f.floorColor, wallColor: f => f.wallColor, ceilColor: f => ceilColorOf(f) };
@@ -7799,7 +7801,7 @@ function loadDesign(text, fileName, opt = {}) {
   if (d.mergeView && Array.isArray(d.mergeView.p)) p.mergeView = d.mergeView;
   if (d.plan) p.plan = true;
   if (d.wallT >= 5 && d.wallT <= 40) p.wallT = Math.round(d.wallT);
-  if (Array.isArray(d.colors)) p.colors = d.colors.filter(o => o && /^#[0-9a-f]{6}$/i.test(o.c) && typeof o.img === 'string' && o.img.startsWith('data:image/')).map(o => ({ c: o.c, img: o.img, ...(typeof o.tex === 'string' && o.tex.startsWith('data:image/') ? { tex: o.tex } : {}) })).slice(0, 24); else if (mine && mine.colors) p.colors = mine.colors;
+  if (Array.isArray(d.colors)) p.colors = d.colors.filter(o => o && /^#[0-9a-f]{6}$/i.test(o.c) && typeof o.img === 'string' && o.img.startsWith('data:image/')).map(o => ({ c: o.c, img: o.img, ...(typeof o.tex === 'string' && o.tex.startsWith('data:image/') ? { tex: o.tex } : {}), ...(typeof o.slot === 'string' && o.slot ? { slot: o.slot.slice(0, 30) } : {}) })).slice(0, 24); else if (mine && mine.colors) p.colors = mine.colors;
   p.srcAt = d.savedAt || 0; p.impAt = p.updated;                         // 記下對方的儲存時間與收到當下的時間，之後收到更新版本可以直接更新
   done();
   let replaced = null;
