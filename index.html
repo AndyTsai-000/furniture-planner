@@ -1544,10 +1544,19 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
     body(x0, x1, zb, zb + D, sm); block(x0 + 2, x1 - 2, bz0, bz1); }
   for (let i = 0; i < n; i++) cushion(cw - 3, xs + cw * (i + .5), bz1 + 4);
   // 轉角：後外角是大圓弧，背靠塊和背墊短一點、避開圓角
-  const rc = Math.min(42, Ww * 0.4), cb = Ww - rc * 0.55;
-  const cz0 = zb + rc * 0.5, cL = zb + D - 1.5 - cz0;                    // 轉角的背靠：沿著貴妃那一側，避開圓角
-  body(wingL, xR, zb, zb + D, [{ a: 'x', at: Ww / 2 - 62, f: top }, { a: 'z', at: -D / 2 + rc * 0.5 + cL * 0.5, f: (nx, ny, nz) => nx > 0.5 || ny > 0.5 ? 1 : 0 }], rc);
-  block(xR - 34, xR - 16, cz0, cz0 + cL, true); cushion(cL - 3, xR - 38, cz0 + cL / 2, -Math.PI / 2);
+  // 轉角那一座：扇形（四分之一圓）——尖端在 L 的內角，外緣是一道圓弧；由中間一條放射狀的縫分成兩片。背靠塊和背墊斜放 45°，面向內角
+  const vx = wingL, vz = zb + D, gp = 0.5, bv = 2.6, ux = Math.SQRT1_2, uz = -Math.SQRT1_2;       // (vx, vz)：內角；(ux, uz)：由內角指向圓弧中點的方向
+  for (const [a0, a1] of [[0, Math.PI / 4 - 0.004], [Math.PI / 4 + 0.004, Math.PI / 2]]) {
+    const sh = new THREE.Shape(), am = (a0 + a1) / 2, ox = Math.cos(am) * (bv + gp) * 1.6, oy = Math.sin(am) * (bv + gp) * 1.6;
+    sh.moveTo(ox, oy); sh.absellipse(0, 0, Ww - bv - gp, D - bv - gp, a0 + 0.03, a1 - 0.03, false, 0); sh.lineTo(ox, oy);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: pH - 2 * bv, bevelEnabled: true, bevelThickness: bv, bevelSize: bv, bevelSegments: 4, curveSegments: 14 });
+    const m = add(g, geo, F, vx, legH + bv, vz); m.rotation.x = -Math.PI / 2;
+  }
+  const rp = Math.min(Ww, D) * 0.6, cwd = Math.min(74, Math.min(Ww, D) * 0.68);          // 背墊後緣離內角的距離、背墊寬度
+  { const o = new THREE.Group(); o.position.set(vx + ux * (rp + 11), 0, vz + uz * (rp + 11)); o.rotation.y = -Math.PI / 4; g.add(o);
+    const k = 4, sm = []; for (let i = 1; i < k; i++) sm.push({ a: 'x', at: -cwd / 2 + cwd * i / k });
+    add(o, seamBoxGeo(cwd, bkH + 1, 17, 3, sm, { dep: 0.3, sg: 0.6 }), F, 0, seatTop - 1 + (bkH + 1) / 2, 0); }
+  cushion(cwd + 4, vx + ux * (rp + 1), vz + uz * (rp + 1), -Math.PI / 4);
   // 貴妃：長長一片往前伸，車線是橫的；外側一塊背靠和背墊（只到一半），前段沒有靠背
   const ext = d - D;
   if (ext > 30) { const k = Math.max(1, Math.round(ext / 30)), sm = [{ a: 'x', at: Ww / 2 - 60, f: top }]; for (let i = 1; i < k; i++) sm.push({ a: 'z', at: -ext / 2 + ext * i / k });
@@ -1565,11 +1574,12 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
   const PL = [surfMat('fabric', '#c9c8c4'), surfMat('fabric', '#8791a6')], pz = bz1 + 4 + cT + 6;
   const pil = (x, z, m, rz, ry) => { const o = new THREE.Group(); o.position.set(x, seatTop - 0.6, z); o.rotation.y = ry; g.add(o); const q = add(o, softPillowGeo(45, 45, 13), m, 0, 22.5, 0); q.rotation.x = -0.34; q.rotation.z = rz; q.position.z = Math.sin(0.34) * 22.5; };
   pil(xL + aw + 28, pz, PL[1], 0.05, 0.3); pil(xL + aw + 60, pz, PL[0], -0.04, 0.12);
-  const px = xR - 38 - cT - 6; pil(px, cz0 + cL * 0.3, PL[1], 0.05, -Math.PI / 2 + 0.25); pil(px - 4, cz0 + cL * 0.72, PL[0], -0.04, -Math.PI / 2 - 0.12);
+  const pr = rp - cT - 5; for (const [sd, m, rz] of [[-1, PL[1], 0.05], [1, PL[0], -0.04]]) pil(vx + ux * pr + sd * uz * 17, vz + uz * pr - sd * ux * 17, m, rz, -Math.PI / 4 + sd * 0.15);
   // 金屬刀腳：每一座的四個角
-  const pts = [], quad = (x0, x1, z0, z1, cut) => { for (const [x, sx] of [[x0 + 8, -1], [x1 - 8, 1]]) for (const [z, sz] of [[z0 + 9, -1], [z1 - 9, 1]]) pts.push(cut && sx > 0 && sz < 0 ? [x - rc * 0.35, z + rc * 0.35, sx, sz] : [x, z, sx, sz]); };
+  const pts = [], quad = (x0, x1, z0, z1, cut) => { for (const [x, sx] of [[x0 + 8, -1], [x1 - 8, 1]]) for (const [z, sz] of [[z0 + 9, -1], [z1 - 9, 1]]) pts.push([x, z, sx, sz]); };
   for (const [x0, x1] of mods) quad(x0, x1, zb, zb + D);
-  quad(wingL, xR, zb, zb + D, true); if (ext > 30) quad(wingL, xR, zb + D, d / 2);
+  pts.push([vx + 9, vz - 9, -1, 1], [vx + 9, zb + 12, -1, -1], [xR - 12, vz - 9, 1, 1], [vx + ux * (Math.min(Ww, D) - 14), vz + uz * (Math.min(Ww, D) - 14), 1, -1]);   // 轉角：內角、圓弧兩端、圓弧中點
+  if (ext > 30) quad(wingL, xR, zb + D, d / 2);
   legs120(g, pts, legH, M);
   return mirrorIfLeft(it, g);
 }
