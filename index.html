@@ -1567,8 +1567,7 @@ function buildAthenaSofa(it) { // 雅典娜：全牛皮 L 型——厚厚一整�
   RB(g, wT, aH - 5, D - 1, 0.9, ax, legH + 2 + (aH - 5) / 2, az, Wd);
   const sideSeam = sx => [{ a: 'z', at: -D * 0.17, f: nx => nx * sx > 0.3 ? 1 : 0 }, { a: 'z', at: D * 0.17, f: nx => nx * sx > 0.3 ? 1 : 0 }];
   add(g, seamBoxGeo(pT + 0.4, aH, D - 5, 1.5, sideSeam(-1), { dep: 0.3, sg: 0.6 }), F, xL + (pT + 0.4) / 2, legH + 2 + aH / 2, az - 0.5);   // 外側：薄薄一片垂到座台底
-  const iH = aTop - (seatTop + 2.5);                                     // 內側：只有上面一小段，搭在坐面上方
-  RB(g, pT + 0.4, iH, D - 5, 1.5, xL + aw - (pT + 0.4) / 2, seatTop + 2.5 + iH / 2, az - 0.5, F);
+  RB(g, pT + 0.4, aH, D - 5, 1.5, xL + aw - (pT + 0.4) / 2, legH + 2 + aH / 2, az - 0.5, F);   // 內側（靠坐墊那一面）：皮革一樣整片包到底，看不到木頭；木頭只在正面和背面的斷面露出來
   RB(g, aw + 0.5, 6, D - 6, 2.9, ax, aTop - 2.9, az - 0.8, F);
   // 抱枕（布面）：轉角兩顆、扶手這端兩顆
   const PL = [surfMat('fabric', '#c9c8c4'), surfMat('fabric', '#8791a6')], pz = bz1 + 4 + cT + 6;
