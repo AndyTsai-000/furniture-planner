@@ -1374,7 +1374,7 @@ function build171Sofa(it) { // 171 型：牛皮 L 型——懸浮的厚座體（
   const g = new THREE.Group(), { w, d, h } = it;
   const F = surfMat(it.fabric || 'leather', it.color), Pl = surfMat('fabric', it.color2), M = mat(it.color3 || '#232325', 0.5, 0.55);
   const legH = Math.min(13, h * 0.145), seatTop = Math.min(44, h * 0.49), armTop = Math.min(55, h * 0.61), bodyH = seatTop - legH;
-  const awL = Math.min(20, w * 0.07), awR = Math.min(22, w * 0.077), cwid = Math.min(103, w * 0.3614), sd = Math.min(102, d);
+  const awL = Math.min(20, w * 0.07), awR = awL, cwid = Math.min(101.67, w * 0.35673), sd = Math.min(102, d);
   const zb = -d / 2, xL = -w / 2, xR = w / 2, wingL = xR - cwid, seatL = xL + awL, n = seatsOf(it), inner = wingL - seatL, cw = inner / n;
   const ext = d - sd, ySeam = -bodyH / 2 + bodyH * 0.44, side = (nx, ny) => 1 - Math.max(0, ny);
   // 背墊：厚厚一塊往後靠，正面一條直線、一條橫線，交會處凹下去
@@ -1397,12 +1397,10 @@ function build171Sofa(it) { // 171 型：牛皮 L 型——懸浮的厚座體（
   // 貴妃：比主座長，中間一條直線，橫線和主座對齊，前段再一條
   const cD = d - 5, cz = zb + 5 + cD / 2, cs = [{ a: 'x', at: -awR * 0.3 }, { a: 'z', at: zs - cz }, { a: 'y', at: ySeam, f: side }];
   if (ext > 50) cs.push({ a: 'z', at: zb + sd + ext * 0.3 - cz });
-  add(g, seamBoxGeo(cwid - 0.3, bodyH, cD, 6.5, cs, { taper: { y: ySeam, amt: 2.6 } }), F, wingL + 0.3 + (cwid - 0.3) / 2, legH + bodyH / 2, cz);
-  // 扶手：左邊整塊落到底（和座體一樣懸空），外側一條橫線、一條直線，正面一條直線；右邊短的坐在貴妃上
+  add(g, seamBoxGeo(cwid - 0.9, bodyH, cD, 6.5, cs, { taper: { y: ySeam, amt: 2.6 } }), F, wingL + 0.3 + (cwid - 0.9) / 2, legH + bodyH / 2, cz);
+  // 扶手：左右兩邊一樣——整塊落到底（和座體一樣懸空），外側一條橫線、一條直線，正面一條直線；右邊那支包在貴妃的後段外側
   const aH = armTop - legH;
-  add(g, seamBoxGeo(awL, aH, sd, 5.5, [{ a: 'y', at: -aH / 2 + aH * 0.54, f: (nx, ny, nz) => nx < 0.5 ? 1 : 0 }, { a: 'z', at: -sd * 0.03, f: nx => nx < 0.5 ? 1 : 0 }, { a: 'x', at: -awL * 0.08, f: (nx, ny, nz) => Math.max(0, nz) }], { taper: { y: -aH / 2 + aH * 0.3, amt: 1.6 } }), F, xL + awL / 2, legH + aH / 2, zb + sd / 2);
-  const rH = armTop - seatTop + 1.5, rL = Math.min(78, sd * 0.76);
-  add(g, seamBoxGeo(awR, rH, rL, 5.5, [{ a: 'z', at: 0, f: nx => nx > -0.5 ? 1 : 0 }, { a: 'x', at: 0, f: (nx, ny, nz) => Math.max(0, nz) }]), F, xR - awR / 2, seatTop - 1.5 + rH / 2, zb + rL / 2);
+  for (const sx of [-1, 1]) add(g, seamBoxGeo(awL, aH, sd, 5.5, [{ a: 'y', at: -aH / 2 + aH * 0.54, f: nx => nx * sx > -0.5 ? 1 : 0 }, { a: 'z', at: -sd * 0.03, f: nx => nx * sx > -0.5 ? 1 : 0 }, { a: 'x', at: sx * awL * 0.08, f: (nx, ny, nz) => Math.max(0, nz) }], { taper: { y: -aH / 2 + aH * 0.3, amt: 1.6 } }), F, sx * (w / 2 - awL / 2), legH + aH / 2, zb + sd / 2);
   // 黑鐵翼型腳：貼地的長桿（中間厚、兩端薄，兩端有腳墊）＋中間兩支扁立柱撐住座體
   const sled = (x, z, L, alongZ) => {
     const o = new THREE.Group(); o.position.set(x, 0, z); if (alongZ) o.rotation.y = Math.PI / 2; g.add(o);
@@ -3263,7 +3261,7 @@ function buildClock(it) {
 function buildDanishTable(it) {
   const g = new THREE.Group(), { w, d, h } = it;
   const T = topMat(it), L = surfMat('wood', it.color2), pad = mat('#3b3632', 0.8);
-  const tt = 1.2, apH = 6.5, inset = 2.5, cr = Math.min(4, w * 0.05, d * 0.05);
+  const tt = 1.2, apH = 6.5, inset = 0, cr = Math.min(2.7, w * 0.05, d * 0.05);
   // 圓角桌面：用圓角矩形擠出，並把貼圖座標換算成 0～1
   const sh = new THREE.Shape(), x0 = -w / 2, y0 = -d / 2;
   sh.moveTo(x0 + cr, y0); sh.lineTo(x0 + w - cr, y0); sh.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + cr);
@@ -3274,8 +3272,8 @@ function buildDanishTable(it) {
   const uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + w / 2) / w, (uv.getY(i) + d / 2) / d);
   const top = add(g, geo, T, 0, h - tt, 0); top.rotation.x = -Math.PI / 2;
-  // 木框（比桌面內縮）
-  const ay = h - tt - apH / 2, lx = w / 2 - inset - 2.6, lz = d / 2 - inset - 2.6;
+  // 木框、桌腳的外緣和桌面邊緣平齊
+  const ay = h - tt - apH / 2, lx = w / 2 - inset - 2.7, lz = d / 2 - inset - 2.7;
   for (const s of [-1, 1]) {
     B(g, 2 * lx, apH, 2.2, 0, ay, s * (d / 2 - inset - 1.1), L);
     B(g, 2.2, apH, 2 * lz, s * (w / 2 - inset - 1.1), ay, 0, L);
@@ -4303,7 +4301,7 @@ const TYPES = {
   chair:    { name: '餐椅',       cat: '餐廳', w: 45,  d: 50,  h: 85,  color: '#e9e4da', color2: '#8b5a3c', c1: '椅面',     c2: '椅腳',     build: buildChair, opts: CHAIR_OPTS },
   bartable: { name: '長型吧檯桌', cat: '餐廳', w: 140, d: 50,  h: 105, color: '#c49a6c', color2: '#222222', c1: '桌面', c2: '桌腳', build: it => buildBarTable(it, 'long'), opts: [BAR_BASES, BAR_LEGMAT, TOPMAT_OPT] },
   barround: { name: '圓形高腳桌', cat: '餐廳', w: 60,  d: 60,  h: 105, color: '#f1ebe1', color2: '#222222', c1: '桌面', c2: '桌腳', build: it => buildBarTable(it, 'round'), opts: [BARROUND_BASES, BAR_LEGMAT, TOPMAT_OPT], def: { topmat: 'marble' } },
-  barisland:{ name: '中島吧檯',   cat: '餐廳', w: 180, d: 75,  h: 95,  color: '#f2f0ec', color2: '#4a4d52', color3: '#3a3c40', c1: '櫃體', c2: null, build: it => buildBarTable(it, 'island') },
+  barisland:{ name: '中島吧檯',   cat: '系統櫃', sub: '櫥櫃', w: 180, d: 75,  h: 95,  color: '#f2f0ec', color2: '#4a4d52', color3: '#3a3c40', c1: '櫃體', c2: null, build: it => buildBarTable(it, 'island') },
   barwall:  { name: '靠牆吧檯',   cat: '餐廳', w: 120, d: 38,  h: 105, color: '#c49a6c', color2: '#222222', c1: '檯面', c2: '支架', build: it => buildBarTable(it, 'wall'), opts: [TOPMAT_OPT], wall: true },
   barstool: { name: '圓凳吧檯椅', cat: '餐廳', w: 36,  d: 36,  h: 75,  color: '#8b5a3c', color2: '#222222', c1: '椅面', c2: '椅腳', build: it => buildBarStool(it, 'round'), opts: [BAR_LEGMAT] },
   barstoolBack: { name: '低背吧檯椅', cat: '餐廳', w: 42, d: 46, h: 95, color: '#b9b4ad', color2: '#222222', c1: '椅面', c2: '椅腳', build: it => buildBarStool(it, 'back'), opts: [BAR_LEGMAT] },
@@ -6101,7 +6099,7 @@ const TYPE_SUB = {
   ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', own171: '沙發', ownFloatL: '沙發', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
   lounge: '單椅', shellchair: '單椅', wingchair: '單椅', woodchair: '單椅', pouf: '椅凳', bench: '椅凳',
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
-  dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barisland: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
+  dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
   bed: '床', queen: '床', single: '床', night: '床頭櫃', wardrobe: '衣櫃', slidewardrobe: '衣櫃', vanity: '化妝台', vstool: '化妝台',
   shoecab: '鞋櫃', shoecabTall: '鞋櫃', shoecabSlim: '鞋櫃', shoecabLouver: '鞋櫃', shoerack: '鞋櫃', shoebench: '鞋櫃',
   pillowSq: '抱枕', pillowLumbar: '抱枕', pillowRound: '抱枕', pillowBolster: '抱枕', seatpad: '抱枕',
