@@ -717,7 +717,7 @@ function customTex(col, even) {                                          // even
           x.drawImage(im, 0, 0, S, S); const sm = mk(12); sm.getContext('2d').drawImage(c, 0, 0, 12, 12);
           const bl = mk(S), bx = bl.getContext('2d', { willReadFrequently: true }); bx.imageSmoothingQuality = 'high'; bx.drawImage(sm, 0, 0, S, S);
           const I = x.getImageData(0, 0, S, S), d = I.data, lo = bx.getImageData(0, 0, S, S).data, av = [parseInt(col.slice(1, 3), 16), parseInt(col.slice(3, 5), 16), parseInt(col.slice(5, 7), 16)];
-          for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) { const r = d[i + k] / Math.max(10, lo[i + k]); d[i + k] = Math.max(0, Math.min(255, av[k] * (1 + (r - 1) * 0.8))); }   // 每一點只留下和周圍的相對差異（細紋），底色統一成平均色
+          for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) { const r = d[i + k] / Math.max(10, lo[i + k]); d[i + k] = Math.max(0, Math.min(255, av[k] * (1 + (r - 1) * 0.45))); }   // 每一點只留下和周圍的相對差異（細紋），底色統一成平均色
           x.putImageData(I, 0, 0); t.needsUpdate = true; } catch (e) { } };
         im.src = o.tex;
       } else t = new THREE.TextureLoader().load(o.tex);
@@ -727,17 +727,20 @@ function customTex(col, even) {                                          // even
   } catch (e) { return null; }
 }
 // 紋路不照模型原本的貼圖座標拉伸，而是照實際尺寸（每張圖 TRI_CM 公分）從三個方向投影上去：大沙發、小椅腳上的紋路一樣大，轉彎的地方自然銜接
-const TRI_CM = 42, TRI_GAIN = 0.5, TRI_SAT = 1.2;   // 場景的燈光和色調映射會讓顏色變亮、變淡：貼圖先壓暗一點、彩度補一點，受光面看起來才接近原圖
-let TRI_CUR = 0;                                                         // 正在建的那件家具適合的紋路大小（公分）：大件家具紋路鋪得大一點，小件鋪得細一點，重複的次數差不多
+const TRI_CM = 42, TRI_GAIN = 0.55, TRI_SAT = 1.06;   // 場景的燈光和色調映射會讓顏色變亮、變淡：貼圖先壓暗一點、彩度補一點，受光面看起來才接近原圖
+let TRI_MAX = 0, TRI_CUR = 0;                                                         // 正在建的那件家具適合的紋路大小（公分）：大件家具紋路鋪得大一點，小件鋪得細一點，重複的次數差不多
 const triSize = it => clamp(Math.round(Math.max(it.w || 0, it.d || 0, it.h || 0) * 0.3 / 6) * 6, 18, 90);
-function triMat(m, tx) {
-  m.userData.triS = TRI_CUR || TRI_CM; m.map = null; m.color.set('#ffffff'); if (m.clearcoat !== undefined) m.clearcoat = Math.min(m.clearcoat, 0.08); if (m.sheen !== undefined) m.sheen = 0;   // 表面的反光、絨光會把顏色洗白：自訂的紋路以圖片的顏色為準
+function triMat(m, tx, even) {
+  const slab = even === 'slab' && TRI_MAX > 0;                            // 大理石、陶板：整張圖剛好鋪滿這件家具最長的一邊（像一整片石板，紋路跟著尺寸放大縮小，不重複）
+  m.userData.triO = slab ? 0.5 : 0;
+  m.userData.triS = slab ? TRI_MAX + 2 : even ? Math.max(14, (TRI_CUR || TRI_CM) * 0.4) : TRI_CUR || TRI_CM;   // 皮革、布料的紋理本來就細：鋪小一點
+  m.map = null; m.color.set('#ffffff'); if (m.clearcoat !== undefined) m.clearcoat = Math.min(m.clearcoat, 0.08); if (m.sheen !== undefined) m.sheen = 0;   // 表面的反光、絨光會把顏色洗白：自訂的紋路以圖片的顏色為準
   m.onBeforeCompile = sh => {
-    sh.uniforms.triMap = { value: tx }; sh.uniforms.triS = { value: m.userData.triS }; sh.uniforms.triG = { value: new THREE.Vector2(TRI_GAIN, TRI_SAT) };
+    sh.uniforms.triMap = { value: tx }; sh.uniforms.triS = { value: m.userData.triS }; sh.uniforms.triO = { value: m.userData.triO }; sh.uniforms.triG = { value: new THREE.Vector2(TRI_GAIN, TRI_SAT) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriP = transformed * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));\nvTriN = objectNormal;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D triMap;\nuniform float triS;\nuniform vec2 triG;\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
-      .replace('#include <map_fragment>', 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS) * triW.x + texture2D(triMap, vTriP.xz / triS) * triW.y + texture2D(triMap, vTriP.xy / triS) * triW.z).rgb * triG.x;\nfloat triL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = max(vec3(0.0), mix(vec3(triL), diffuseColor.rgb, triG.y));');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D triMap;\nuniform float triS;\nuniform float triO;\nuniform vec2 triG;\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
+      .replace('#include <map_fragment>', 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS + triO) * triW.x + texture2D(triMap, vTriP.xz / triS + triO) * triW.y + texture2D(triMap, vTriP.xy / triS + triO) * triW.z).rgb * triG.x;\nfloat triL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = max(vec3(0.0), mix(vec3(triL), diffuseColor.rgb, triG.y));');
   };
   m.customProgramCacheKey = () => 'tri';
   m.needsUpdate = true;
@@ -2463,7 +2466,7 @@ function surfTex(kind) {
 // 依材質種類產生材質（同種類同顏色共用）
 function surfMat(kind, col) {
   col = col || '#ffffff';
-  const tx = kind === 'glass' ? null : customTex(col, kind === 'leather' || kind === 'velvet' || kind === 'fabric'), k = 'surf|' + kind + '|' + col + (tx ? '|' + tx.uuid + '|' + TRI_CUR : '');
+  const tx = kind === 'glass' ? null : customTex(col, kind === 'leather' || kind === 'velvet' || kind === 'fabric'), k = 'surf|' + kind + '|' + col + (tx ? '|' + tx.uuid + '|' + TRI_CUR + '|' + TRI_MAX : '');
   if (MATS.has(k)) return MATS.get(k);
   let m;
   switch (kind) {
@@ -2482,7 +2485,7 @@ function surfMat(kind, col) {
     case 'metal': m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.32, metalness: 0.75 }); break;
     default: m = new THREE.MeshStandardMaterial({ color: col, map: surfTex('wood'), roughness: 0.55 });
   }
-  if (tx) triMat(m, tx);
+  if (tx) triMat(m, tx, kind === 'marble' || kind === 'slate' ? 'slab' : kind === 'leather' || kind === 'velvet' || kind === 'fabric');
   MATS.set(k, m);
   return m;
 }
@@ -5213,7 +5216,7 @@ function applySeat(it, g) {                                               // 座
 function buildItem(it) {
   const old = objById.get(it.id);
   if (old) { furnGroup.remove(old); disposeObj(old); }
-  TRI_CUR = triSize(it); let g; try { g = TYPES[it.type].build(it); } finally { TRI_CUR = 0; }
+  TRI_CUR = triSize(it); TRI_MAX = Math.max(it.w || 0, it.d || 0); let g; try { g = TYPES[it.type].build(it); } finally { TRI_CUR = TRI_MAX = 0; }
   applySeat(it, g);
   g.traverse(o => { o.userData.id = it.id; });
   if (TYPES[it.type].person) { g.userData.person = true; if (!opts.people) g.visible = false; }   // 空間設定關掉「顯示人物」
@@ -6164,7 +6167,7 @@ function imgColor(file) {                                                // 讀�
     const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => {
       try {
-        const S = 192, mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; };
+        const S = 320, mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; };
         const c = mk(S), x = c.getContext('2d', { willReadFrequently: true }), sz = Math.min(im.width, im.height);
         x.drawImage(im, (im.width - sz) / 2, (im.height - sz) / 2, sz, sz, 0, 0, S, S);
         const sm = mk(6); sm.getContext('2d').drawImage(c, 0, 0, 6, 6);
