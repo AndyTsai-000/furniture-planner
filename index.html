@@ -1446,24 +1446,25 @@ function shell120(g, w, d, legH, armTop, M, St, arms) {
   capFace(0, false); capFace((rings.length - 1) * K, true);
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
   add(g, geo, M, 0, 0, 0);
-  // 前緣的車線
-  const pts = P.map(([x, y]) => new V3(x, y, zF(y) - 0.25));
-  add(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), n * 4, 0.28, 6, false), St, 0, 0, 0.12).castShadow = false;
+  // 外殼邊緣的鋸齒車線：一條直線上面疊一條鋸齒，沿著正面的邊走一圈，再順著扶手頂往後走
+  const zig = (at, len) => { const A = [], Bz = [], m = Math.max(2, Math.round(len / 0.85)); for (let i = 0; i <= m; i++) { const [q, nrm] = at(i / m); A.push(q); Bz.push(q.clone().addScaledVector(nrm, i % 2 ? 0.5 : -0.5)); }
+    for (const [pp, r] of [[A, 0.09], [Bz, 0.11]]) add(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pp, false, 'catmullrom', 0.05), pp.length * 2, r, 4, false), St, 0, 0, 0).castShadow = false; };
+  const seg = [0]; for (let i = 1; i <= n; i++) seg.push(seg[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  zig(u => { const sAt = u * seg[n]; let i = 1; while (i < n && seg[i] < sAt) i++; const f = (sAt - seg[i - 1]) / (seg[i] - seg[i - 1] || 1), x = P[i - 1][0] + (P[i][0] - P[i - 1][0]) * f, y = P[i - 1][1] + (P[i][1] - P[i - 1][1]) * f, tx = P[i][0] - P[i - 1][0], ty = P[i][1] - P[i - 1][1], l = Math.hypot(tx, ty) || 1;
+    return [new V3(x, y, zF(y) + 0.06), new V3(ty / l, -tx / l, 0)]; }, seg[n]);
+  for (const i of arms === 'both' ? [0, n] : [n]) { const z1 = zF(armTop) - 1.5; zig(u => [new V3(P[i][0], armTop + 0.04, z1 + (zb + 2 - z1) * u), new V3(1, 0, 0)], z1 - zb - 2); }
   return { xc, t, edge: xc + 9, top: legH + t };
 }
-function legs120(g, pts, legH, M) {                                         // 細長的金屬腳：上端喇叭狀張開接底框，往下收細、微微外張
-  const pad = mat('#1c1c1c', 0.8);
-  for (const [x, z, sx, sz] of pts) {
-    const o = new THREE.Group(); o.position.set(x, 0, z); o.rotation.z = sx * 0.07; o.rotation.x = -sz * 0.07; g.add(o);
-    C(o, 1.9, 0.95, legH - 0.5, 0, 0.5 + (legH - 0.5) / 2, 0, M, 16);
-    C(o, 3.4, 1.7, 3.2, 0, legH - 1.4, 0, M, 16).scale.z = 0.6;
-    C(o, 0.6, 0.6, 0.5, 0, 0.25, 0, pad, 10);
-  }
+function legs120(g, pts, legH, M) {                                         // 亮面鑄造金屬腳：外側是直的斜邊，往下收細；頂端往沙發內側彎出一片托座接底框
+  const pad = mat('#1c1c1c', 0.8), sh = new THREE.Shape(), H = legH - 0.4;
+  sh.moveTo(-0.75, 0.5); sh.lineTo(-1.9, H); sh.lineTo(7.2, H); sh.lineTo(7.2, H - 0.7); sh.bezierCurveTo(3.4, H - 0.9, 1.9, H - 2.6, 1.5, H - 6.5); sh.lineTo(0.75, 0.5); sh.lineTo(-0.75, 0.5);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: 1.3, bevelEnabled: true, bevelThickness: 0.55, bevelSize: 0.5, bevelSegments: 3, curveSegments: 12 }); geo.translate(0, 0, -0.65);
+  for (const [x, z, sx] of pts) { add(g, geo, M, x, 0, z).scale.x = -sx; C(g, 0.55, 0.55, 0.5, x + sx * 0.0, 0.25, z, pad, 10); }
 }
 function cushion120(g, cw, ct, cd, x, y, z, F) { return add(g, seamBoxGeo(cw, ct, cd, 6.5, [{ a: 'y', at: ct / 2 - 3.6, f: (nx, ny) => 1 - Math.abs(ny) }], { dep: 0.3, sg: 0.5, taper: { y: -ct / 2 + ct * 0.55, amt: 3.2 } }), F, x, y + ct / 2, z); }
 function build120Sofa(it) { // 120 型：合成皮 U 形外殼（底框＋薄扶手）托著布面厚坐墊，高背墊各一顆釦子，細金屬腳；兩顆合成皮小腰枕
   const g = new THREE.Group(), { w, d, h } = it;
-  const F = fabMat(it), Lt = surfMat('leather', it.color2), M = mat(it.color3 || '#77726d', 0.28, 0.85);
+  const F = fabMat(it), Lt = surfMat('leather', it.color2), M = mat(it.color3 || '#55524f', 0.16, 0.95);
   const St = mat('#' + new THREE.Color(it.color2).lerp(new THREE.Color('#d8c8ad'), 0.55).getHexString(), 0.8);
   const legH = Math.min(15, h * 0.15), seatTop = Math.min(45, h * 0.44), armTop = Math.min(58, h * 0.57);
   const sh = shell120(g, w, d, legH, armTop, Lt, St, 'both'), n = seatsOf(it), inner = 2 * sh.edge, cw = inner / n, zb = -d / 2;
@@ -1483,7 +1484,8 @@ function build120Sofa(it) { // 120 型：合成皮 U 形外殼（底框＋薄扶
   // 合成皮小腰枕：放在座位交界的地方
   const px = n === 1 ? [] : n === 2 ? [0] : [-inner / 2 + cw, inner / 2 - cw];
   for (const x of px) { const o = new THREE.Group(); o.position.set(x, seatTop - 0.8, zFace + 3); g.add(o);
-    const q = add(o, softPillowGeo(44, 27, 11), Lt, 0, 13.5, 0); q.rotation.x = -0.3; q.position.z = Math.sin(0.3) * 13.5 + 2; }
+    const q = add(o, softPillowGeo(44, 27, 11), Lt, 0, 13.5, 0); q.rotation.x = -0.3; q.position.z = Math.sin(0.3) * 13.5 + 2;
+    const q2 = add(o, softPillowGeo(43.6, 26.6, 10.6), F, 0, 13.5, 0); q2.rotation.x = -0.3; q2.position.z = q.position.z - 0.5; }
   // 金屬腳：每座模組的四個角
   const lz = d / 2 - 10, xe = sh.xc - 2, pts = [];
   for (const sz of [-1, 1]) { pts.push([-xe, sz * lz, -1, sz], [xe, sz * lz, 1, sz]); if (jx !== null) pts.push([jx - 5, sz * lz, 1, sz], [jx + 5, sz * lz, -1, sz]); }
@@ -1492,7 +1494,7 @@ function build120Sofa(it) { // 120 型：合成皮 U 形外殼（底框＋薄扶
 }
 function build120Ottoman(it) { // 120 型腳椅：同一款外殼，只有一側有扶手（預設在右，選左時鏡射）
   const g = new THREE.Group(), { w, d, h } = it;
-  const F = fabMat(it), Lt = surfMat('leather', it.color2), M = mat(it.color3 || '#77726d', 0.28, 0.85);
+  const F = fabMat(it), Lt = surfMat('leather', it.color2), M = mat(it.color3 || '#55524f', 0.16, 0.95);
   const St = mat('#' + new THREE.Color(it.color2).lerp(new THREE.Color('#d8c8ad'), 0.55).getHexString(), 0.8);
   const legH = Math.min(15, h * 0.26), seatTop = Math.min(45, h * 0.78), sh = shell120(g, w, d, legH, h, Lt, St, 'right');
   const x0 = -w / 2 + 0.6, x1 = sh.edge, ct = seatTop - sh.top + 1.5;
@@ -4331,8 +4333,8 @@ const TYPES = {
   ownDanSofa:  { name: '丹麥沙發', cat: '自家商品', w: 210, d: 90, h: 90, color: '#cfc8b8', color2: '#d9b382', c1: '布料顏色', c2: '木腳顏色', build: buildDanishSofa, opts: [SEATS_OPT], def: { seats: '2' }, wall: true, own: true },
   ownLetItBe:  { name: 'Let it be沙發', cat: '自家商品', w: 368, d: 267, h: 80, color: '#e3e1dc', color2: '#9a6038', c1: '布料顏色', c2: '底框皮革顏色', build: buildLetItBeSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '3', side: 'left' }, wall: true, own: true },
   own171:      { name: '171型沙發', cat: '自家商品', w: 285, d: 185, h: 90, color: '#8f9291', color2: '#b5b1b2', color3: '#232325', c1: '牛皮顏色', c2: '腰枕顏色', c3: '鐵腳顏色', build: build171Sofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'right' }, wall: true, own: true },
-  own120:      { name: '120型沙發', cat: '自家商品', w: 250, d: 90, h: 102, color: '#d3d2cf', color2: '#67666a', color3: '#77726d', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Sofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
-  own120Ott:   { name: '120型腳椅', cat: '自家商品', w: 95, d: 100, h: 58, color: '#d3d2cf', color2: '#67666a', color3: '#77726d', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Ottoman, opts: [{ key: 'side', label: '扶手位置', list: [opt('right', '扶手在右'), opt('left', '扶手在左')] }], def: { side: 'right' }, own: true },
+  own120:      { name: '120型沙發', cat: '自家商品', w: 250, d: 90, h: 102, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Sofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
+  own120Ott:   { name: '120型腳椅', cat: '自家商品', w: 95, d: 100, h: 58, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Ottoman, opts: [{ key: 'side', label: '扶手位置', list: [opt('right', '扶手在右'), opt('left', '扶手在左')] }], def: { side: 'right' }, own: true },
   ownFloatL:   { name: '103型沙發', cat: '自家商品', w: 306, d: 180, h: 95,  color: '#dcd6cf', color2: '#8e7472', color3: '#d9bd94', c1: '坐墊布料', c2: '底座布料', c3: '邊几木色', build: buildFloatLSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'left' }, wall: true, own: true },
   ownDanish:   { name: '丹麥餐桌', cat: '自家商品', w: 180, d: 90, h: 75, color: '#f2f0ec', color2: '#dcc39c', c1: '桌面顏色', c2: '木腳顏色', build: buildDanishTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownPencil:   { name: '鉛筆腳餐桌', cat: '自家商品', w: 150, d: 85, h: 75, color: '#f2f0ec', color2: '#1f1f1f', c1: '桌面顏色', c2: '鐵件顏色', build: buildPencilTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
