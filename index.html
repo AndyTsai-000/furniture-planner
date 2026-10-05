@@ -123,8 +123,8 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .p-name:hover,.p-name:focus{border-color:var(--line2);background:#fff;outline:none}
 .p-type{font-size:12px;color:var(--muted)}
 #panel h4{margin:16px 0 8px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em}
-.dim{display:grid;grid-template-columns:22px 1fr 70px;gap:8px;align-items:center;margin-bottom:6px}
-.dim label{font-size:13px;color:var(--muted)}
+.dim{display:grid;grid-template-columns:30px 1fr 70px;gap:8px;align-items:center;margin-bottom:6px}
+.dim label{font-size:13px;color:var(--muted);white-space:nowrap}
 .dim input[type=range]{width:100%;accent-color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-bottom:8px}
 .sws{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
@@ -4401,7 +4401,7 @@ const TYPES = {
   shellchair:{ name: '貝殼單椅',  cat: '客廳', w: 75,  d: 72,  h: 78,  color: '#d9a441', color2: '#b08d57', c1: '布料顏色', c2: '椅腳顏色', build: buildAccent, opts: ACCENT_OPTS, def: { style: 'shell' } },
   wingchair:{ name: '高背單椅',   cat: '客廳', w: 80,  d: 85,  h: 105, color: '#3d5a80', color2: '#5a3a28', c1: '布料顏色', c2: '椅腳顏色', build: buildAccent, opts: ACCENT_OPTS, def: { style: 'wing' } },
   woodchair:{ name: '木框單椅',   cat: '客廳', w: 70,  d: 78,  h: 78,  color: '#e9e4da', color2: '#c49a6c', c1: '坐墊顏色', c2: '木框顏色', build: buildAccent, opts: ACCENT_OPTS, def: { style: 'wood' } },
-  pouf:     { name: '圓形軟凳',   cat: '客廳', w: 45,  d: 45,  h: 42,  color: '#c98b8b', color2: '#5a3a28', c1: '布料顏色', c2: '凳腳顏色', build: buildStool, opts: STOOL_OPTS, def: { style: 'round' } },
+  pouf:     { name: '圓形軟凳',   cat: '客廳', w: 45,  d: 45,  h: 45,  color: '#c98b8b', color2: '#5a3a28', c1: '布料顏色', c2: '凳腳顏色', build: buildStool, opts: STOOL_OPTS, def: { style: 'round' } },
   bench:    { name: '長凳',       cat: '客廳', w: 110, d: 40,  h: 45,  color: '#8e9099', color2: '#5a3a28', c1: '布料顏色', c2: '凳腳顏色', build: buildStool, opts: STOOL_OPTS, def: { style: 'bench' } },
   coffee:   { name: '茶几',       cat: '客廳', w: 120, d: 60,  h: 42,  color: '#c49a6c', color2: '#222222', c1: '桌面',     c2: '桌腳',     build: buildCoffee, opts: COFFEE_OPTS },
   coffeeset:{ name: '組合茶几',   cat: '客廳', w: 130, d: 80,  h: 42,  color: '#e9e4da', color2: '#b08d57', c1: '桌面',     c2: '桌腳',     build: buildCoffeeSet, opts: COFFEE_OPTS, def: { shape: 'round', base: 'legs', legmat: 'metal' } },
@@ -4434,7 +4434,7 @@ const TYPES = {
   wardrobe: { name: '衣櫃',       cat: '臥室', w: 120, d: 60,  h: 220, color: '#f1ebe1', color2: '#8a8f98', c1: '櫃體',     c2: '把手',     build: it => buildCabinet(it, { doorW: 50 }), opts: CAB_OPTS, wall: true },
   slidewardrobe: { name: '推門衣櫃', cat: '臥室', w: 180, d: 62, h: 220, color: '#e9e4da', color2: '#4a4d52', c1: '櫃體', c2: '把手與飾條', build: buildSlideWardrobe, opts: SLIDE_OPTS, wall: true },
   vanity:   { name: '化妝台',     cat: '臥室', w: 100, d: 45,  h: 140, color: '#f2f0ec', color2: '#e9e4da', c1: '桌面', c2: '櫃體與鏡框', build: buildVanity, opts: VANITY_OPTS, def: { topmat: 'marble' }, wall: true },
-  vstool:   { name: '化妝椅',     cat: '臥室', w: 42,  d: 42,  h: 46,  color: '#c98b8b', color2: '#b08d57', c1: '椅面', c2: '椅腳', build: buildVanityStool, opts: VSTOOL_OPTS },
+  vstool:   { name: '化妝椅',     cat: '臥室', w: 42,  d: 42,  h: 45,  color: '#c98b8b', color2: '#b08d57', c1: '椅面', c2: '椅腳', build: buildVanityStool, opts: VSTOOL_OPTS },
   ldesk:    { name: 'L型書桌',    cat: '書房', w: 160, d: 140, h: 75, color: '#e8d3b0', color2: '#2b2b2b', c1: '桌面', c2: '桌腳', build: buildLDesk, opts: LDESK_OPTS, def: { style: 'metal', side: 'right' }, wall: true },
   consoletable:{ name: '玄關桌',  cat: '玄關', w: 120, d: 35, h: 80, color: '#c49a6c', color2: '#5a3a28', c1: '桌面', c2: '桌腳', build: buildConsole, opts: CONSOLE_OPTS, def: { style: 'slim' }, wall: true },
   shoecab:  { name: '矮鞋櫃',     cat: '玄關', w: 100, d: 35, h: 100, color: '#e9e4da', color2: '#2b2b2b', c1: '櫃體', c2: '把手', build: buildShoeCab, opts: SHOE_OPTS, def: { style: 'low', bodymat: 'wood' }, wall: true },
@@ -5058,10 +5058,46 @@ function clampStruct(s) {
   }
 }
 
+/* ---------- 座高：椅子類可以另外設定座面高度（沙發、單椅 40；餐椅、長凳、椅凳 45；吧檯椅 75） ---------- */
+const SEAT_DEF = { '沙發': 40, '單椅': 40, '餐椅': 45, '長凳': 45, '椅凳': 45, '吧檯椅': 75, '辦公椅': 45 };
+const seatDef = it => !TYPES[it.type] ? 0 : it.type === 'vstool' ? 45 : SEAT_DEF[TYPE_SUB[it.type]] || 0;
+const SEAT0 = new Map(), SEATINFO = new Map();
+function nativeSeat(it, g) {                                             // 量模型原本的座面高度：從上往下打一片射線，落點最集中的那個高度就是座面
+  const key = [it.type, it.w, it.d, it.h, ...optsOf(TYPES[it.type]).map(o => it[o.key])].join('|');
+  if (SEAT0.has(key)) return SEAT0.get(key);
+  g.updateMatrixWorld(true);
+  const rc = new THREE.Raycaster(), dn = new V3(0, -1, 0), bins = new Map();
+  for (let i = 0; i < 11; i++) for (let j = 0; j < 6; j++) {
+    rc.set(new V3((i / 10 - 0.5) * it.w * 0.86, it.h + 60, (j / 5 - 0.5) * it.d * 0.8), dn);
+    const hit = rc.intersectObject(g, true)[0]; if (!hit || hit.point.y < 8) continue;
+    const b = Math.round(hit.point.y / 2), e = bins.get(b) || [0, 0]; e[0]++; e[1] += hit.point.y; bins.set(b, e);
+  }
+  let best = null; for (const e of bins.values()) if (!best || e[0] > best[0]) best = e;
+  const s0 = best ? best[1] / best[0] : 0;
+  if (SEAT0.size > 400) SEAT0.clear();
+  SEAT0.set(key, s0); return s0;
+}
+function applySeat(it, g) {                                               // 座面以下拉高或壓低到指定的座高，座面以上跟著調整，總高度不變
+  const def = seatDef(it); SEATINFO.delete(it.id); if (!def) return;
+  const s0 = nativeSeat(it, g), H = it.h; if (!s0) return;
+  const flat = s0 > H - 6; SEATINFO.set(it.id, { flat });                 // 沒有靠背的凳子：座高就是高度
+  if (flat) return;
+  const sN = clamp(+it.seatH || def, 15, H - 8); if (Math.abs(sN - s0) < 0.3) return;
+  g.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), M = new THREE.Matrix4(), Mi = new THREE.Matrix4();
+  g.traverse(o => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
+    const geo = o.geometry.clone(); M.multiplyMatrices(inv, o.matrixWorld); Mi.copy(M).invert(); geo.applyMatrix4(M);
+    const P = geo.attributes.position;
+    for (let i = 0; i < P.count; i++) { const y = P.getY(i); P.setY(i, y <= s0 ? y * sN / s0 : sN + (y - s0) * (H - sN) / Math.max(1, H - s0)); }
+    geo.applyMatrix4(Mi); P.needsUpdate = true; geo.computeBoundingBox(); geo.computeBoundingSphere(); o.geometry = geo;
+  });
+}
 function buildItem(it) {
   const old = objById.get(it.id);
   if (old) { furnGroup.remove(old); disposeObj(old); }
   const g = TYPES[it.type].build(it);
+  applySeat(it, g);
   g.traverse(o => { o.userData.id = it.id; });
   if (TYPES[it.type].person) { g.userData.person = true; if (!opts.people) g.visible = false; }   // 空間設定關掉「顯示人物」
   g.position.set(it.x, it.elev || 0, it.z);
@@ -5671,6 +5707,7 @@ const FIELDS = {
     color2: { get: o => o.color2, set: (o, v) => { o.color2 = v; }, text: true },
     color3: { get: o => o.color3 || TYPES[o.type].color3 || '#e3ddd3', set: (o, v) => { o.color3 = v; }, text: true },
     elev: { get: o => o.elev || 0, set: (o, v) => { o.elev = clamp(v, 0, R().h); } },
+    seatH: { get: o => (SEATINFO.get(o.id) || {}).flat ? o.h : +o.seatH || seatDef(o), set: (o, v) => { if ((SEATINFO.get(o.id) || {}).flat) o.h = Math.round(clamp(v, 10, 200) * 10) / 10; else o.seatH = Math.round(clamp(v, 15, Math.max(16, o.h - 8)) * 10) / 10; } },   // 座高：沒有靠背的凳子就是高度
     wgap: { get: o => Math.max(0, wallGaps(o)[itemWall(o)]), set: (o, v) => { setWallGap(o, itemWall(o), v); } },   // 離目前貼齊那面牆的距離
     ht: { get: o => personHt(o), set: (o, v) => { o.ht = Math.round(clamp(v, 80, 220)); } },     // 人物身高 cm
     wt: { get: o => personWt(o), set: (o, v) => { o.wt = Math.round(clamp(v, 15, 200)); } },     // 人物體重 kg
@@ -6098,6 +6135,7 @@ function renderPanel() {
       ${dimRow(o, 'w', '寬', Math.max(T.w * 2.5, 300, big) | 0)}
       ${dimRow(o, 'd', '深', Math.max(T.d * 2.5, 200) | 0)}
       ${dimRow(o, 'h', '高', T.flat ? 5 : Math.max(T.h * 1.8, R().h) | 0)}
+      ${seatDef(o) ? dimRow(o, 'seatH', '座高', 110) : ''}
       <button class="link" data-act="reset">↺ 恢復預設尺寸</button>`)}
       ${T.person ? grp('pset', '人物設定', visOpts(o).map(gp => `<h4>${gp.label}</h4><div class="stylechips">${gp.list.map(st => `<button class="chip${optEntry(o, gp).id === st.id ? ' on' : ''}" data-act="opt" data-key="${gp.key}" data-id="${st.id}">${st.name}</button>`).join('')}</div>`).join('')) : ''}
       ${T.person ? '' : grp('style', '款式與材質', `${T.own ? '<div class="muted" style="font-size:12px;margin-top:10px">自家商品，依實品造型建模，可調整尺寸、材質與顏色。</div>' : ''}
