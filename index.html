@@ -46,7 +46,13 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 #side{border-right:1px solid var(--line)}
 #panel{border-left:1px solid var(--line)}
 #viewport{position:relative;min-width:0;min-height:0;overflow:hidden}
-#viewport canvas{display:block;touch-action:none}
+#viewport{touch-action:none;overscroll-behavior:none}
+#tbar{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:14px;z-index:20;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;background:rgba(255,253,249,.97);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.16);max-width:calc(100% - 24px)}
+#tbar button{min-height:44px;padding:0 18px;font-size:15px;border-radius:10px;border:1px solid var(--line);background:#fff;color:inherit;font-family:inherit}
+#tbar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+#tbar .tmsg{flex-basis:100%;text-align:center;font-size:12px;color:var(--muted);padding:0 6px 2px}
+@media (min-width:901px){#tbEdit{display:none}}
+#viewport canvas{display:block;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 #labels{position:absolute;inset:0;pointer-events:none}
 .sec{padding:14px 14px 16px;border-bottom:1px solid var(--line)}
 .ccrow{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
@@ -344,6 +350,7 @@ body.present.presset #rpanel{display:block}
   #side.open{transform:none}
   #panel{position:fixed;left:0;right:0;bottom:0;max-height:50vh;z-index:25;border-radius:14px 14px 0 0;border:1px solid var(--line);transform:translateY(105%);transition:transform .2s;box-shadow:0 -10px 30px rgba(0,0,0,.12)}
   #panel.has-sel{transform:none}
+  body.touch #panel.has-sel:not(.tshow){transform:translateY(105%)}
   body.rmode main{grid-template-columns:minmax(0,1fr)}
   #rpanel{position:fixed;left:0;right:0;bottom:0;max-height:46vh;z-index:25;border-radius:14px 14px 0 0;border:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.12)}
   .modal{justify-content:center;padding:12px}
@@ -465,7 +472,8 @@ body.present.presset #rpanel{display:block}
     <div id="shotBar" hidden><span>拖曳畫面調整角度（右鍵旋轉、左鍵平移、滾輪縮放），調好再按「拍下」</span><button class="btn primary sm" id="shotTake">拍下這個畫面</button><button class="btn sm" id="shotCancel">取消</button></div>
     <div id="glLost" hidden style="position:absolute;inset:0;z-index:7;display:grid;place-items:center;background:var(--bg);padding:24px;text-align:center;line-height:1.7"><div><b>3D 畫面暫時無法顯示</b><br><span class="muted">顯示卡記憶體不足。你的配置都還在，請先按「存檔」，再重新整理頁面。<br>渲染 4K 圖片或 1080p 動畫比較吃記憶體，可以改用較小的尺寸。</span></div></div>
     <div id="rbusy" hidden><div><b id="rbusyT">渲染中…</b><div class="rbar"><i id="rbusyBar"></i></div><button class="btn sm" id="rbusyStop">取消</button></div></div>
-    <div class="hint" id="hint">左鍵拖曳平移畫面・右鍵拖曳旋轉視角・滾輪縮放・拖曳家具移動</div>
+    <div class="hint" id="hint"></div>
+    <div id="tbar" hidden><button type="button" id="tbMove">移動</button><button type="button" id="tbRot">旋轉</button><button type="button" id="tbEdit">修改</button><span class="tmsg" id="tbMsg" hidden></span></div>
   </div>
   <aside id="panel"><div class="sec" id="panelBody"></div></aside>
   <aside id="rpanel" hidden><div class="sec">
@@ -895,14 +903,15 @@ function buildSofaSet(it) { // 1+2+3 沙發組（家具庫縮圖用）
   return g;
 }
 /* ---------- 人物（比例參考）：依性別、身高、體重建出人形，原點在腳底中心、面向 +Z ---------- */
+const PERSON_HEAD = 1.75;                                               // 人物的頭放大幾倍（1＝寫實比例）
 const PERSON_DEF = { m: { ht: 172, wt: 68 }, f: { ht: 160, wt: 52 } };
 const personHt = it => it.ht || PERSON_DEF[it.sex === 'f' ? 'f' : 'm'].ht;
 const personWt = it => it.wt || PERSON_DEF[it.sex === 'f' ? 'f' : 'm'].wt;
 const personInfo = it => `身高 cm、體重 kg・BMI ${(personWt(it) / (personHt(it) / 100) ** 2).toFixed(1)}・佔地約 ${Math.round(it.w)}×${Math.round(it.d)} cm${it.pose === 'sit' ? `・坐高 ${Math.round(it.h)} cm` : ''}`;
 function buildPerson(it) {
-  const H = personHt(it), fem = it.sex === 'f', sit = it.pose === 'sit';
-  const bmi = personWt(it) / (H / 100) ** 2, k = clamp(Math.sqrt(bmi / 22), 0.78, 1.6), belly = clamp((bmi - 24) / 12, 0, 1);   // 胖瘦：整體寬度、肚子
-  const skin = '#dfb99a', SK = mat(skin, 0.62), TOP = mat(it.color, 0.9), PANT = mat(it.color2, 0.88), SHOE = mat('#3a3b3f', 0.7), SOLE = mat('#2a2a2d', 0.8), HAIR = mat('#231c18', 0.7);
+  const HT = personHt(it), HS = PERSON_HEAD, H = HT / (0.84 + 0.1295 * HS), fem = it.sex === 'f', sit = it.pose === 'sit';   // 可愛版：頭放大 HS 倍、身體等比縮一點，總身高仍是設定的身高
+  const bmi = personWt(it) / (HT / 100) ** 2, k = clamp(Math.sqrt(bmi / 22), 0.78, 1.6), belly = clamp((bmi - 24) / 12, 0, 1);   // 胖瘦：整體寬度、肚子
+  const skin = '#f3d2b8', SK = mat(skin, 0.7), TOP = mat(it.color, 0.9), PANT = mat(it.color2, 0.88), SHOE = mat('#3a3b3f', 0.7), SOLE = mat('#2a2a2d', 0.8), HAIR = mat(fem ? '#5a3b28' : '#3a2a20', 0.75);
   const P = (x, y, z) => new V3(x, y, z);
   const ball = (g, r, p, m, sx = 1, sy = 1, sz = 1) => { const s = add(g, new THREE.SphereGeometry(r, 20, 14), m, p.x, p.y, p.z); s.scale.set(sx, sy, sz); return s; };
   // 用一層層橢圓截面疊出連續曲面（軀幹、脖子）：[高度, 半寬, 半厚, 前後偏移]，單位都是身高的比例
@@ -940,44 +949,37 @@ function buildPerson(it) {
   // ---- 脖子、頭 ----
   const nk = Math.sqrt(k);
   loft(up, [[0.82, 0.03 * nk, 0.031 * nk, 0.002], [0.86, 0.027 * nk, 0.029 * nk, 0.006], [0.89, 0.028 * nk, 0.03 * nk, 0.011]], SK, 20);
-  const head = new THREE.Group(); head.position.set(0, 0.931 * H, 0.014 * H); head.rotation.x = -0.06; up.add(head);
-  { // 把球面雕成臉：下巴收窄，加上鼻樑、眉骨、眼窩、嘴唇、下巴、顴骨；嘴唇用頂點顏色上色
-    const geo = new THREE.SphereGeometry(1, 56, 40), ps = geo.attributes.position, col = [], cS = new THREE.Color(skin), cL = new THREE.Color(fem ? '#c25f62' : '#b97f72'), cc = new THREE.Color();
+  const head = new THREE.Group(); head.position.set(0, (0.84 + 0.058 * HS) * H, 0.012 * H); head.rotation.x = -0.04; head.scale.setScalar(HS); up.add(head);
+  { // 圓圓的頭：臉頰鼓、下巴短，只留一個小小的鼻子
+    const geo = new THREE.SphereGeometry(1, 48, 34), ps = geo.attributes.position;
     const G = (v, c, s) => Math.exp(-(((v - c) / s) ** 2));
     for (let i = 0; i < ps.count; i++) {
-      const x = ps.getX(i), y = ps.getY(i), z = ps.getZ(i), f = clamp(z * 2.2, 0, 1), ax = Math.abs(x);
-      const jaw = y < 0 ? 1 - (fem ? 0.42 : 0.36) * y * y : 1 - 0.1 * y * y;
-      let px = x * 0.0462 * jaw, py = y * 0.0625, pz = z * (z > 0 ? 0.0545 : 0.058) * (y < 0 ? 1 - 0.12 * y * y : 1);
-      pz += f * (0.0125 * G(x, 0, 0.1) * G(y, -0.12, 0.2) + 0.0065 * G(x, 0, 0.13) * G(y, -0.3, 0.07)   // 鼻樑、鼻頭
-        + 0.0028 * G(y, 0.2, 0.07) * (1 - 0.6 * G(x, 0, 0.1)) * (ax < 0.7 ? 1 : 0)                      // 眉骨
-        - 0.0042 * G(ax, 0.36, 0.15) * G(y, 0.07, 0.09)                                                 // 眼窩
-        + (fem ? 0.0036 : 0.003) * G(x, 0, 0.2) * G(y, -0.53, 0.05) - 0.0012 * G(x, 0, 0.25) * G(y, -0.44, 0.03)   // 嘴唇、人中
-        + 0.0045 * G(x, 0, 0.24) * G(y, -0.84, 0.13) + 0.0022 * G(ax, 0.5, 0.2) * G(y, -0.12, 0.2));    // 下巴、顴骨
+      const x = ps.getX(i), y = ps.getY(i), z = ps.getZ(i), f = clamp(z * 2.2, 0, 1);
+      const jaw = y < 0 ? 1 - 0.16 * y * y : 1 - 0.08 * y * y;
+      const px = x * 0.056 * jaw, py = y * (y < 0 ? 0.058 : 0.0625), pz = z * (z > 0 ? 0.0545 : 0.058) + f * 0.0035 * G(x, 0, 0.09) * G(y, -0.2, 0.08);
       ps.setXYZ(i, px * H, py * H, pz * H);
-      const lip = f * G(x, 0, 0.19) * G(y, -0.53, 0.04) * (1 - 0.7 * G(y, -0.53, 0.008));
-      cc.copy(cS).lerp(cL, clamp(lip * 1.3, 0, 1)); col.push(cc.r, cc.g, cc.b);
     }
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeVertexNormals();
-    const hm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }); hm.userData.own = true;
-    add(head, geo, hm, 0, 0, 0);
+    geo.computeVertexNormals(); add(head, geo, SK, 0, 0, 0);
   }
-  const EW = mat('#f4f1ec', 0.3), IR = mat('#3a2a1e', 0.25), PU = mat('#0c0a09', 0.2);
+  const EYE = mat('#2b1d16', 0.18), SHINE = mat('#ffffff', 0.25), BLUSH = mat('#f2a39b', 0.9), MOUTH = mat('#a8534c', 0.6);
   for (const sd of [-1, 1]) {
-    const ex = sd * 0.0166 * H, ey = 0.0045 * H, ez = 0.0456 * H;
-    ball(head, 1, P(ex, ey, ez), EW, 0.0084 * H, 0.0047 * H, 0.0045 * H);
-    ball(head, 1, P(ex, ey, ez + 0.0034 * H), IR, 0.0037 * H, 0.0037 * H, 0.0017 * H);
-    ball(head, 1, P(ex, ey, ez + 0.0046 * H), PU, 0.0017 * H, 0.0017 * H, 0.0008 * H);
-    const lid = add(head, new THREE.BoxGeometry(0.0165 * H, 0.0008 * H, 0.003 * H), HAIR, ex, ey + 0.0049 * H, ez + 0.0022 * H); lid.rotation.z = -sd * 0.06; lid.castShadow = false;   // 上眼線
-    const br = add(head, new THREE.BoxGeometry(0.0165 * H, (fem ? 0.002 : 0.003) * H, 0.004 * H), HAIR, sd * 0.0175 * H, 0.0135 * H, 0.0508 * H);
-    br.rotation.z = -sd * 0.1; br.rotation.y = sd * 0.36; br.castShadow = false;
-    ball(head, 1, P(sd * 0.0452 * H, -0.004 * H, -0.004 * H), SK, 0.0055 * H, 0.0135 * H, 0.008 * H);   // 耳朵
+    const ex = sd * 0.021 * H, ey = -0.004 * H, ez = 0.0492 * H;
+    const eye = ball(head, 1, P(ex, ey, ez), EYE, 0.0088 * H, 0.012 * H, 0.0042 * H); eye.rotation.y = sd * 0.36; eye.castShadow = false;   // 大眼睛＋亮點
+    ball(head, 1, P(ex + 0.0028 * H, ey + 0.0048 * H, ez + 0.0036 * H), SHINE, 0.003 * H, 0.0034 * H, 0.0014 * H).castShadow = false;
+    ball(head, 1, P(ex - 0.0026 * H, ey - 0.0042 * H, ez + 0.0037 * H), SHINE, 0.0014 * H, 0.0016 * H, 0.0008 * H).castShadow = false;
+    const br = add(head, new THREE.BoxGeometry(0.012 * H, 0.0016 * H, 0.002 * H), HAIR, sd * 0.021 * H, 0.0155 * H, 0.0508 * H);
+    br.rotation.z = sd * 0.08; br.rotation.y = sd * 0.38; br.castShadow = false;
+    const bl = ball(head, 1, P(sd * 0.035 * H, -0.0185 * H, 0.0392 * H), BLUSH, 0.0085 * H, 0.0052 * H, 0.0016 * H); bl.rotation.y = sd * 0.72; bl.castShadow = false;   // 腮紅
+    ball(head, 1, P(sd * 0.0555 * H, -0.006 * H, -0.004 * H), SK, 0.0055 * H, 0.0125 * H, 0.008 * H);   // 耳朵
   }
-  // 頭髮：男生短髮；女生及肩（頭頂＋後面＋兩側）
-  const cap = add(head, new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.54), HAIR, 0, 0.003 * H, -0.004 * H);
-  cap.scale.set(0.0515 * H, 0.068 * H, 0.0645 * H); cap.rotation.x = -0.5;
+  { const sm = add(head, new THREE.TorusGeometry(0.0075 * H, 0.0011 * H, 6, 14, Math.PI * 0.72), MOUTH, 0, -0.0215 * H, 0.0512 * H); sm.rotation.z = -Math.PI * 0.86; sm.rotation.x = 0.2; sm.castShadow = false; }   // 微笑
+  // 頭髮：蓬蓬的頭頂＋瀏海；男生短髮，女生及肩的鮑伯頭
+  const cap = add(head, new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.56), HAIR, 0, 0.004 * H, -0.004 * H);
+  cap.scale.set(0.0615 * H, 0.068 * H, 0.066 * H); cap.rotation.x = -0.42;
+  { const fr = ball(head, 1, P(fem ? 0 : 0.006 * H, (fem ? 0.033 : 0.037) * H, 0.0345 * H), HAIR, (fem ? 0.053 : 0.049) * H, (fem ? 0.019 : 0.015) * H, 0.0225 * H); fr.rotation.x = 0.62; fr.rotation.z = fem ? 0 : -0.1; }   // 瀏海：貼著額頭的一片
   if (fem) {
-    ball(up, 1, P(0, 0.89 * H, -0.016 * H), HAIR, 0.052 * H, 0.085 * H, 0.032 * H);
-    for (const sd of [-1, 1]) ball(up, 1, P(sd * 0.046 * H, 0.9 * H, 0.004 * H), HAIR, 0.013 * H, 0.06 * H, 0.03 * H);
+    ball(head, 1, P(0, -0.022 * H, -0.02 * H), HAIR, 0.062 * H, 0.062 * H, 0.046 * H);
+    for (const sd of [-1, 1]) ball(head, 1, P(sd * 0.054 * H, -0.02 * H, 0.004 * H), HAIR, 0.014 * H, 0.05 * H, 0.032 * H);
   }
   // ---- 手臂：短袖、前臂與手露出膚色；肩、肘可以轉 ----
   const sx = rs * H * 0.9, sy = 0.8 * H, rig = { sh: [], el: [], hip: [], knee: [], H, sit }, ak = k * 0.5 + 0.5;
@@ -989,9 +991,7 @@ function buildPerson(it) {
     const E = pivot(S, 0, -La, 0); ball(E, 0.0208 * ak * H, P(0, 0, 0), SK);
     limb(E, Lf, sc([[0, 0.021], [0.22, 0.0225], [0.65, 0.018], [1, 0.0142]], ak), SK);
     const hand = pivot(E, 0, -Lf, 0); hand.rotation.x = -0.12;         // 手：掌心朝大腿，手指微彎，拇指朝前
-    RB(hand, 0.0115 * H, 0.044 * H, 0.03 * H, 0.005 * H, 0, -0.022 * H, 0, SK);
-    const fg = RB(hand, 0.0095 * H, 0.04 * H, 0.027 * H, 0.0045 * H, sd * -0.002 * H, -0.058 * H, -0.004 * H, SK); fg.rotation.x = 0.28;
-    const th = RB(hand, 0.0095 * H, 0.032 * H, 0.0095 * H, 0.0042 * H, 0, -0.03 * H, 0.019 * H, SK); th.rotation.x = -0.45;
+    ball(hand, 1, P(0, -0.026 * H, 0.002 * H), SK, 0.017 * H, 0.027 * H, 0.021 * H);   // 圓圓的手
     S.rotation.z = sd * (sit ? 0.05 : 0.085);
     rig.sh.push(S); rig.el.push(E);
   }
@@ -1010,7 +1010,7 @@ function buildPerson(it) {
     const ft = 0.155 * H, fz0 = ft / 2 - 0.04 * H, fy = -Lc - 0.048 * H;   // 鞋：鞋底＋鞋面
     const shoe = pivot(K, sd * 0.004 * H, fy, 0); shoe.rotation.y = sd * 0.1; shoe.rotation.x = lean;   // 小腿前傾時鞋底仍平貼地面
     RB(shoe, 0.05 * H, 0.016 * H, ft * 0.9, 0.007 * H, 0, 0.008 * H, fz0 - 0.004 * H, SOLE);
-    ball(shoe, 1, P(0, 0.03 * H, fz0 - 0.004 * H), SHOE, 0.0285 * H, 0.022 * H, ft * 0.48);
+    ball(shoe, 1, P(0, 0.032 * H, fz0 - 0.004 * H), SHOE, 0.031 * H, 0.027 * H, ft * 0.48);
     ball(shoe, 1, P(0, 0.038 * H, -0.006 * H), SHOE, 0.027 * H, 0.028 * H, 0.036 * H);
     Hp.rotation.z = sd * (sit ? 0.06 : -0.03);
     rig.hip.push(Hp); rig.knee.push(K);
@@ -4632,7 +4632,7 @@ const TYPES = {
   ownRecliner: { name: '131型沙發', cat: '自家商品', w: 276, d: 105, h: 105, color: '#b9bcc2', color2: '#86aecb', c1: '布料顏色', c2: '抱枕顏色', build: buildReclinerSofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
   ownDanSofa:  { name: '丹麥沙發', cat: '自家商品', w: 210, d: 90, h: 90, color: '#cfc8b8', color2: '#d9b382', c1: '布料顏色', c2: '木腳顏色', build: buildDanishSofa, opts: [SEATS_OPT], def: { seats: '2' }, wall: true, own: true },
   ownLetItBe:  { name: 'Let it be沙發', cat: '自家商品', w: 368, d: 267, h: 80, color: '#e3e1dc', color2: '#9a6038', c1: '布料顏色', c2: '底框皮革顏色', build: buildLetItBeSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '3', side: 'left' }, wall: true, own: true },
-  ownRoundChaise: { name: '雷內沙發', cat: '自家商品', w: 308, d: 150, h: 73, color: '#dedad4', color2: '#6d6f73', color3: '#d49a2e', c1: '主座布料', c2: '貴妃布料', c3: '圓抱枕顏色', build: buildRoundChaiseSofa, opts: [SIDE_OPT, RCH_PIL_OPT], def: { side: 'left', rp: 'on' }, wall: true, own: true },
+  ownRoundChaise: { name: '雷內沙發', cat: '自家商品', w: 300, d: 138, h: 73, color: '#dedad4', color2: '#6d6f73', color3: '#d49a2e', c1: '主座布料', c2: '貴妃布料', c3: '圓抱枕顏色', build: buildRoundChaiseSofa, opts: [SIDE_OPT, RCH_PIL_OPT], def: { side: 'left', rp: 'on' }, wall: true, own: true },
   own171:      { name: '171型沙發', cat: '自家商品', w: 285, d: 185, h: 90, color: '#8f9291', color2: '#b5b1b2', color3: '#232325', c1: '牛皮顏色', c2: '腰枕顏色', c3: '鐵腳顏色', build: build171Sofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'right' }, wall: true, own: true },
   own120:      { name: '120型沙發', cat: '自家商品', w: 250, d: 90, h: 102, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Sofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
   own120Ott:   { name: '120型腳椅', cat: '自家商品', w: 85, d: 90, h: 58, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Ottoman, opts: [{ key: 'side', label: '扶手位置', list: [opt('right', '扶手在右'), opt('left', '扶手在左')] }], def: { side: 'right' }, own: true },
@@ -4878,6 +4878,10 @@ const PALETTE = ['#ffffff', '#f1ebe1', '#d8cfc0', '#b9b4ad', '#8e9099', '#4a4d52
 const state = { room: { w: 400, d: 350, h: 280 }, items: [], structs: [], nextId: 1 };
 const opts = { wallSnap: true, grid: false, people: (() => { try { return localStorage.getItem('fp-people') !== '0'; } catch (e) { return true; } })() };
 let view = '3d';
+let tmode = null;                                                       // 手機、平板：選到家具後按「移動／旋轉」進入的模式
+let touchUI = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);   // 用手指操作：操作說明換成手勢的講法
+const hintText = v => touchUI ? (v === '3d' ? '單指拖曳旋轉視角・雙指拖曳平移畫面・雙指開合縮放・按住家具拖曳移動' : '單指拖曳平移畫面・雙指開合縮放・按住家具拖曳移動')
+  : (v === '3d' ? '左鍵拖曳平移畫面・右鍵拖曳旋轉視角・滾輪縮放・拖曳家具移動' : '左鍵拖曳平移畫面・滾輪縮放・拖曳家具移動');
 let sel = null; // {k:'item'|'struct', id}
 let selPil = null; const PILN = new Map(), PILL = new Map(), PIL_NAME = { own171: '腰枕', own120: '腰枕', ownFloatL: '腰枕' };   // 選取中的抱枕／腰枕（sel 是那件沙發）、每件家具有幾顆
 let selPart = null;                                                     // 選取中的櫃體板材（sel 是那座系統櫃）
@@ -4937,7 +4941,7 @@ const controls = new OrbitControls(persp, renderer.domElement);
 controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI * 0.9;                               // 可以轉到下方往上看天花板
 controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
-controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };   // 手機、平板：單指轉視角，雙指平移＋開合縮放
 controls.screenSpacePanning = true;  // 拖曳可以上下左右平移畫面
 controls.minDistance = 50; controls.maxDistance = 6000;
 const orthoCtl = new OrbitControls(ortho, renderer.domElement);
@@ -5571,7 +5575,7 @@ function setView(v) {
   controls.enabled = v === '3d'; orthoCtl.enabled = v === 'top';
   if (gridLines) gridLines.visible = v === 'top';
   paintStructs();
-  $('#hint').textContent = v === '3d' ? '左鍵拖曳平移畫面・右鍵拖曳旋轉視角・滾輪縮放・拖曳家具移動' : '左鍵拖曳平移畫面・滾輪縮放・拖曳家具移動';
+  $('#hint').textContent = hintText(v);
   updateOverlay();
 }
 new ResizeObserver(resize).observe(vp);
@@ -5647,12 +5651,77 @@ function selectWall(key) {
   renderPanel(); updateOverlay(); renderThickDef();
 }
 let drag = null, down = null, rotDrag = null;
+$('#hint').textContent = hintText(view);
+addEventListener('pointerdown', e => { const t = e.pointerType === 'touch'; if (e.pointerType !== 'pen' && t !== touchUI) { touchUI = t; $('#hint').textContent = hintText(view); updateTbar(); } }, true);
+// 手機、平板：點到家具先出現「移動／旋轉／修改」。移動、旋轉時在畫面上任何地方拖曳都算數，點一下空白處結束；修改才叫出下方的設定頁
+function updateTbar() {
+  const bar = $('#tbar'), panel = $('#panel'), o = sel ? getObj(sel.k, sel.id) : null;
+  document.body.classList.toggle('touch', touchUI);
+  const show = touchUI && !!o && !MG.on && !RM.on && !RM.shot && !(innerWidth <= 900 && panel.classList.contains('tshow'));
+  bar.hidden = !show; if (!show) return;
+  const isItem = sel.k === 'item'; if (!isItem && tmode === 'rot') tmode = null;
+  $('#tbRot').hidden = !isItem;
+  $('#tbMove').classList.toggle('on', tmode === 'move'); $('#tbRot').classList.toggle('on', tmode === 'rot');
+  $('#tbMsg').hidden = !tmode; $('#tbMsg').textContent = tmode === 'move' ? '在畫面上拖曳就會移動・點一下空白處結束' : tmode === 'rot' ? '在畫面上左右拖曳就會旋轉・點一下空白處結束' : '';
+}
+function setTMode(m) { tmode = m; updateTbar(); }
+$('#tbMove').onclick = () => setTMode(tmode === 'move' ? null : 'move');
+$('#tbRot').onclick = () => setTMode(tmode === 'rot' ? null : 'rot');
+$('#tbEdit').onclick = () => { tmode = null; $('#panel').classList.add('tshow'); updateTbar(); };
+addEventListener('resize', () => updateTbar());
+function touchTap() {                                                     // 手指點一下（沒有拖曳）：回傳 true 表示已處理
+  const p = pick();
+  if (!p) {
+    if (sel && innerWidth <= 900 && $('#panel').classList.contains('tshow')) { $('#panel').classList.remove('tshow'); updateTbar(); return true; }   // 設定頁開著：點空白處先收起來
+    return false;
+  }
+  if (p.k === 'item') {
+    const it = getItem(p.id), c = it && TYPES[it.type].acc ? hostCab(it) : null;
+    if (c) { const cur = sel && sel.k === 'item' ? getItem(sel.id) : null; if (!(cur && (cur.id === c.id || (TYPES[cur.type].acc && hostCab(cur) === c)))) p.id = c.id; }
+  }
+  if (sel && sel.k === p.k && sel.id === p.id) {                          // 已選取的家具再點一下：選到那顆抱枕／那片板材
+    if (p.k !== 'item') return true;
+    if (p.pil && PILN.get(p.id)) { selPil = p.pil; GRP.pil = true; }
+    else if (p.part && isCab(TYPES[(getItem(p.id) || {}).type])) selPart = p.part;
+    else return true;
+    renderPanel(); updateOverlay(); return true;
+  }
+  select(p.k, p.id); return true;
+}
+function beginDrag(p, again) {                                            // 開始拖曳一件家具／結構（從目前手指或滑鼠指到的地面位置算位移）
+  const f = floorHit(); if (!f) return false;
+  const o = getObj(p.k, p.id);
+  drag = { ...p, again, start: f, ox: o.x ?? 0, oz: o.z ?? 0, opos: o.pos ?? 0, ooff: o.off ?? 0, moved: false, acc: p.k === 'item' ? accInside(o) : null };
+  if (p.k === 'item' && TYPES[o.type].acc) { const c = hostCab(o); if (c) {
+    const r = c.rot * deg, pl = new THREE.Plane().setFromNormalAndCoplanarPoint(new V3(-Math.sin(r), 0, Math.cos(r)), new V3(o.x, o.elev + o.h / 2, o.z)), vs = new V3();
+    drag.cab = c; drag.lx0 = cabLocal(c, o).lx; drag.el0 = o.elev; drag.plane = pl; drag.vs = ray.ray.intersectPlane(pl, vs) ? vs : null;
+    drag.links = TYPES[o.type].acc === 'mid' ? midLinks(c, o) : null;
+  } }
+  return true;
+}
+for (const k of ['gesturestart', 'gesturechange', 'gestureend']) vp.addEventListener(k, e => e.preventDefault());   // iPhone、iPad：不要讓雙指把整個網頁放大
+vp.addEventListener('touchmove', e => { if (e.target === dom) e.preventDefault(); }, { passive: false });           // 在 3D 畫面上滑動不要捲動網頁
+dom.addEventListener('pointercancel', e => {                              // 系統中斷手勢（來電、切換視窗…）：放開拖曳，視角操作恢復
+  if (drag && drag.moved || rotDrag && rotDrag.moved) commit();
+  drag = null; rotDrag = null; down = null; dom.style.cursor = '';
+  if (!MG.on) { controls.enabled = view === '3d'; orthoCtl.enabled = view === 'top'; }
+});
 vp.addEventListener('pointerdown', e => {
   if (MG.on) { mergeDown(e); return; }
   if (e.target !== dom || RM.on || RM.shot) return;                               // 渲染模式只轉視角，不拖家具
   if (e.button !== 0) return;
+  if (drag || rotDrag) return;                                             // 已經有一隻手指在拖家具：第二隻手指不處理
   down = { x: e.clientX, y: e.clientY };
   setRay(e);
+  const touch = e.pointerType === 'touch';
+  if (touch && tmode && sel) {                                            // 移動／旋轉模式：手指在哪裡拖都算
+    const o = getObj(sel.k, sel.id); if (!o) { setTMode(null); return; }
+    e.stopPropagation();
+    if (tmode === 'rot') rotDrag = { id: sel.id, moved: false, acc: accInside(o), touch: true, x0: e.clientX, r0: o.rot || 0 };
+    else if (!beginDrag({ k: sel.k, id: sel.id }, false)) return;
+    controls.enabled = orthoCtl.enabled = false; dom.setPointerCapture(e.pointerId);
+    return;
+  }
   if (rotKnob && sel && sel.k === 'item' && ray.intersectObject(rotKnob).length) {
     e.stopPropagation();
     rotDrag = { id: sel.id, moved: false, acc: accInside(getItem(sel.id)) };
@@ -5660,6 +5729,7 @@ vp.addEventListener('pointerdown', e => {
     dom.setPointerCapture(e.pointerId);
     return;
   }
+  if (touch) return;                                                      // 手指：拖曳是轉視角，放開時才判斷點到什麼（見 touchTap）
   const p = pick();
   if (!p) return;
   if (p.k === 'item') {                                                  // 點到櫃內配件：櫃子還沒選取時先選整座櫃子（拖曳時配件一起走），選取後再點才單獨調整配件
@@ -5673,20 +5743,20 @@ vp.addEventListener('pointerdown', e => {
   const again = p.k === 'item' && sel && sel.k === 'item' && sel.id === p.id && !!(p.part || p.pil), keep = again ? selPart : null, keepP = again ? selPil : null;
   select(p.k, p.id);
   if (again) { selPart = keep; selPil = keepP; renderPanel(); updateOverlay(); }       // 拖曳櫃子時不要跳掉正在看的板材
-  const f = floorHit(); if (!f) return;
-  const o = getObj(p.k, p.id);
-  drag = { ...p, again, start: f, ox: o.x ?? 0, oz: o.z ?? 0, opos: o.pos ?? 0, ooff: o.off ?? 0, moved: false, acc: p.k === 'item' ? accInside(o) : null };
-  if (p.k === 'item' && TYPES[o.type].acc) { const c = hostCab(o); if (c) {
-    const r = c.rot * deg, pl = new THREE.Plane().setFromNormalAndCoplanarPoint(new V3(-Math.sin(r), 0, Math.cos(r)), new V3(o.x, o.elev + o.h / 2, o.z)), vs = new V3();
-    drag.cab = c; drag.lx0 = cabLocal(c, o).lx; drag.el0 = o.elev; drag.plane = pl; drag.vs = ray.ray.intersectPlane(pl, vs) ? vs : null;
-    drag.links = TYPES[o.type].acc === 'mid' ? midLinks(c, o) : null;
-  } }
+  if (!beginDrag(p, again)) return;
   controls.enabled = orthoCtl.enabled = false;
   dom.setPointerCapture(e.pointerId);
 }, { capture: true });
 dom.addEventListener('pointermove', e => {
   setRay(e);
   if (MG.on) { mergeMove(e); return; }
+  if (rotDrag && rotDrag.touch) {                                         // 旋轉模式：左右拖曳，靠近 45° 的倍數會吸過去
+    const o = getItem(rotDrag.id); if (!o) return;
+    if (!rotDrag.moved && Math.abs(e.clientX - rotDrag.x0) < 6) return;
+    let a = rotDrag.r0 + (e.clientX - rotDrag.x0) * 0.6; const q = Math.round(a / 45) * 45; if (Math.abs(a - q) < 4) a = q;
+    o.rot = ((Math.round(a) % 360) + 360) % 360; rotDrag.moved = true;
+    fitItem(o); carryAcc(o, rotDrag.acc); moveRiders(o); updateOverlay(); syncInputs(); return;
+  }
   if (rotDrag) {
     const f = floorHit(), o = getItem(rotDrag.id); if (!f || !o) return;
     let a = Math.atan2(-(f.x - o.x), f.z - o.z) / deg;
@@ -5694,6 +5764,7 @@ dom.addEventListener('pointermove', e => {
     o.rot = ((Math.round(a) % 360) + 360) % 360; rotDrag.moved = true;
     fitItem(o); carryAcc(o, rotDrag.acc); moveRiders(o); updateOverlay(); syncInputs(); return;
   }
+  if (!drag && e.pointerType === 'touch') return;
   if (!drag) { dom.style.cursor = rotKnob && ray.intersectObject(rotKnob).length ? 'alias' : pick() ? 'grab' : ''; return; }
   if (drag.k === 'item' && drag.cab && drag.vs) {                       // 櫃內配件：在櫃子正面的平面上拖
     if (!drag.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 3) return;
@@ -5733,20 +5804,21 @@ function snapColumn(c) {
 dom.addEventListener('pointerup', e => {
   if (MG.drag) { mergeUp(e); return; }
   if (rotDrag) {
-    if (rotDrag.moved) commit();
+    if (rotDrag.moved) commit(); else if (rotDrag.touch) setTMode(null);   // 旋轉模式裡點一下：結束
     rotDrag = null; dom.style.cursor = '';
     controls.enabled = view === '3d'; orthoCtl.enabled = view === 'top';
     return;
   }
   if (drag) {
     if (drag.moved) commit();
+    else if (tmode) setTMode(null);                                       // 移動模式裡點一下：結束
     else if (drag.again && drag.pil && PILN.get(drag.id)) { selPil = drag.pil; GRP.pil = true; renderPanel(); updateOverlay(); }   // 沙發已選取時再點一下抱枕／腰枕 → 選到那一顆
     else if (drag.again && drag.part && isCab(TYPES[(getItem(drag.id) || {}).type])) { selPart = drag.part; renderPanel(); updateOverlay(); }   // 櫃子已選取時再點一下（沒有拖曳）→ 選到點到的那片板材
     drag = null; dom.style.cursor = '';
     controls.enabled = view === '3d'; orthoCtl.enabled = view === 'top';
     return;
   }
-  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) { setRay(e); if (!pick()) { const wk = RM.on || RM.shot ? null : pickWall(), other = wk || RM.on || RM.shot ? null : ctxPick(); if (wk) selectWall(wk); else if (other && ctxSwitch(other)) { setRay(e); const pk = pick(); if (pk) select(pk.k, pk.id); else { if (view === '3d') for (const wl of walls) wl.m.visible = !(wl.sign * persp.position[wl.axis] > wl.c); const w2 = pickWall(); if (w2) selectWall(w2); else select(null); } } else select(null); } }
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < (e.pointerType === 'touch' ? 12 : 4)) { setRay(e); if (e.pointerType === 'touch' && touchTap()) { down = null; return; } if (!pick()) { const wk = RM.on || RM.shot ? null : pickWall(), other = wk || RM.on || RM.shot ? null : ctxPick(); if (wk) selectWall(wk); else if (other && ctxSwitch(other)) { setRay(e); const pk = pick(); if (pk) select(pk.k, pk.id); else { if (view === '3d') for (const wl of walls) wl.m.visible = !(wl.sign * persp.position[wl.axis] > wl.c); const w2 = pickWall(); if (w2) selectWall(w2); else select(null); } } else select(null); } }
   down = null;
 });
 // 從家具庫拖曳進來
@@ -5761,6 +5833,7 @@ vp.addEventListener('drop', e => {
 });
 
 function select(k, id) {
+  if (!k || !sel || sel.k !== k || sel.id !== id) { tmode = null; $('#panel').classList.remove('tshow'); }
   sel = k ? { k, id } : null; selWall = null; selPart = null; selPil = null;
   document.querySelectorAll('.srow').forEach(r => r.classList.toggle('on', !!sel && sel.k === 'struct' && +r.dataset.sel === sel.id));
   renderPanel(); updateOverlay(); renderThickDef();
@@ -6434,7 +6507,7 @@ function renderPanelList() {
 }
 function renderPanel() {
   const p = $('#panelBody'), panel = $('#panel');
-  panel.classList.toggle('has-sel', !!sel || !!selWall);
+  panel.classList.toggle('has-sel', !!sel || !!selWall); if (selWall) panel.classList.add('tshow'); updateTbar();
   if (!sel && selWall) {
     const on = state.items.filter(i => !i.auto && (i.pwall === selWall || i.cwall === selWall));
     p.innerHTML = `<div class="p-head"><div style="font-size:17px;font-weight:700">${WALLS[selWall]}</div><span class="p-type">空間的牆面・已選取</span></div>
