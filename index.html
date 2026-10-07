@@ -528,7 +528,7 @@ body.present.presset #rpanel{display:block}
     <div class="acts">
       <button class="act primary" id="hNew"><b>＋ 建立新專案</b><span>一位客戶或一個案場一個專案，裡面可以有客廳、主臥等多個空間</span></button>
       <button class="act" id="hFile"><b>開啟專案檔</b><span>選擇之前下載的 .json 專案檔</span></button>
-      <button class="act" id="hCode"><b>貼上專案代碼</b><span>開啟從 LINE 或 Email 收到的代碼</span></button>
+      <button class="act" id="hCode"><b>貼上連結</b><span>開啟從 LINE 或 Email 收到的分享連結</span></button>
     </div>
     <div>
       <div style="display:flex;align-items:center;gap:10px"><h2 style="margin-right:auto">這台裝置上的專案 <small id="homeCount"></small></h2><button class="btn danger sm" id="homeDelAll" hidden>全部刪除</button></div>
@@ -8151,12 +8151,12 @@ function openIO(mode) {
   $('#ioTitle').textContent = saving ? `另存新檔：${p ? p.name : '目前專案'}` : '開啟專案';
   $('#ioDesc').textContent = saving
     ? `會把整個專案（${p ? p.list.length : 1} 個空間）存成一個檔案。配置平常會自動保存在這台裝置；要留底、換裝置或傳給別人，請下載 .json 專案檔，或按「複製分享連結」貼到 LINE、Email，對方點開連結就會直接開啟這個專案（專案內容較多時，訊息裡會附上 3 步驟的開啟說明）。`
-    : '先複製收到的整則訊息（或代碼），再按「貼上並開啟」；也可以按「開啟 .json 檔」選擇專案檔。會加入成一個新專案，不會覆蓋你現有的專案。';
+    : '先複製收到的分享連結（整則訊息一起複製也可以），再按「貼上並開啟」；也可以按「開啟 .json 檔」選擇專案檔。會加入成一個新專案，不會覆蓋你現有的專案。';
   ioJson = saving ? projectCode() : '';
   $('#ioCode').value = ioJson;
   if (saving) { const j = ioJson; shortCode(j).then(c => { if (ioJson === j && !$('#ioModal').hidden && $('#ioCode').readOnly) $('#ioCode').value = shareLink(c); }); }   // 顯示分享連結（內含代碼）；下載的 .json 檔內容不變
   $('#ioCode').readOnly = saving;
-  $('#ioCode').placeholder = saving ? '' : '在這裡貼上專案代碼（Ctrl+V）';
+  $('#ioCode').placeholder = saving ? '' : '在這裡貼上收到的分享連結（長按 → 貼上）';
   $('#ioCopy').hidden = !saving; $('#ioDl').hidden = !saving || $('#ioDl').dataset.off === '1'; $('#ioLoad').hidden = saving; $('#ioPaste').hidden = saving; $('#ioFile').hidden = saving;
   $('#ioMsg').textContent = ''; $('#ioModal').hidden = false;
   if (!saving) setTimeout(() => $('#ioCode').focus(), 50);
@@ -8217,9 +8217,9 @@ $('#quickSave').onclick = () => quickSave();
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if ($('#home').hidden) quickSave(); } });
 $('#ioCopy').onclick = async e => { if (await copyText($('#ioCode').value, $('#ioCode'), e.currentTarget)) markSaved(); };
 const ioOpenCode = async () => {
-  if (!$('#ioCode').value.trim()) { $('#ioMsg').textContent = '請先貼上專案代碼。'; return; }
+  if (!$('#ioCode').value.trim()) { $('#ioMsg').textContent = '請先貼上分享連結。'; return; }
   try { loadDesign(await codeToJson($('#ioCode').value)); }
-  catch (err) { $('#ioMsg').textContent = '代碼不完整，無法開啟。請從頭到尾完整複製整段代碼再貼一次；還是不行的話，請對方改傳 .json 專案檔。'; }
+  catch (err) { $('#ioMsg').textContent = '連結不完整，無法開啟。請從頭到尾完整複製整段連結再貼一次；還是不行的話，請對方改傳 .json 專案檔。'; }
 };
 $('#ioLoad').onclick = ioOpenCode;
 $('#ioPaste').onclick = async () => {                                     // 一鍵：讀剪貼簿裡剛複製的訊息／代碼，直接開啟
