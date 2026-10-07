@@ -6546,9 +6546,30 @@ function renderStructLists() {
 const projColors = () => (spaces && Array.isArray(spaces.colors) ? spaces.colors : []);
 // mk(c)：這一組色票的按鈕怎麼寫（回傳 class 與 data 屬性），cur：目前的顏色
 const slotOf = t => String(t || '').replace(/顏色|色$/g, '').trim();
-const customSw = (mk, cur, slot = '') => projColors().filter(o => !o.slot || !slot || o.slot === slot).map(o => `<span class="swx"><button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button><i data-delcolor="${o.c}" data-slot="${esc(o.slot || '')}" title="移除這個自訂顏色">×</i></span>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + `<button type="button" class="swadd" data-addcolor="1" data-slot="${esc(slot)}" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡，之後在同名的顏色欄位都能選">＋ 新增</button>`;
+const customSw = (mk, cur, slot = '') => projColors().filter(o => !o.off && (!o.slot || !slot || o.slot === slot)).map(o => `<span class="swx"><button ${mk(o.c)}${o.c === cur ? ' data-con="1"' : ''} data-cc="${o.c}" style="background:${o.c} url(${o.img}) center/cover" title="自訂顏色 ${o.c}"></button><i data-delcolor="${o.c}" data-slot="${esc(o.slot || '')}" title="移除這個自訂顏色">×</i></span>`).join('').replace(/class="(sw|fsw)" ([^>]*) data-con="1"/g, 'class="$1 on" $2') + `<button type="button" class="swadd" data-addcolor="1" data-slot="${esc(slot)}" title="加入顏色圖片檔：圖片的顏色和紋路會存在這個專案裡，之後在同名的顏色欄位都能選">＋ 新增</button>`;
 
 let addCtx = null;
+const CC_MAX = 24;                                                        // 一個專案的色票最多幾種自訂顏色
+// 把一個自訂顏色從色票拿掉：還有家具在用它就只是藏起來（off），紋路照樣貼在那些家具上；沒人用的才真的刪掉
+function colorUsed(c) { try { return (JSON.stringify(state) + JSON.stringify(spaces.list || [])).toLowerCase().includes(c.toLowerCase()); } catch (e) { return true; } }
+function dropColor(c, slot) {
+  for (const q of projColors()) if (q.c === c && (q.slot || '') === (slot || '')) q.off = true;
+  spaces.colors = projColors().filter(q => !q.off || colorUsed(q.c));
+}
+function askDropColor() {                                                 // 色票滿了：讓使用者自己挑一個要移除的；回傳 true＝已經移除一個，false＝取消
+  return new Promise(res => {
+    let m = $('#ccModal'); if (m) m.remove();
+    m = document.createElement('div'); m.className = 'modal'; m.id = 'ccModal'; m.style.justifyContent = 'center';
+    m.innerHTML = `<div class="mcard"><h2>自訂顏色已經有 ${CC_MAX} 種</h2>
+      <div class="muted" style="line-height:1.7">一個專案最多保留 ${CC_MAX} 種自訂顏色。請點選一個要從色票移除的顏色，新的顏色才會加進來。<br>已經套用在家具上的顏色和紋路不會變，之後想換再自行更換。</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:10px;margin-top:14px;max-height:46vh;overflow:auto">${projColors().filter(o => !o.off).map((o, i) => `<button type="button" class="btn" data-ccdrop="${i}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;height:auto"><span style="width:48px;height:48px;border-radius:10px;border:1px solid var(--line);background:${o.c} url(${o.img}) center/cover"></span><span style="font-size:12px;line-height:1.3;white-space:normal">${esc(o.slot || '通用')}</span></button>`).join('')}</div>
+      <div class="mfoot"><button class="btn" data-ccdrop="x">取消，不加入新顏色</button></div></div>`;
+    document.body.appendChild(m);
+    m.onclick = e => { const b = e.target.closest('[data-ccdrop]'); if (!b) return; e.stopPropagation(); m.remove();
+      if (b.dataset.ccdrop === 'x') return res(false);
+      const o = projColors().filter(q => !q.off)[+b.dataset.ccdrop]; if (o) dropColor(o.c, o.slot); res(!!o); };
+  });
+}
 function imgColor(file) {                                                // 讀圖片：做一張貼紋路用的圖（拍照時一邊亮一邊暗的部分先拉平，鋪開來才不會一塊亮一塊暗）、取平均色、縮一張小圖當色票
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), im = new Image();
@@ -6578,9 +6599,9 @@ function imgColor(file) {                                                // 讀�
 function refreshColorUI() { try { renderPanel(); } catch (e) { } try { syncFinishUI(); } catch (e) { } try { renderScColor(); } catch (e) { } try { syncInputs(); } catch (e) { } }
 document.addEventListener('click', e => {
   const x = e.target.closest('[data-delcolor]');
-  if (x) {                                                               // 色票上的 ×：把這個自訂顏色從專案移除（已經用了它的家具保留顏色，紋路不再顯示）
+  if (x) {                                                               // 色票上的 ×：把這個自訂顏色從色票移除（已經用了它的家具保留顏色和紋路）
     e.preventDefault(); e.stopPropagation();
-    spaces.colors = projColors().filter(q => !(q.c === x.dataset.delcolor && (q.slot || '') === (x.dataset.slot || '')));
+    dropColor(x.dataset.delcolor, x.dataset.slot);
     markDirty(); persist(); try { rebuildAll(); } catch (err) { } refreshColorUI(); return;
   }
   const b = e.target.closest('[data-addcolor]'); if (!b) return;
@@ -6593,7 +6614,10 @@ document.addEventListener('click', e => {
     inp.onchange = async () => {
       const f = inp.files[0]; inp.value = ''; if (!f) return;
       let o; try { o = await imgColor(f); } catch (err) { if (addCtx && addCtx.btn.isConnected) flash(addCtx.btn, '這個檔案讀不出顏色'); return; }
-      if (addCtx && addCtx.slot) o.slot = addCtx.slot; const list = spaces.colors = projColors().filter(q => !(q.c === o.c && (q.slot || '') === (o.slot || ''))); list.push(o); if (list.length > 24) list.shift();   // 最多留 24 個
+      if (addCtx && addCtx.slot) o.slot = addCtx.slot;
+      const same = q => q.c === o.c && (q.slot || '') === (o.slot || '');
+      if (projColors().filter(q => !q.off && !same(q)).length >= CC_MAX && !(await askDropColor())) return;   // 滿了：先請使用者挑一個移除；取消就不加入
+      spaces.colors = projColors().filter(q => !same(q)); spaces.colors.push(o);
       markDirty(); persist(); try { rebuildAll(); } catch (err) { } refreshColorUI();
       const ds = addCtx && addCtx.ds;                                     // 套用到剛剛按「新增」的那個顏色欄位
       if (ds) { const t = [...document.querySelectorAll(`[data-cc="${o.c}"]`)].find(el => Object.entries(ds).every(([k, v]) => el.dataset[k] === v)); if (t) t.click(); }
@@ -8224,7 +8248,7 @@ function loadDesign(text, fileName, opt = {}) {
   if (d.mergeView && Array.isArray(d.mergeView.p)) p.mergeView = d.mergeView;
   if (d.plan) p.plan = true;
   if (d.wallT >= 5 && d.wallT <= 40) p.wallT = Math.round(d.wallT);
-  if (Array.isArray(d.colors)) p.colors = d.colors.filter(o => o && /^#[0-9a-f]{6}$/i.test(o.c) && typeof o.img === 'string' && o.img.startsWith('data:image/')).map(o => ({ c: o.c, img: o.img, ...(typeof o.tex === 'string' && o.tex.startsWith('data:image/') ? { tex: o.tex } : {}), ...(typeof o.slot === 'string' && o.slot ? { slot: o.slot.slice(0, 30) } : {}) })).slice(0, 24); else if (mine && mine.colors) p.colors = mine.colors;
+  if (Array.isArray(d.colors)) p.colors = d.colors.filter(o => o && /^#[0-9a-f]{6}$/i.test(o.c) && typeof o.img === 'string' && o.img.startsWith('data:image/')).map(o => ({ c: o.c, img: o.img, ...(typeof o.tex === 'string' && o.tex.startsWith('data:image/') ? { tex: o.tex } : {}), ...(typeof o.slot === 'string' && o.slot ? { slot: o.slot.slice(0, 30) } : {}), ...(o.off ? { off: true } : {}) })).slice(0, 96); else if (mine && mine.colors) p.colors = mine.colors;
   p.srcAt = d.savedAt || 0; p.impAt = p.updated;                         // 記下對方的儲存時間與收到當下的時間，之後收到更新版本可以直接更新
   done();
   let replaced = null;
