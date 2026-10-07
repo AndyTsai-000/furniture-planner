@@ -6619,8 +6619,7 @@ document.addEventListener('click', e => {
       if (projColors().filter(q => !q.off && !same(q)).length >= CC_MAX && !(await askDropColor())) return;   // 滿了：先請使用者挑一個移除；取消就不加入
       spaces.colors = projColors().filter(q => !same(q)); spaces.colors.push(o);
       markDirty(); persist(); try { rebuildAll(); } catch (err) { } refreshColorUI();
-      const ds = addCtx && addCtx.ds;                                     // 套用到剛剛按「新增」的那個顏色欄位
-      if (ds) { const t = [...document.querySelectorAll(`[data-cc="${o.c}"]`)].find(el => Object.entries(ds).every(([k, v]) => el.dataset[k] === v)); if (t) t.click(); }
+      { const nb = addCtx && addCtx.btn.isConnected ? addCtx.btn : [...document.querySelectorAll('[data-addcolor]')].find(q => q.offsetParent && (q.dataset.slot || '') === (o.slot || '')); if (nb) flash(nb, '已加入 ✓'); }   // 只加進色票，不自動套用：要用再自己點
     }; }
   inp.click();
 });
