@@ -4054,6 +4054,45 @@ function buildEggerDesk(it) { // 艾格書桌：厚實木桌面；一側吊著�
   B(g, hx - xl - tk, tk, tk, (hx + xl) / 2, gl + tk / 2, zc, M);                                       // 地上連接兩個框的橫桿
   return mirrorIfLeft(it, g);
 }
+const VAN_SIDE_OPT = { key: 'side', label: '櫃子位置', list: [opt('left', '櫃子在左'), opt('right', '櫃子在右')] };
+const VAN_MIRROR_OPT = { key: 'mir', label: '鏡子', list: [opt('on', '放鏡子'), opt('off', '不放')] };
+function buildHemingwayVanity(it) { // 海明威化妝台：烤漆檯面是一顆「膠囊」（兩端半圓，正面兩個抽屜、圓鈕把手），一端疊在圓角的烤漆櫃子上（上小下大兩個抽屜，下抽是鑰匙孔形把手），櫃子底下兩支金色矮框腳；另一端是並排兩個金色方管高框腳；檯面中間靠後立一面金框圓鏡（預設櫃子在右，選左時鏡射；h 含鏡子）
+  const g = new THREE.Group(), { w, d, h } = it;
+  const L = surfMat('lacquer', it.color), M = surfMat('metal', it.color2 || '#c9a659'), Dk = mat('#1a1a1a', 0.9), Gl = mat('#161616', 0.7);
+  const tH = h * 76 / 126, uh = tH * 21 / 76, yb = tH - uh, uw = w * 121 / 140, cwid = w * 48 / 140, kn = 2.9, bd = d - kn, bz = -kn / 2, zf = d / 2 - kn;   // 把手凸出 kn：櫃身往後讓，整體深度才會剛好是 d
+  const rrs = (W, H2, r) => { const sh = new THREE.Shape(), x0 = -W / 2, y0 = -H2 / 2; sh.moveTo(x0 + r, y0); sh.lineTo(x0 + W - r, y0); sh.absarc(x0 + W - r, y0 + r, r, -Math.PI / 2, 0); sh.lineTo(x0 + W, y0 + H2 - r); sh.absarc(x0 + W - r, y0 + H2 - r, r, 0, Math.PI / 2); sh.lineTo(x0 + r, y0 + H2); sh.absarc(x0 + r, y0 + H2 - r, r, Math.PI / 2, Math.PI); sh.lineTo(x0, y0 + r); sh.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5); return sh; };
+  const slab = (W, H2, r, dep, x, y, z, m) => { const geo = new THREE.ExtrudeGeometry(rrs(W, H2, r), { depth: dep, bevelEnabled: false, curveSegments: 16 }), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 60, uv.getY(i) / 60); geo.translate(0, 0, -dep / 2); return add(g, geo, m, x, y, z); };
+  const knob = (x, y, z) => { C(g, 0.5, 0.5, 1.6, x, y, z + 0.8, M, 10).rotation.x = Math.PI / 2; C(g, 1.5, 1.3, 0.9, x, y, z + 2, M, 20).rotation.x = Math.PI / 2; };
+  // 檯面：膠囊形的抽屜箱
+  const ux = -w / 2 + uw / 2, ur = uh / 2 - 0.01;
+  slab(uw, uh, ur, bd, ux, yb + uh / 2, bz, L);
+  { const fl = uw - 2 * ur - 1.5, fh = uh - 4.4, fw = (fl - 0.5) / 2;
+    B(g, fl + 0.5, fh + 0.5, 0.12, ux, yb + uh / 2, zf + 0.03, Dk);
+    for (const sd of [-1, 1]) { RB(g, fw, fh, 0.6, 0.15, ux + sd * (fw / 2 + 0.25), yb + uh / 2, zf + 0.2, L); knob(ux + sd * (fw / 2 + 0.25), yb + uh / 2, zf + 0.5); } }
+  // 櫃子：圓角的筒狀櫃身，正面一圈細框，裡面上小下大兩片抽屜面板
+  const legc = Math.min(8, tH * 0.11), ch = yb - 0.8 - legc, cx = w / 2 - cwid / 2, cy = legc + ch / 2, cr = Math.min(6.5, cwid * 0.14);
+  slab(cwid, ch, cr, bd, cx, cy, bz, L);
+  slab(cwid - 1.8, ch - 1.8, cr - 0.9, 0.14, cx, cy, zf + 0.03, Dk);
+  { const pw = cwid - 2.6, ph = ch - 2.6, h2 = ph * 0.32, geoF = (y0, y1) => { const sh = rrs(pw, ph, cr - 1.3), geo = new THREE.ExtrudeGeometry(sh, { depth: 0.6, bevelEnabled: false, curveSegments: 12 }), P = geo.attributes.position; for (let i = 0; i < P.count; i++) P.setY(i, Math.min(y1, Math.max(y0, P.getY(i)))); geo.computeVertexNormals(); return geo; };
+    add(g, geoF(ph / 2 - h2 + 0.25, ph / 2), L, cx, cy, zf);  add(g, geoF(-ph / 2, ph / 2 - h2 - 0.25), L, cx, cy, zf);
+    knob(cx, cy + ph / 2 - h2 / 2, zf + 0.5);
+    const ky = cy - h2 / 2 + 1.5; C(g, 1.6, 1.6, 0.9, cx, ky, zf + 1.4, M, 20).rotation.x = Math.PI / 2; RB(g, 1.3, 4.6, 0.9, 0.4, cx, ky - 2.6, zf + 1.4, M); C(g, 0.5, 0.5, 1, cx, ky, zf + 0.7, M, 8).rotation.x = Math.PI / 2; }   // 鑰匙孔形把手
+  // 腳：方管框（前後各一支立柱、地上和上面各一支橫桿）
+  const loop = (x, yTop, len, tk) => { const gl = 0.4; B(g, tk, tk, len, x, gl + tk / 2, bz, M); B(g, tk, tk, len - 2 * tk, x, yTop - tk / 2, bz, M);
+    for (const sd of [-1, 1]) { B(g, tk, yTop - gl, tk, x, gl + (yTop - gl) / 2, bz + sd * (len / 2 - tk / 2), M); C(g, 0.6, 0.6, gl, x, gl / 2, bz + sd * (len / 2 - 3), Gl, 8); } };
+  for (const sd of [-1, 1]) loop(cx + sd * (cwid / 2 - 7), legc, d - 9, 2.6);
+  for (const k of [0, 1]) loop(-w / 2 + 9 + k * 4.4, yb + 0.6, d - 12, 2.2);
+  // 鏡子：金色底板＋拱形立片夾住一面金框圓鏡
+  if (it.mir !== 'off') {
+    const sc = Math.max(0.5, (h - tH) / 50), R = 22 * sc, mz = -d / 2 + Math.min(11, d * 0.2), my = tH + 6 * sc + R;
+    B(g, 16 * sc, 0.8, 9 * sc, ux, tH + 0.4, mz, M);
+    B(g, 7 * sc, 6.5 * sc, 1.2, ux, tH + 0.8 + 3.25 * sc, mz + 1.6, M); C(g, 3.5 * sc, 3.5 * sc, 1.2, ux, tH + 0.8 + 6.5 * sc, mz + 1.6, M, 24).rotation.x = Math.PI / 2;
+    B(g, 3 * sc, 6 * sc, 2.2, ux, tH + 0.8 + 3 * sc, mz - 0.4, M);
+    C(g, R, R, 2.6, ux, my, mz, M, 64).rotation.x = Math.PI / 2;
+    C(g, R - 0.8, R - 0.8, 0.3, ux, my, mz + 1.25, MIRROR, 64).rotation.x = Math.PI / 2;
+  }
+  return mirrorIfLeft(it, g);
+}
 function buildOvalSideTable(it) {
   const g = new THREE.Group(), { w, d, h } = it;
   const T = topMat(it), M = surfMat('metal', it.color2), edge = mat('#6a6a6c', 0.6);
@@ -4852,6 +4891,7 @@ const TYPES = {
   ownOvalSide: { name: '橢圓陶板邊几', cat: '自家商品', w: 34, d: 56, h: 52, color: '#1f1f21', color2: '#1f1f1f', c1: '桌面顏色', c2: '金屬顏色', build: buildOvalSideTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownDali:     { name: '大理書桌', cat: '自家商品', w: 150, d: 70, h: 75, color: '#2f2b2a', color2: '#c9c8cc', color3: '#1d1e21', c1: '桌面木頭顏色', c2: '抽屜烤漆顏色', c3: '金屬顏色（把手與腳座）', build: buildDaliDesk, opts: [DESK_SIDE_OPT], def: { side: 'left' }, wall: true, own: true },
   ownEgger:    { name: '艾格書桌', cat: '自家商品', w: 150, d: 70, h: 75, color: '#2a2625', color2: '#6b4a38', color3: '#1d1e21', c1: '桌面木頭顏色', c2: '抽屜木頭顏色', c3: '金屬顏色（把手與腳座）', build: buildEggerDesk, opts: [DESK_SIDE_OPT], def: { side: 'right' }, wall: true, own: true },
+  ownHemingway: { name: '海明威化妝台', cat: '自家商品', w: 140, d: 55, h: 126, color: '#77726f', color2: '#c9a659', c1: '烤漆顏色', c2: '金屬顏色（把手、腳座、鏡框）', build: buildHemingwayVanity, opts: [VAN_SIDE_OPT, VAN_MIRROR_OPT], def: { side: 'left', mir: 'on' }, wall: true, own: true },
   ownTawu:     { name: '塔烏床頭櫃', cat: '自家商品', w: 50, d: 50, h: 51, color: '#f2f0ec', color2: '#1c1b1a', color3: '#1b1b1c', c1: '陶板顏色', c2: '木頭顏色', c3: '底板顏色', build: buildTawuNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownTawuBox:  { name: '哈克床頭櫃', cat: '自家商品', w: 52, d: 46, h: 50, color: '#f2f0ec', color2: '#c9c5bf', color3: '#3b302b', c1: '陶板顏色', c2: '烤漆顏色', c3: '木腳顏色', build: buildLacquerNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownDorn:     { name: '多恩茶几', cat: '自家商品', w: 100, d: 96, h: 35, color: '#cbc2b6', color2: '#2f2b28', c1: '陶板顏色', c2: '金屬顏色', build: buildDornTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
@@ -6918,10 +6958,10 @@ let curCat = '全部', curSub = '全部', libQuery = '';
 const thumbs = {};
 // 各空間底下的品項分類
 const SUB_ORDER = {
-  '自家商品': ['沙發', '床台', '床頭櫃', '書桌', '餐桌', '餐椅', '長凳', '茶几', '邊几'],
+  '自家商品': ['沙發', '床台', '床頭櫃', '化妝桌椅', '書桌', '餐桌', '餐椅', '長凳', '茶几', '邊几'],
   '客廳': ['沙發', '單椅', '椅凳', '茶几', '電視櫃'],
   '餐廳': ['餐桌', '餐椅', '吧檯桌', '吧檯椅', '餐櫃', '廚房'],
-  '臥室': ['床', '床頭櫃', '衣櫃', '化妝台'],
+  '臥室': ['床', '床頭櫃', '衣櫃', '化妝桌椅'],
   '書房': ['書桌', '辦公椅', '書櫃收納'],
   '窗簾': ['布簾', '捲簾', '百葉簾'],
   '燈具': ['吊燈', '吸頂燈', '檯燈', '落地燈', '壁燈'],
@@ -6932,11 +6972,11 @@ const SUB_ORDER = {
   '擺飾': ['掛畫', '藝術品', '花藝植栽', '香氛', '相框', '托盤收納', '餐具', '時鐘', '書本'],
 };
 const TYPE_SUB = {
-  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownAmis: '床台', ownMila: '床台', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDali: '書桌', ownEgger: '書桌', ownTawu: '床頭櫃', ownTawuBox: '床頭櫃', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
+  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownAmis: '床台', ownMila: '床台', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDali: '書桌', ownEgger: '書桌', ownHemingway: '化妝桌椅', ownTawu: '床頭櫃', ownTawuBox: '床頭櫃', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
   lounge: '單椅', shellchair: '單椅', wingchair: '單椅', woodchair: '單椅', pouf: '椅凳', bench: '椅凳',
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
   dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
-  bed: '床', queen: '床', single: '床', night: '床頭櫃', wardrobe: '衣櫃', slidewardrobe: '衣櫃', vanity: '化妝台', vstool: '化妝台',
+  bed: '床', queen: '床', single: '床', night: '床頭櫃', wardrobe: '衣櫃', slidewardrobe: '衣櫃', vanity: '化妝桌椅', vstool: '化妝桌椅',
   shoecab: '鞋櫃', shoecabTall: '鞋櫃', shoecabSlim: '鞋櫃', shoecabLouver: '鞋櫃', shoerack: '鞋櫃', shoebench: '鞋櫃',
   pillowSq: '抱枕', pillowLumbar: '抱枕', pillowRound: '抱枕', pillowBolster: '抱枕', seatpad: '抱枕',
   desk: '書桌', ldesk: '書桌', consoletable: '玄關桌', entrycab: '玄關櫃', office: '辦公椅', bookshelf: '書櫃收納', cabinet: '書櫃收納',
