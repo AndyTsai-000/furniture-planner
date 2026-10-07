@@ -1666,9 +1666,9 @@ function buildEmmaBed(it) { // Emma 床台：布面床框（寬邊的圍板、�
   const g = new THREE.Group(), { w, d, h } = it;
   const F = fabMat(it), Wd = surfMat('wood', it.color2), Dk = mat('#121212', 0.95);
   const seam = surfMat(it.fabric || 'fabric', '#' + new THREE.Color(it.color).multiplyScalar(0.82).getHexString());
-  const zb = -d / 2, zf = d / 2, top = Math.min(30, h * 0.3), legH = Math.min(12, top * 0.4), fh = top - legH, rim = Math.min(9, w * 0.06);
+  const zb = -d / 2, zf = d / 2, top = Math.min(30, h * 0.3), legH = Math.min(15, top * 0.5), fh = top - legH, rim = Math.min(9, w * 0.06);
   // 床頭：往後仰的厚板，底下坐在床框上
-  const ht = Math.min(9, d * 0.045), lean = Math.min(0.1, 9 / h), hw = w - 4, Hh = (h - top + 1.5 - ht * Math.sin(lean)) / Math.cos(lean), hz = zb + Hh * Math.sin(lean) + 0.2;
+  const ht = Math.min(11, d * 0.055), lean = Math.min(0.1, 9 / h), hw = w - 4, Hh = (h - top + 1.5 - ht * Math.sin(lean)) / Math.cos(lean), hz = zb + Hh * Math.sin(lean) + 0.2;
   const hb = new THREE.Group(); hb.position.set(0, top - 1.5, hz); hb.rotation.x = -lean; g.add(hb);
   RB(hb, hw, Hh, ht, 2.2, 0, Hh / 2, ht / 2, F);
   for (const sd of [-1, 1]) B(hb, 0.22, Hh - 5, 0.22, sd * (hw / 2 - 2.3), Hh / 2, ht + 0.02, seam);                    // 正面邊緣的車線
@@ -9001,7 +9001,7 @@ function setupReflect() {
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
   const sh = { name: 'FloorReflect', uniforms: { color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null }, strength: { value: k } },
     vertexShader: 'uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vW;\n#include <common>\n#include <logdepthbuf_pars_vertex>\nvoid main() { vUv = textureMatrix * vec4(position, 1.0); vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n#include <logdepthbuf_vertex>\n}',
-    fragmentShader: 'uniform vec3 color; uniform sampler2D tDiffuse; uniform float strength; varying vec4 vUv; varying vec3 vW;\n#include <logdepthbuf_pars_fragment>\nvoid main() {\n#include <logdepthbuf_fragment>\nvec4 base = texture2DProj(tDiffuse, vUv); vec3 v = normalize(cameraPosition - vW); float fr = 0.55 + 0.9 * pow(1.0 - clamp(v.y, 0.0, 1.0), 2.0);\ngl_FragColor = vec4(base.rgb, clamp(strength * fr, 0.0, 0.6));\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' };
+    fragmentShader: 'uniform vec3 color; uniform sampler2D tDiffuse; uniform float strength; varying vec4 vUv; varying vec3 vW;\n#include <logdepthbuf_pars_fragment>\nvoid main() {\n#include <logdepthbuf_fragment>\nvec4 base = texture2DProj(tDiffuse, vUv); if (isnan(base.r) || isnan(base.g) || isnan(base.b) || isinf(base.r) || isinf(base.g) || isinf(base.b)) base = vec4(0.0); base.rgb = clamp(base.rgb, 0.0, 16.0); vec3 v = normalize(cameraPosition - vW); float fr = 0.55 + 0.9 * pow(1.0 - clamp(v.y, 0.0, 1.0), 2.0);\ngl_FragColor = vec4(base.rgb, clamp(strength * fr, 0.0, 0.6));\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' };
   rRefl = new Reflector(geo, { textureWidth: 768, textureHeight: 768, clipBias: 0.5, shader: sh, multisample: 0 });
   rRefl.material.transparent = true; rRefl.material.depthWrite = false;
   rRefl.rotation.x = -Math.PI / 2; rRefl.position.y = 0.35; rRefl.renderOrder = 2;
@@ -9094,7 +9094,10 @@ function rComposer() {
   ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 2.5);   // 燈罩、燈條周圍柔和的光暈
   const vig = new ShaderPass(VignetteShader); vig.uniforms.offset.value = 0.6; vig.uniforms.darkness.value = 0.9;   // 四角微暗，像相機拍的
-  c.addPass(new RenderPass(scene, rcam)); c.addPass(ao); c.addPass(bloom); c.addPass(new OutputPass()); c.addPass(vig);
+  // 光暈之前先把算壞的點（NaN、無限大）清掉：只要有一個，光暈模糊後就會擴散成一大塊黑色
+  const clean = new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); if (isnan(c.r) || isnan(c.g) || isnan(c.b) || isinf(c.r) || isinf(c.g) || isinf(c.b)) c = vec4(0.0, 0.0, 0.0, 1.0); gl_FragColor = vec4(clamp(c.rgb, 0.0, 64.0), 1.0); }' });
+  c.addPass(new RenderPass(scene, rcam)); c.addPass(ao); c.addPass(clean); c.addPass(bloom); c.addPass(new OutputPass()); c.addPass(vig);
   return RC = { c, ao, bloom, vig };
 }
 const rRoom = () => {                                                  // 渲染時的範圍：合併畫面就用全部空間的範圍
