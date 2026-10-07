@@ -1549,37 +1549,79 @@ function buildRoundChaiseSofa(it) { // 雷內沙發：落地的整塊軟包主�
   return mirrorIfLeft(it, g);
 }
 const BED_MATT_OPT = { key: 'matt', label: '床墊', list: [opt('on', '放床墊'), opt('off', '不放（只看床台）')] };
-function buildAmisBed(it) { // 阿美族床台：布面床框浮在四支亮面金屬刀片腳上，床墊內嵌 5 cm；床頭是一片布面外殼，兩端往前彎成側翼，裡面嵌一塊跳色的靠墊（中間一道車線）
+// U 形的薄殼床頭（背板＋兩片側翼連成一體）：原點在背板外側的底邊中央，往 +z 是床的方向；depthAt(y)＝那個高度側翼往前伸多長，上緣、側翼前端都是圓的
+function wingShellGeo(w, Hh, t, rc, depthAt) {
+  const xc = w / 2 - t / 2, zc = t / 2, N1 = 6, NA = 8, NB = 14, E = 5, rt = Math.min(t / 2 - 0.2, 1.8), lv = [];
+  for (let i = 0; i <= 14; i++) lv.push([(Hh - rt) * i / 14, t / 2]);
+  for (let j = 1; j <= 4; j++) { const q = j / 4 * Math.PI / 2; lv.push([Hh - rt + rt * Math.sin(q), Math.max(0.2, t / 2 - rt * (1 - Math.cos(q)))]); }
+  const slice = (y, ht) => {
+    const zt = Math.max(zc + rc + 0.5, depthAt(y) - t / 2), c = [];
+    for (let i = 0; i < N1; i++) c.push([xc, zt + (zc + rc - zt) * i / N1]);
+    for (let i = 0; i < NA; i++) { const q = -Math.PI / 2 * i / NA; c.push([xc - rc + rc * Math.cos(q), zc + rc + rc * Math.sin(q)]); }
+    for (let i = 0; i < NB; i++) c.push([(xc - rc) * (1 - 2 * i / NB), zc]);
+    for (let i = 0; i < NA; i++) { const q = -Math.PI / 2 - Math.PI / 2 * i / NA; c.push([-(xc - rc) + rc * Math.cos(q), zc + rc + rc * Math.sin(q)]); }
+    for (let i = 0; i <= N1; i++) c.push([-xc, zc + rc + (zt - zc - rc) * i / N1]);
+    const n = c.length, T = c.map((_, i) => { const p = c[Math.max(0, i - 1)], q = c[Math.min(n - 1, i + 1)], l = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [(q[0] - p[0]) / l, (q[1] - p[1]) / l]; }), ring = [];
+    for (let i = 0; i < n; i++) ring.push([c[i][0] - T[i][1] * ht, c[i][1] + T[i][0] * ht]);
+    for (let k = 1; k <= E; k++) { const f = k / (E + 1) * Math.PI, i = n - 1; ring.push([c[i][0] + ht * (-T[i][1] * Math.cos(f) + T[i][0] * Math.sin(f)), c[i][1] + ht * (T[i][0] * Math.cos(f) + T[i][1] * Math.sin(f))]); }
+    for (let i = n - 1; i >= 0; i--) ring.push([c[i][0] + T[i][1] * ht, c[i][1] - T[i][0] * ht]);
+    for (let k = 1; k <= E; k++) { const f = k / (E + 1) * Math.PI; ring.push([c[0][0] + ht * (T[0][1] * Math.cos(f) - T[0][0] * Math.sin(f)), c[0][1] + ht * (-T[0][0] * Math.cos(f) - T[0][1] * Math.sin(f))]); }
+    return { ring, n };
+  };
+  const pos = [], uv = [], idx = []; let M = 0, n = 0, U = null;
+  for (const [y, ht] of lv) {
+    const sl = slice(y, ht); M = sl.ring.length; n = sl.n;
+    if (!U) { U = [0]; for (let i = 1; i < M; i++) U.push(U[i - 1] + Math.hypot(sl.ring[i][0] - sl.ring[i - 1][0], sl.ring[i][1] - sl.ring[i - 1][1])); }
+    sl.ring.forEach((q, i) => { pos.push(q[0], y, q[1]); uv.push(U[i] / 60, y / 60); });
+  }
+  for (let j = 0; j < lv.length - 1; j++) for (let i = 0; i < M; i++) { const p = j * M + i, q = j * M + (i + 1) % M; idx.push(p, p + M, q, q, p + M, q + M); }
+  const cap = (base, flip) => {                                           // 上、下的封口：外圈和內圈一格一格對接，兩端的半圓用扇形補
+    const tri = (p, q, r) => flip ? idx.push(base + p, base + r, base + q) : idx.push(base + p, base + q, base + r), inn = i => n + E + (n - 1 - i);
+    for (let i = 0; i < n - 1; i++) { tri(i, i + 1, inn(i + 1)); tri(i, inn(i + 1), inn(i)); }
+    for (let k = 0; k <= E; k++) tri(n - 1, n + k, n + k + 1 <= n + E ? n + k + 1 : inn(n - 1));
+    for (let k = 0; k <= E; k++) tri(inn(0), 2 * n + E + k, k < E ? 2 * n + E + k + 1 : 0);
+  };
+  const b0 = pos.length / 3; for (let i = 0; i < M; i++) { pos.push(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); uv.push(uv[i * 2], uv[i * 2 + 1]); }   // 底面另外一組頂點：底邊才會是利落的折角
+  cap(b0, false); cap((lv.length - 1) * M, true);
+  let vol = 0;
+  for (let i = 0; i < idx.length; i += 3) { const p = idx[i] * 3, q = idx[i + 1] * 3, r = idx[i + 2] * 3; vol += pos[p] * (pos[q + 1] * pos[r + 2] - pos[q + 2] * pos[r + 1]) - pos[p + 1] * (pos[q] * pos[r + 2] - pos[q + 2] * pos[r]) + pos[p + 2] * (pos[q] * pos[r + 1] - pos[q + 1] * pos[r]); }
+  if (vol < 0) for (let i = 0; i < idx.length; i += 3) { const q = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = q; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+  geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere();
+  return geo;
+}
+function buildAmisBed(it) { // 阿美族床台：布面床框浮在四支亮面金屬刀片腳上，床墊內嵌 5 cm；床頭是一片往後仰的布面薄殼，兩端圓角往前彎成淺淺的側翼（上窄、到床墊的高度最寬），裡面嵌一塊跳色的靠墊（中間一道車線）
   const g = new THREE.Group(), { w, d, h } = it;
-  const F = fabMat(it), F2 = fabMat(it, 'color2'), M = mat('#c9ccd0', 0.14, 1), Dk = mat('#232323', 0.75);
+  const F = fabMat(it), F2 = fabMat(it, 'color2'), M = mat(it.color3 || '#c9ccd0', 0.14, 1), Dk = mat('#232323', 0.75);
   const seam = surfMat(it.fabric || 'fabric', '#' + new THREE.Color(it.color2).multiplyScalar(0.84).getHexString());
-  const zb = -d / 2, zf = d / 2, xL = -w / 2, xR = w / 2;
+  const zb = -d / 2, zf = d / 2;
   const legH = Math.min(14, h * 0.14), fh = Math.min(17, h * 0.17), top = legH + fh, inset = Math.min(5, fh * 0.4), rim = 4;   // inset：床墊沉進床框的深度
-  const tw = 5.5, rc = Math.min(9, w * 0.06), wl = Math.min(34, d * 0.17), padT = 9;                                        // 床頭外殼厚度、轉角半徑、側翼往前伸多長、靠墊厚度
-  // 床框：四面圍板＋裡面的床板（比圍板低 inset）
-  const bw = w - 2 * tw, bz0 = zb + tw + 2.5, bl = zf - bz0, bzc = (bz0 + zf) / 2;
+  const mh = Math.min(27, h * 0.27), my = top - inset;                                                                      // 床墊厚度、床墊底的高度
+  // 床頭的尺寸：外殼厚度、轉角半徑、靠墊厚度、往後仰的角度；整片床頭比床框的底再低一點
+  const tw = 4, rc = Math.min(6, w * 0.04), padT = 7, lean = Math.min(0.09, 8 / h), hy0 = Math.max(4, legH - 4), Hh = (h - hy0 - Math.min(12, d * 0.06) * Math.sin(lean)) / Math.cos(lean) - 0.8, hz0 = zb + Hh * Math.sin(lean);
+  const yk = (my + mh * 0.35 - hy0) / Math.cos(lean), dTop = Math.min(12, d * 0.06), dMid = Math.min(24, d * 0.12), dBot = Math.min(16, d * 0.08);   // 側翼的深度：最上面、床墊的高度（最寬）、最下面
+  const depthAt = y => { const e = v => v * v * (3 - 2 * v); return y < yk ? dBot + (dMid - dBot) * e(y / yk) : dMid + (dTop - dMid) * e((y - yk) / (Hh - yk)); };
+  const hb = new THREE.Group(); hb.position.set(0, hy0, hz0); hb.rotation.x = -lean; g.add(hb);
+  add(hb, wingShellGeo(w, Hh, tw, rc, depthAt), F, 0, 0, 0);
+  // 靠墊：嵌在外殼裡，比外殼矮一點；中間一道車線、上緣一圈滾邊
+  const pw = w - 2 * tw - 1.2, py0 = (my - hy0) / Math.cos(lean) - 1, ph = Hh - 3.5 - py0, pz = tw - 0.6 + padT / 2;
+  RB(hb, pw, ph, padT, 3.2, 0, py0 + ph / 2, pz, F2);
+  B(hb, 0.35, ph - 6.5, 0.5, 0, py0 + ph / 2, pz + padT / 2 - 0.15, seam);
+  { const c = C(hb, 0.3, 0.3, pw - 7, 0, py0 + ph - 3.1, pz + padT / 2 - 1.3, seam, 6); c.rotation.z = Math.PI / 2; }
+  // 床框：四面圍板＋裡面的床板（比圍板低 inset）；後面那片藏在靠墊底下
+  const bw = w - 2 * tw - 0.8, bz0 = zb + Hh * Math.sin(lean) + tw * 0.5, bl = zf - bz0, bzc = (bz0 + zf) / 2;
   for (const sd of [-1, 1]) RB(g, rim, fh, bl, 1.8, sd * (bw / 2 - rim / 2), legH + fh / 2, bzc, F);
   RB(g, bw, fh, rim, 1.8, 0, legH + fh / 2, zf - rim / 2, F); RB(g, bw, fh, rim, 1.8, 0, legH + fh / 2, bz0 + rim / 2, F);
   B(g, bw - rim, fh - inset - 1, bl - rim, 0, legH + 1 + (fh - inset - 1) / 2, bzc, F);
   B(g, bw - 10, 1.2, bl - 10, 0, legH + 0.4, bzc, Dk);
-  // 床頭外殼：從右側翼前端 → 繞過後面 → 左側翼前端，一片連續的圓頭厚殼；側翼前端的下緣斜斜收上去
-  const line = (P, x0, z0, x1, z1) => { const m = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 4)); for (let i = 1; i <= m; i++) P.push([x0 + (x1 - x0) * i / m, z0 + (z1 - z0) * i / m]); };
-  const arc = (P, ax, az, r, a0, a1) => { for (let i = 1; i <= 10; i++) { const a = a0 + (a1 - a0) * i / 10; P.push([ax + r * Math.cos(a), az + r * Math.sin(a)]); } };
-  const hp = [[xR, zb + wl]]; line(hp, xR, zb + wl, xR, zb + rc); arc(hp, xR - rc, zb + rc, rc, 0, -Math.PI / 2); line(hp, xR - rc, zb, xL + rc, zb); arc(hp, xL + rc, zb + rc, rc, -Math.PI / 2, -Math.PI); line(hp, xL, zb + rc, xL, zb + wl);
-  const cut = wl * 0.85, end = (s, L) => Math.max(0, 1 - Math.min(s, L - s) / cut);
-  add(g, sweepShellGeo(hp, 1, legH, () => tw, () => h, 2.4, 2.4, { taper: 0.12, lift: (s, L) => Math.min(h * 0.3, 26) * end(s, L) }), F, 0, 0, 0);
-  // 靠墊：嵌在外殼裡，比外殼矮一點；中間一道車線
-  const pw = w - 2 * tw - 1.5, py0 = top - inset - 1, ph = h - 4 - py0, pz = zb + tw - 0.8 + padT / 2;
-  RB(g, pw, ph, padT, 3.6, 0, py0 + ph / 2, pz, F2);
-  B(g, 0.35, ph - 7, 0.5, 0, py0 + ph / 2, pz + padT / 2 - 0.15, seam);
-  { const c = C(g, 0.32, 0.32, pw - 8, 0, h - 4 - 3.4, pz + padT / 2 - 1.5, seam, 6); c.rotation.z = Math.PI / 2; }   // 上緣的滾邊
   // 金屬刀片腳：斜斜往外踩的腳掌
   const lg = new THREE.Shape(); lg.moveTo(-1.3, legH); lg.lineTo(1.3, legH); lg.lineTo(1.0, 4.2); lg.bezierCurveTo(1.0, 2.2, 2.6, 1.0, 9.5, 0.75); lg.lineTo(9.5, 0); lg.lineTo(-0.6, 0); lg.bezierCurveTo(-1.0, 1.5, -1.0, 4, -1.3, legH);
   const lgeo = new THREE.ExtrudeGeometry(lg, { depth: 2.2, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.25, bevelSegments: 2, curveSegments: 10 }); lgeo.translate(0, 0, -1.1);
-  for (const sx of [-1, 1]) for (const [z, sz] of [[zf - 9, 1], [bz0 + 9, -1]]) add(g, lgeo, M, sx * (bw / 2 - 7), 0, z).rotation.y = Math.atan2(-sz, sx);
-  // 床墊：深色側邊＋白色表布，沉進床框 inset
+  for (const sx of [-1, 1]) for (const [z, sz] of [[zf - 9, 1], [bz0 + 12, -1]]) add(g, lgeo, M, sx * (bw / 2 - 7), 0, z).rotation.y = Math.atan2(-sz, sx);
+  // 床墊：深色側邊＋白色表布，沉進床框 inset；床頭那端貼著靠墊
   if (it.matt !== 'off') {
-    const mw = bw - 2 * rim - 0.6, ml = bl - 2 * rim - 0.6 - (padT - 3.5), mz = zf - rim - 0.3 - ml / 2, mh = Math.min(27, h * 0.27), my = top - inset;
+    const mzb = hz0 - (my - hy0 + 3) * Math.tan(lean) + (tw + padT) / Math.cos(lean) + 0.3, mw = bw - 2 * rim - 0.6, ml = zf - rim - 0.3 - mzb, mz = mzb + ml / 2;
     const Sd = surfMat('fabric', '#2e2f33'), Tp = surfMat('fabric', '#f4f3ef');
     RB(g, mw, mh - 5, ml, 3, 0, my + (mh - 5) / 2, mz, Sd);
     RB(g, mw, 7.5, ml, 3.4, 0, my + mh - 3.75, mz, Tp);
@@ -4677,7 +4719,7 @@ const TYPES = {
   own120Ott:   { name: '120型腳椅', cat: '自家商品', w: 85, d: 90, h: 58, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Ottoman, opts: [{ key: 'side', label: '扶手位置', list: [opt('right', '扶手在右'), opt('left', '扶手在左')] }], def: { side: 'right' }, own: true },
   ownAthena:   { name: '雅典娜沙發', cat: '自家商品', w: 392, d: 271, h: 87, color: '#969896', color2: '#7a4a2b', color3: '#4d4a48', c1: '牛皮顏色', c2: '扶手實木顏色', c3: '金屬腳顏色', build: buildAthenaSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '3', side: 'left' }, wall: true, own: true },
   ownFloatL:   { name: '103型沙發', cat: '自家商品', w: 306, d: 180, h: 95,  color: '#dcd6cf', color2: '#8e7472', color3: '#d9bd94', c1: '坐墊布料', c2: '底座布料', c3: '邊几木色', build: buildFloatLSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'left' }, wall: true, own: true },
-  ownAmis:     { name: '阿美族床台', cat: '自家商品', w: 170, d: 206, h: 100, color: '#8d8c8a', color2: '#e6e1d4', c1: '床架布料', c2: '床頭靠墊布料', build: buildAmisBed, opts: [BED_MATT_OPT], def: { matt: 'on' }, wall: true, own: true },
+  ownAmis:     { name: '阿美族床台', cat: '自家商品', w: 170, d: 206, h: 100, color: '#8d8c8a', color2: '#e6e1d4', color3: '#c9ccd0', c1: '床架布料', c2: '床頭靠墊布料', c3: '金屬腳顏色', build: buildAmisBed, opts: [BED_MATT_OPT], def: { matt: 'on' }, wall: true, own: true },
   ownDanish:   { name: '丹麥餐桌', cat: '自家商品', w: 180, d: 90, h: 75, color: '#f2f0ec', color2: '#dcc39c', c1: '桌面顏色', c2: '木腳顏色', build: buildDanishTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownPencil:   { name: '鉛筆腳餐桌', cat: '自家商品', w: 150, d: 85, h: 75, color: '#f2f0ec', color2: '#1f1f1f', c1: '桌面顏色', c2: '鐵件顏色', build: buildPencilTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownVChair:   { name: 'V型餐椅', cat: '自家商品', w: 46, d: 62, h: 84, color: '#b8aa9e', color2: '#dcc39c', c1: '皮面顏色', c2: '木腳顏色', build: buildVChair, own: true },
