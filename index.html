@@ -533,7 +533,7 @@ body.present.presset #rpanel{display:block}
     <div>
       <div style="display:flex;align-items:center;gap:10px"><h2 style="margin-right:auto">這台裝置上的專案 <small id="homeCount"></small></h2><button class="btn danger sm" id="homeDelAll" hidden>全部刪除</button></div>
       <div class="spaces" id="homeList"></div>
-      <div id="trashBox" hidden style="margin-top:14px"><div class="note" style="margin-bottom:6px">最近刪除或被取代的專案（保留 30 天，點一下就還原）</div><div class="presets" id="trashList" style="margin:0"></div></div>
+      <div id="trashBox" hidden style="margin-top:14px"><div class="note" style="margin-bottom:6px">最近刪除或被取代的專案（保留 30 天，點一下就還原；按右上角的 × 永久刪除）</div><div class="presets" id="trashList" style="margin:0"></div></div>
     </div>
     <p class="note">專案只保存在這台裝置的瀏覽器中。要換裝置繼續編輯，或把配置交給店家，請在編輯畫面按「另存新檔」下載 .json 專案檔。同一個專案（同名）只保留最新儲存的版本。</p>
   </div>
@@ -690,6 +690,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -730,21 +731,57 @@ function customTex(col, even) {                                          // even
 const TRI_CM = 42, TRI_GAIN = 0.55, TRI_SAT = 1.06;   // 場景的燈光和色調映射會讓顏色變亮、變淡：貼圖先壓暗一點、彩度補一點，受光面看起來才接近原圖
 let TRI_MAX = 0, TRI_CUR = 0;                                                         // 正在建的那件家具適合的紋路大小（公分）：大件家具紋路鋪得大一點，小件鋪得細一點，重複的次數差不多
 const triSize = it => clamp(Math.round(Math.max(it.w || 0, it.d || 0, it.h || 0) * 0.3 / 6) * 6, 18, 90);
+const GRAIN_ON = { value: 0 };                                           // 渲染模式才打開材質的細部質感（編輯時不算，操作比較順）
+const GRAIN = { leather: 1, fabric: 2, velvet: 3, wood: 4 };
+function fxMat(m) {                                                       // 依 userData.tri（自訂紋路）、userData.grain（質感）改寫著色器
+  const U = m.userData, tri = !!U.tri, gr = U.grain || 0;
+  m.onBeforeCompile = sh => {
+    sh.uniforms.grainOn = GRAIN_ON;
+    if (tri) { sh.uniforms.triMap = { value: U.tri }; sh.uniforms.triS = { value: U.triS }; sh.uniforms.triO = { value: U.triO }; sh.uniforms.triG = { value: new THREE.Vector2(TRI_GAIN, TRI_SAT) }; }
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriP = transformed * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));\nvTriN = objectNormal;');
+    let head = '#include <common>\nvarying vec3 vTriP;\nvarying vec3 vTriN;\nuniform float grainOn;\n' + (tri ? 'uniform sampler2D triMap;\nuniform float triS;\nuniform float triO;\nuniform vec2 triG;\n' : '');
+    if (gr) head += `
+float gHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float gNoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(gHash(i), gHash(i + vec3(1, 0, 0)), f.x), mix(gHash(i + vec3(0, 1, 0)), gHash(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(gHash(i + vec3(0, 0, 1)), gHash(i + vec3(1, 0, 1)), f.x), mix(gHash(i + vec3(0, 1, 1)), gHash(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+vec2 gUV(vec3 q) { vec3 a = abs(vTriN); return a.x > a.y && a.x > a.z ? q.zy : a.y > a.z ? q.xz : q.xy; }
+float grainH(vec3 q) {
+  ${gr === 1 ? 'float n = gNoise(q * 1.3) * 0.65 + gNoise(q * 2.9) * 0.35; return smoothstep(0.2, 0.8, n);'
+    : gr === 2 ? 'vec2 u = gUV(q) * 5.0; return 0.5 + 0.35 * sin(u.x) * sin(u.y) + 0.3 * (gNoise(q * 1.6) - 0.5);'
+    : gr === 3 ? 'return gNoise(q * 3.0) * 0.6 + gNoise(q * 0.9) * 0.4;'
+    : 'vec2 u = gUV(q); return gNoise(vec3(u.x * 0.05, u.y * 1.6, 3.0)) * 0.7 + gNoise(vec3(u.x * 0.2, u.y * 4.5, 7.0)) * 0.3;'}
+}
+`;
+    let fs = sh.fragmentShader.replace('#include <common>', head);
+    let mapCode = '#include <map_fragment>';
+    if (tri) mapCode = 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS + triO) * triW.x + texture2D(triMap, vTriP.xz / triS + triO) * triW.y + texture2D(triMap, vTriP.xy / triS + triO) * triW.z).rgb * triG.x;\nfloat triL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = max(vec3(0.0), mix(vec3(triL), diffuseColor.rgb, triG.y));';
+    if (gr) {
+      const amt = [0, 0.07, 0.06, 0.025, 0.03][gr], col = [0, 0.05, 0.07, 0.05, tri ? 0 : 0.07][gr], fq = [0, 2.9, 5.0, 3.0, 4.5][gr];   // 起伏的高度（公分）、顏色的深淺變化、最細的紋路頻率
+      mapCode += `\nfloat gH = 0.5, gFade = 0.0;\nif (grainOn > 0.5) { gFade = clamp(1.3 - length(fwidth(vTriP)) * ${(fq * 0.9).toFixed(2)}, 0.0, 1.0); if (gFade > 0.01) gH = grainH(vTriP); diffuseColor.rgb *= 1.0 + (gH - 0.5) * ${col.toFixed(2)} * gFade; }`;
+      fs = fs.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+if (grainOn > 0.5 && gFade > 0.01) {
+  vec2 gD = vec2(grainH(vTriP + dFdx(vTriP)) - gH, grainH(vTriP + dFdy(vTriP)) - gH) * ${amt.toFixed(3)} * gFade;   // 往左右、上下各取一點算坡度（每個像素各自算，不會出現小方塊）
+  vec3 gSx = dFdx(-vViewPosition), gSy = dFdy(-vViewPosition), gR1 = cross(gSy, normal), gR2 = cross(normal, gSx);
+  float gDet = dot(gSx, gR1) * faceDirection;
+  normal = normalize(abs(gDet) * normal - sign(gDet) * (gD.x * gR1 + gD.y * gR2));
+}`);
+      fs = fs.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nif (grainOn > 0.5) roughnessFactor = clamp(roughnessFactor + (0.5 - gH) * 0.18 * gFade, 0.04, 1.0);`);
+    }
+    sh.fragmentShader = fs.replace('#include <map_fragment>', mapCode);
+  };
+  m.customProgramCacheKey = () => 'fx' + (tri ? 't' : '') + gr;
+  m.needsUpdate = true;
+  return m;
+}
 function triMat(m, tx, even) {
   const slab = even === 'slab' && TRI_MAX > 0;                            // 大理石、陶板：整張圖剛好鋪滿這件家具最長的一邊（像一整片石板，紋路跟著尺寸放大縮小，不重複）
   m.userData.triO = slab ? 0.5 : 0;
   m.userData.triS = slab ? TRI_MAX + 2 : even ? Math.max(14, (TRI_CUR || TRI_CM) * 0.4) : TRI_CUR || TRI_CM;   // 皮革、布料的紋理本來就細：鋪小一點
   m.map = null; m.color.set('#ffffff'); if (m.clearcoat !== undefined) m.clearcoat = Math.min(m.clearcoat, 0.08); if (m.sheen !== undefined) m.sheen = 0;   // 表面的反光、絨光會把顏色洗白：自訂的紋路以圖片的顏色為準
-  m.onBeforeCompile = sh => {
-    sh.uniforms.triMap = { value: tx }; sh.uniforms.triS = { value: m.userData.triS }; sh.uniforms.triO = { value: m.userData.triO }; sh.uniforms.triG = { value: new THREE.Vector2(TRI_GAIN, TRI_SAT) };
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriP = transformed * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));\nvTriN = objectNormal;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D triMap;\nuniform float triS;\nuniform float triO;\nuniform vec2 triG;\nvarying vec3 vTriP;\nvarying vec3 vTriN;')
-      .replace('#include <map_fragment>', 'vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0)); triW /= (triW.x + triW.y + triW.z);\ndiffuseColor.rgb *= (texture2D(triMap, vTriP.zy / triS + triO) * triW.x + texture2D(triMap, vTriP.xz / triS + triO) * triW.y + texture2D(triMap, vTriP.xy / triS + triO) * triW.z).rgb * triG.x;\nfloat triL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = max(vec3(0.0), mix(vec3(triL), diffuseColor.rgb, triG.y));');
-  };
-  m.customProgramCacheKey = () => 'tri';
-  m.needsUpdate = true;
-  return m;
+  m.userData.tri = tx;
+  return fxMat(m);
 }
 function mat(color, rough = 0.75, metal = 0) {
   const tx = customTex(color), k = color + '|' + rough + '|' + metal + (tx ? '|' + tx.uuid + '|' + TRI_CUR : '');
@@ -2486,7 +2523,9 @@ function surfMat(kind, col) {
     case 'metal': m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.32, metalness: 0.75 }); break;
     default: m = new THREE.MeshStandardMaterial({ color: col, map: surfTex('wood'), roughness: 0.55 });
   }
-  if (tx) triMat(m, tx, kind === 'marble' || kind === 'slate' ? 'slab' : kind === 'leather' || kind === 'velvet' || kind === 'fabric');
+  if (GRAIN[kind] || kind === 'wood' || !['glass', 'lacquer', 'ceramic', 'marble', 'slate', 'cement', 'rattan', 'metal'].includes(kind)) m.userData.grain = GRAIN[kind] || 4;   // 皮革的皮紋、布料的織紋、絨布的細毛、木頭的木紋起伏
+  if (tx) triMat(m, tx, kind === 'marble' || kind === 'slate' ? 'slab' : kind === 'leather' || kind === 'velvet' || kind === 'fabric'); else if (m.userData.grain) fxMat(m);
+  if (kind === 'marble' || kind === 'slate' || kind === 'lacquer' || kind === 'ceramic') m.envMapIntensity = 1.6;   // 石材、烤漆的檯面：環境的反光明顯一點
   MATS.set(k, m);
   return m;
 }
@@ -6934,7 +6973,11 @@ function trashRestore(i) {
   p.name = name; p.updated = Date.now(); p.dirty = false; deletedIds.delete(p.id);
   projects.list.push(p); a.splice(i, 1); trashSet(a); persist(); renderHome();
 }
-$('#trashList').addEventListener('click', e => { const b = e.target.closest('[data-trash]'); if (b) trashRestore(+b.dataset.trash); });
+$('#trashList').addEventListener('click', e => {
+  const x = e.target.closest('[data-trashdel]');
+  if (x) { e.stopPropagation(); const a = trashList(); a.splice(+x.dataset.trashdel, 1); trashSet(a); renderHome(); return; }   // ×：這一筆永久刪除，不再保留
+  const b = e.target.closest('[data-trash]'); if (b) trashRestore(+b.dataset.trash);
+});
 // 同名專案只留最新儲存的一份
 function dedupeProjects() {
   const keep = new Map(); let removed = 0;
@@ -6961,7 +7004,7 @@ $('#homeDelAll').onclick = () => {
 };
 function renderHome() {
   const tr = trashList(); $('#trashBox').hidden = !tr.length;
-  $('#trashList').innerHTML = tr.map((t, i) => `<button class="chip" data-trash="${i}" title="還原到專案清單">${esc(t.p.name)}<small>${projStat(t.p.list)}・${fmtTime(t.at)} ${esc(t.why || '')}</small></button>`).join('');
+  $('#trashList').innerHTML = tr.map((t, i) => `<span class="swx"><button class="chip" data-trash="${i}" title="還原到專案清單">${esc(t.p.name)}<small>${projStat(t.p.list)}・${fmtTime(t.at)} ${esc(t.why || '')}</small></button><i data-trashdel="${i}" title="永久刪除這一筆（不能還原）">×</i></span>`).join('');
   $('#homeDelAll').hidden = !projects.list.length;
   if (!homeDelAll) $('#homeDelAll').textContent = '全部刪除';
   const list = [...projects.list].sort((a, b) => (b.updated || 0) - (a.updated || 0));
@@ -8388,6 +8431,29 @@ const rBox = () => {                                                    // 角�
   if (G) { const R = mDims(G); return { w: R.w, d: R.d, h: G.userData.room.h, cx: G.position.x, cz: G.position.z }; }
   return MG.on ? rRoom() : { ...state.room, cx: 0, cz: 0 };
 };
+// 渲染時地板淡淡映出家具和燈光：一片貼在地板上的反射面（越光滑的地板映得越清楚，地毯不反射）
+const REFL = { wood: 0.13, herringbone: 0.13, tile: 0.2, marble: 0.3, cement: 0.06, carpet: 0 };
+let rRefl = null;
+function clearReflect() { if (!rRefl) return; scene.remove(rRefl); rRefl.geometry.dispose(); rRefl.getRenderTarget().dispose(); rRefl.material.dispose(); rRefl = null; }
+function setupReflect() {
+  clearReflect();
+  const rects = [], st = [];
+  if (MG.on) for (const G of MG.groups) { const R = mDims(G), sp = spOfG(G); let f = 'wood'; try { f = (JSON.parse(sp.data).finish || {}).floor || 'wood'; } catch (e) { } rects.push([G.position.x - R.w / 2, G.position.z - R.d / 2, R.w, R.d]); st.push(REFL[f] ?? 0.12); }
+  else { const R = state.room; rects.push([-R.w / 2, -R.d / 2, R.w, R.d]); st.push(REFL[fin().floor] ?? 0.12); }
+  const k = st.reduce((a, b) => a + b, 0) / (st.length || 1); if (k < 0.02) return;
+  const pos = [], idx = [];
+  rects.forEach(([x, z, w, d], i) => { const o = i * 4; pos.push(x, -z, 0, x + w, -z, 0, x + w, -(z + d), 0, x, -(z + d), 0); idx.push(o, o + 2, o + 1, o, o + 3, o + 2); });
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  const sh = { name: 'FloorReflect', uniforms: { color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null }, strength: { value: k } },
+    vertexShader: 'uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vW;\n#include <common>\n#include <logdepthbuf_pars_vertex>\nvoid main() { vUv = textureMatrix * vec4(position, 1.0); vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n#include <logdepthbuf_vertex>\n}',
+    fragmentShader: 'uniform vec3 color; uniform sampler2D tDiffuse; uniform float strength; varying vec4 vUv; varying vec3 vW;\n#include <logdepthbuf_pars_fragment>\nvoid main() {\n#include <logdepthbuf_fragment>\nvec4 base = texture2DProj(tDiffuse, vUv); vec3 v = normalize(cameraPosition - vW); float fr = 0.55 + 0.9 * pow(1.0 - clamp(v.y, 0.0, 1.0), 2.0);\ngl_FragColor = vec4(base.rgb, clamp(strength * fr, 0.0, 0.6));\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' };
+  rRefl = new Reflector(geo, { textureWidth: 768, textureHeight: 768, clipBias: 0.5, shader: sh, multisample: 0 });
+  rRefl.material.transparent = true; rRefl.material.depthWrite = false;
+  rRefl.rotation.x = -Math.PI / 2; rRefl.position.y = 0.35; rRefl.renderOrder = 2;
+  const obr = rRefl.onBeforeRender;                                     // 只在畫主畫面時算反射（環境遮蔽等其他階段不重算），反射的畫面裡不畫標籤和輔助線
+  rRefl.onBeforeRender = function (r, sc, cam) { if (cam !== rcam || sc.overrideMaterial) return; obr.call(this, r, sc, cam); };
+  scene.add(rRefl);
+}
 function clearLamps() {
   for (const L of rLamps) { if (L.light) { scene.remove(L.light); L.light.dispose(); } for (const x of L.mats) x.m.emissiveIntensity = x.ei; for (const o of L.quiet || []) o.castShadow = true; }
   rLamps = [];
@@ -8655,8 +8721,8 @@ function enterRender() {
   $('#rpanel').hidden = $('#rframe').hidden = false; $('#labels').hidden = $('#hint').hidden = true; overlay.visible = false;
   wallGroup.traverse(o => { if (o.isMesh) o.castShadow = true; });      // 牆會擋光、在牆角留下陰影
   for (const G of MG.groups) for (const w of G.userData.walls) w.m.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  softGlass(true);
-  rComposer(); applyLight(); syncChips(); resize();
+  softGlass(true); GRAIN_ON.value = 1;
+  rComposer(); applyLight(); try { setupReflect(); } catch (e) { rRefl = null; } syncChips(); resize();
   if (CTX.box && !MG.on) { RM.ctxCam = { p: persp.position.clone(), t: controls.target.clone() }; fitCamera(); }   // 全戶編輯：渲染只拍目前這個空間，鏡頭先對準它
 }
 function exitRender() {
@@ -8669,7 +8735,7 @@ function exitRender() {
   sun.color.copy(rBase.sunC); sun.intensity = rBase.si; sun.position.copy(rBase.sunPos);
   hemi.color.copy(rBase.sky); hemi.groundColor.copy(rBase.gnd); hemi.intensity = rBase.hi;
   scene.environmentIntensity = rBase.env; renderer.toneMappingExposure = rBase.expo; scene.background = rBase.bg; ceilLight.intensity = 0;
-  clearLamps(); softGlass(false); ceilOcc.visible = false; RM.winLit = false;
+  clearLamps(); softGlass(false); clearReflect(); GRAIN_ON.value = 0; ceilOcc.visible = false; RM.winLit = false;
   for (const L of rWin) { scene.remove(L); L.dispose(); } rWin = [];
   wallGroup.traverse(o => { if (o.isMesh) o.castShadow = false; });
   for (const G of MG.groups) for (const w of G.userData.walls) w.m.traverse(o => { if (o.isMesh) o.castShadow = false; });
