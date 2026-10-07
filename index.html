@@ -4059,18 +4059,18 @@ const VAN_MIRROR_OPT = { key: 'mir', label: '鏡子', list: [opt('on', '放鏡�
 function buildHemingwayVanity(it) { // 海明威化妝台：烤漆檯面是一顆「膠囊」（兩端半圓，正面兩個抽屜、圓鈕把手），一端疊在圓角的烤漆櫃子上（上小下大兩個抽屜，下抽是鑰匙孔形把手），櫃子底下兩支金色矮框腳；另一端是並排兩個金色方管高框腳；檯面中間靠後立一面金框圓鏡（預設櫃子在右，選左時鏡射；h 含鏡子）
   const g = new THREE.Group(), { w, d, h } = it;
   const L = surfMat('lacquer', it.color), M = surfMat('metal', it.color2 || '#c9a659'), Dk = mat('#1a1a1a', 0.9), Gl = mat('#161616', 0.7);
-  const tH = h * 76 / 126, uh = tH * 21 / 76, yb = tH - uh, uw = w * 121 / 140, cwid = w * 48 / 140, kn = 2.9, bd = d - kn, bz = -kn / 2, zf = d / 2 - kn;   // 把手凸出 kn：櫃身往後讓，整體深度才會剛好是 d
+  const tH = h * 76 / 126, uh = tH * 13 / 76, yb = tH - uh, uw = w * 121 / 140, cwid = w * 48 / 140, kn = 2.9, bd = d - kn, bz = -kn / 2, zf = d / 2 - kn;   // 把手凸出 kn：櫃身往後讓，整體深度才會剛好是 d
   const rrs = (W, H2, r) => { const sh = new THREE.Shape(), x0 = -W / 2, y0 = -H2 / 2; sh.moveTo(x0 + r, y0); sh.lineTo(x0 + W - r, y0); sh.absarc(x0 + W - r, y0 + r, r, -Math.PI / 2, 0); sh.lineTo(x0 + W, y0 + H2 - r); sh.absarc(x0 + W - r, y0 + H2 - r, r, 0, Math.PI / 2); sh.lineTo(x0 + r, y0 + H2); sh.absarc(x0 + r, y0 + H2 - r, r, Math.PI / 2, Math.PI); sh.lineTo(x0, y0 + r); sh.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5); return sh; };
   const slab = (W, H2, r, dep, x, y, z, m) => { const geo = new THREE.ExtrudeGeometry(rrs(W, H2, r), { depth: dep, bevelEnabled: false, curveSegments: 16 }), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 60, uv.getY(i) / 60); geo.translate(0, 0, -dep / 2); return add(g, geo, m, x, y, z); };
   const knob = (x, y, z) => { C(g, 0.5, 0.5, 1.6, x, y, z + 0.8, M, 10).rotation.x = Math.PI / 2; C(g, 1.5, 1.3, 0.9, x, y, z + 2, M, 20).rotation.x = Math.PI / 2; };
   // 檯面：膠囊形的抽屜箱
   const ux = -w / 2 + uw / 2, ur = uh / 2 - 0.01;
   slab(uw, uh, ur, bd, ux, yb + uh / 2, bz, L);
-  { const fl = uw - 2 * ur - 1.5, fh = uh - 4.4, fw = (fl - 0.5) / 2;
+  { const fl = uw - 2 * ur - 1.5, fh = uh - 3.2, fw = (fl - 0.5) / 2;
     B(g, fl + 0.5, fh + 0.5, 0.12, ux, yb + uh / 2, zf + 0.03, Dk);
     for (const sd of [-1, 1]) { RB(g, fw, fh, 0.6, 0.15, ux + sd * (fw / 2 + 0.25), yb + uh / 2, zf + 0.2, L); knob(ux + sd * (fw / 2 + 0.25), yb + uh / 2, zf + 0.5); } }
   // 櫃子：圓角的筒狀櫃身，正面一圈細框，裡面上小下大兩片抽屜面板
-  const legc = Math.min(8, tH * 0.11), ch = yb - 0.8 - legc, cx = w / 2 - cwid / 2, cy = legc + ch / 2, cr = Math.min(6.5, cwid * 0.14);
+  const legc = Math.min(8, tH * 0.11), ch = yb - 0.3 - legc, cx = w / 2 - cwid / 2, cy = legc + ch / 2, cr = Math.min(6.5, cwid * 0.14);
   slab(cwid, ch, cr, bd, cx, cy, bz, L);
   slab(cwid - 1.8, ch - 1.8, cr - 0.9, 0.14, cx, cy, zf + 0.03, Dk);
   { const pw = cwid - 2.6, ph = ch - 2.6, h2 = ph * 0.32, geoF = (y0, y1) => { const sh = rrs(pw, ph, cr - 1.3), geo = new THREE.ExtrudeGeometry(sh, { depth: 0.6, bevelEnabled: false, curveSegments: 12 }), P = geo.attributes.position; for (let i = 0; i < P.count; i++) P.setY(i, Math.min(y1, Math.max(y0, P.getY(i)))); geo.computeVertexNormals(); return geo; };
