@@ -3931,13 +3931,13 @@ function buildDanishBench(it) {
   return g;
 }
 /* ---------- 自家商品：橢圓陶板邊几（跑道形陶板桌面＋C 字型扁鐵立柱＋同形金屬底板） ---------- */
-function buildTawuNight(it) { // 塔烏床頭櫃：圓形陶板桌面坐在黑色的淺托盤上；兩片直立的實木側板（邊緣倒圓）夾著一個無把手抽屜，抽屜上方是開放的置物格
+function buildTawuNight(it) { // 塔烏床頭櫃：圓形陶板桌面坐在黑色的底板上；兩片直立的實木側板（邊緣倒圓）夾著一個無把手抽屜，抽屜上方是開放的置物格
   const g = new THREE.Group(), { w, d, h } = it;
   const T = topMat(it), Wd = surfMat('wood', it.color2), Tr = mat(it.color3 || '#1b1b1c', 0.45, 0.35), Dk = mat('#0e0e0e', 0.9), Gl = mat('#161616', 0.6);
   const tt = Math.min(1, h * 0.03), trH = Math.min(2.4, h * 0.05), cr = Math.min(w, d) / 2 - 0.01;
   roundedTop(g, w, d, tt, h - tt, T, cr);                                  // 陶板桌面
-  roundedTop(g, w - 0.5, d - 0.5, 0.45, h - tt - 0.45, Tr, cr - 0.25);     // 托盤上緣：和陶板之間一道細溝
-  { const c = C(g, 0.5, 0.455, trH, 0, h - tt - 0.45 - trH / 2, 0, Tr, 64); c.scale.set(w - 1.6, 1, d - 1.6); }   // 托盤：往下收小的淺盤
+  roundedTop(g, w - 0.5, d - 0.5, 0.45, h - tt - 0.45, Tr, cr - 0.25);     // 底板上緣：和陶板之間一道細溝
+  { const c = C(g, 0.5, 0.455, trH, 0, h - tt - 0.45 - trH / 2, 0, Tr, 64); c.scale.set(w - 1.6, 1, d - 1.6); }   // 底板：往下收小的淺盤
   // 側板：左右各一片，前後緣倒圓，底下各兩顆調整腳
   const top = h - tt - 0.45 - trH, gl = 0.8, pt = Math.min(2.6, w * 0.055), px = w * 0.34, pd = d * 0.66;
   for (const sd of [-1, 1]) {
@@ -4769,7 +4769,7 @@ const TYPES = {
   ownMiyazaki: { name: '宮崎餐椅', cat: '自家商品', w: 50, d: 56, h: 74, color: '#a9a39c', color2: '#e6cfa6', c1: '皮面顏色', c2: '木腳顏色', build: buildMiyazakiChair, own: true },
   ownDanishBench: { name: '丹麥長凳', cat: '自家商品', w: 150, d: 38, h: 45, color: '#a9a39c', color2: '#dcb98c', c1: '皮面顏色', c2: '木腳顏色', build: buildDanishBench, own: true },
   ownOvalSide: { name: '橢圓陶板邊几', cat: '自家商品', w: 34, d: 56, h: 52, color: '#1f1f21', color2: '#1f1f1f', c1: '桌面顏色', c2: '金屬顏色', build: buildOvalSideTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
-  ownTawu:     { name: '塔烏床頭櫃', cat: '自家商品', w: 50, d: 50, h: 51, color: '#f2f0ec', color2: '#1c1b1a', color3: '#1b1b1c', c1: '陶板顏色', c2: '木頭顏色', c3: '托盤顏色', build: buildTawuNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
+  ownTawu:     { name: '塔烏床頭櫃', cat: '自家商品', w: 50, d: 50, h: 51, color: '#f2f0ec', color2: '#1c1b1a', color3: '#1b1b1c', c1: '陶板顏色', c2: '木頭顏色', c3: '底板顏色', build: buildTawuNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownTawuBox:  { name: '塔烏床頭櫃', cat: '自家商品', w: 52, d: 46, h: 50, color: '#f2f0ec', color2: '#c9c5bf', color3: '#3b302b', c1: '陶板顏色', c2: '烤漆顏色', c3: '木腳顏色', build: buildLacquerNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownDorn:     { name: '多恩茶几', cat: '自家商品', w: 100, d: 96, h: 35, color: '#cbc2b6', color2: '#2f2b28', c1: '陶板顏色', c2: '金屬顏色', build: buildDornTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   scEntryTall: { name: '玄關高櫃',   cat: '系統櫃', sub: '玄關櫃', w: 100, d: 40, h: 240, color: '#c49a6c', color2: '#f1ebe1', c1: '門片顏色', c2: '櫃體顏色', build: buildSysCab, floatBottom: 20, niches: [[0.40, 0.55]], wall: true, opts: SC_OPTS, def: { door: 'swing', handle: 'push', finish: 'wood', shelves: '4', drawers: '0' } },
