@@ -3952,6 +3952,28 @@ function buildTawuNight(it) { // 塔烏床頭櫃：圓形陶板桌面坐在黑�
   RB(g, iw - 0.7, bh - 1.9, 1.5, 0.25, 0, by0 + (bh - 1.4) / 2, bd / 2 - 0.75, Wd);
   return g;
 }
+function buildLacquerNight(it) { // 烤漆床頭櫃：圓角的烤漆櫃身，檯面一圈凸起的邊框、陶板內嵌在裡面；正面整片是抽屜面板，往兩側繞過前面的圓角（側面、邊框上各一道接縫）；底下是深色實木腳架，四支往下收細的腳
+  const g = new THREE.Group(), { w, d, h } = it;
+  const T = topMat(it), L = surfMat('lacquer', it.color2), Wd = surfMat('wood', it.color3 || '#3b302b'), Dk = mat('#141414', 0.9);
+  const baseH = h * 0.43, railH = Math.min(3.2, baseH * 0.2), gap = 0.9, by0 = baseH, bh = h - by0, rimH = Math.min(0.9, bh * 0.05), rimW = Math.min(2.6, w * 0.05), cr = Math.min(3.2, w * 0.07, d * 0.07);
+  const rr = (sh, W, D, r) => { const x0 = -W / 2, y0 = -D / 2; sh.moveTo(x0 + r, y0); sh.lineTo(x0 + W - r, y0); sh.quadraticCurveTo(x0 + W, y0, x0 + W, y0 + r); sh.lineTo(x0 + W, y0 + D - r); sh.quadraticCurveTo(x0 + W, y0 + D, x0 + W - r, y0 + D); sh.lineTo(x0 + r, y0 + D); sh.quadraticCurveTo(x0, y0 + D, x0, y0 + D - r); sh.lineTo(x0, y0 + r); sh.quadraticCurveTo(x0, y0, x0 + r, y0); return sh; };
+  // 櫃身、檯面邊框、內嵌的陶板
+  roundedTop(g, w, d, bh - rimH, by0, L, cr);
+  { const sh = rr(new THREE.Shape(), w, d, cr); sh.holes.push(rr(new THREE.Path(), w - 2 * rimW, d - 2 * rimW, Math.max(0.6, cr - rimW * 0.6)));
+    add(g, new THREE.ExtrudeGeometry(sh, { depth: rimH, bevelEnabled: false, curveSegments: 8 }), L, 0, h - rimH, 0).rotation.x = -Math.PI / 2; }
+  roundedTop(g, w - 2 * rimW - 0.5, d - 2 * rimW - 0.5, 0.45, h - rimH - 0.02, T, Math.max(0.5, cr - rimW * 0.6));
+  // 抽屜面板的接縫：兩側各一道直縫（面板繞過前面的圓角）、邊框上各一個缺口、底下一道橫縫
+  const sz = d / 2 - Math.min(7, d * 0.15);
+  for (const sd of [-1, 1]) { B(g, 0.12, bh - 0.6, 0.32, sd * (w / 2 - 0.03), by0 + bh / 2, sz, Dk); B(g, rimW + 0.1, rimH + 0.06, 0.4, sd * (w / 2 - rimW / 2), h - rimH / 2, sz, Dk); }
+  // 腳架：櫃身和腳架之間內縮一圈陰影縫；橫桿在腳的上端，腳往下收細
+  const fw = w - 2.4, fd = d - 2.4, ft = 3.2, legH = baseH - gap;
+  B(g, fw - 3, gap, fd - 3, 0, baseH - gap / 2, 0, Dk);
+  for (const sd of [-1, 1]) { RB(g, fw - ft, railH, 2, 0.5, 0, legH - railH / 2, sd * (fd / 2 - 1.2), Wd); RB(g, 2, railH, fd - ft, 0.5, sd * (fw / 2 - 1.2), legH - railH / 2, 0, Wd); }
+  const lgeo = new THREE.CylinderGeometry(ft / Math.SQRT2, ft * 0.6 / Math.SQRT2, legH, 4, 1).toNonIndexed(); lgeo.rotateY(Math.PI / 4); lgeo.computeVertexNormals();
+  { const P = lgeo.attributes.position; for (let i = 0; i < P.count; i++) { const k = (legH / 2 - P.getY(i)) / legH * ft * 0.2; P.setX(i, P.getX(i) + k); P.setZ(i, P.getZ(i) + k); } lgeo.computeVertexNormals(); }   // 外側兩面保持垂直，只收內側
+  for (const sx of [-1, 1]) for (const sz2 of [-1, 1]) add(g, lgeo, Wd, sx * (fw / 2 - ft / 2), legH / 2, sz2 * (fd / 2 - ft / 2)).scale.set(sx, 1, sz2);
+  return g;
+}
 function buildOvalSideTable(it) {
   const g = new THREE.Group(), { w, d, h } = it;
   const T = topMat(it), M = surfMat('metal', it.color2), edge = mat('#6a6a6c', 0.6);
@@ -4748,6 +4770,7 @@ const TYPES = {
   ownDanishBench: { name: '丹麥長凳', cat: '自家商品', w: 150, d: 38, h: 45, color: '#a9a39c', color2: '#dcb98c', c1: '皮面顏色', c2: '木腳顏色', build: buildDanishBench, own: true },
   ownOvalSide: { name: '橢圓陶板邊几', cat: '自家商品', w: 34, d: 56, h: 52, color: '#1f1f21', color2: '#1f1f1f', c1: '桌面顏色', c2: '金屬顏色', build: buildOvalSideTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownTawu:     { name: '塔烏床頭櫃', cat: '自家商品', w: 50, d: 50, h: 51, color: '#f2f0ec', color2: '#1c1b1a', color3: '#1b1b1c', c1: '陶板顏色', c2: '木頭顏色', c3: '托盤顏色', build: buildTawuNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
+  ownTawuBox:  { name: '塔烏床頭櫃', cat: '自家商品', w: 52, d: 46, h: 50, color: '#f2f0ec', color2: '#c9c5bf', color3: '#3b302b', c1: '陶板顏色', c2: '烤漆顏色', c3: '木腳顏色', build: buildLacquerNight, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownDorn:     { name: '多恩茶几', cat: '自家商品', w: 100, d: 96, h: 35, color: '#cbc2b6', color2: '#2f2b28', c1: '陶板顏色', c2: '金屬顏色', build: buildDornTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   scEntryTall: { name: '玄關高櫃',   cat: '系統櫃', sub: '玄關櫃', w: 100, d: 40, h: 240, color: '#c49a6c', color2: '#f1ebe1', c1: '門片顏色', c2: '櫃體顏色', build: buildSysCab, floatBottom: 20, niches: [[0.40, 0.55]], wall: true, opts: SC_OPTS, def: { door: 'swing', handle: 'push', finish: 'wood', shelves: '4', drawers: '0' } },
   scEntryLow:  { name: '玄關矮櫃',   cat: '系統櫃', sub: '玄關櫃', w: 120, d: 38, h: 90, color: '#c49a6c', color2: '#f1ebe1', c1: '門片顏色', c2: '櫃體顏色', build: buildSysCab, floatBottom: 15, wall: true, opts: SC_OPTS, def: { door: 'swing', handle: 'groove', finish: 'wood', shelves: '2', drawers: '0' } },
@@ -6803,7 +6826,7 @@ const SUB_ORDER = {
   '擺飾': ['掛畫', '藝術品', '花藝植栽', '香氛', '相框', '托盤收納', '餐具', '時鐘', '書本'],
 };
 const TYPE_SUB = {
-  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownAmis: '床台', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownTawu: '床頭櫃', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
+  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownAmis: '床台', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownTawu: '床頭櫃', ownTawuBox: '床頭櫃', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
   lounge: '單椅', shellchair: '單椅', wingchair: '單椅', woodchair: '單椅', pouf: '椅凳', bench: '椅凳',
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
   dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
