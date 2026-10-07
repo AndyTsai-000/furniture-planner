@@ -595,7 +595,7 @@ body.present.presset #rpanel{display:block}
     <textarea id="ioCode" class="num" spellcheck="false" style="margin-top:12px;height:140px;font:12px/1.4 Consolas,monospace;resize:vertical"></textarea>
     <div class="warn" id="ioMsg" style="background:none;padding:4px 0"></div>
     <div class="mfoot" style="flex-wrap:wrap">
-      <div class="btnrow"><button class="btn primary dl" id="ioDl">下載 .json 檔</button><button class="btn" id="ioCopy">複製分享連結</button><button class="btn primary" id="ioLoad">開啟這個專案</button><button class="btn" id="ioFile">開啟 .json 檔</button></div>
+      <div class="btnrow"><button class="btn primary dl" id="ioDl">下載 .json 檔</button><button class="btn" id="ioCopy">複製分享連結</button><button class="btn primary" id="ioPaste">貼上並開啟</button><button class="btn" id="ioLoad">開啟這個專案</button><button class="btn" id="ioFile">開啟 .json 檔</button></div>
       <button class="btn" id="ioClose">關閉</button>
     </div>
   </div>
@@ -1413,6 +1413,138 @@ function buildLetItBeSofa(it) { // Let it be：皮革包覆的薄底框＋細不
   for (let k = 0; k < 3; k++) {
     if (n > 0) pil(psz[k][0], psz[k][1], psz[k][2], seatL + px[k], pz + pzz[k], PC[k], pln[k], pry[k], prz[k]);
     pil(psz[k][0], psz[k][1], psz[k][2], xC - px[k], pz + pzz[k], PC[k], pln[k], -pry[k], -prz[k]);
+  }
+  return mirrorIfLeft(it, g);
+}
+// 沿著平面上的一條外緣線掃出一片圓頭的厚殼（靠背、扶手連成一體）：pts 是外緣線 [x, z]，side 決定厚度往哪一邊長；
+// tF(s, L)、hF(s, L) 給沿線每一處的厚度、頂高（s＝沿線距離、L＝全長），頭尾各在 r0、r1 的長度內收成圓頭
+// o.bulge：外側面中段往外鼓多少；o.taper：內側面越往上越薄的比例；o.lift(s, L)：底緣離地多高
+function sweepShellGeo(pts, side, y0, tF, hF, r0, r1, o = {}) {
+  const n = pts.length, S = [0], A = 8, M = 2 * A + 3, pos = [], uv = [], idx = [];
+  for (let i = 1; i < n; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const L = S[n - 1], cen = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = side * (b[1] - a[1]) / tl, nz = -side * (b[0] - a[0]) / tl, s = S[i];
+    const k0 = s < r0 ? Math.sqrt(1 - (1 - s / r0) ** 2) : 1, k1 = L - s < r1 ? Math.sqrt(1 - (1 - (L - s) / r1) ** 2) : 1, k = Math.max(0.1, Math.min(k0, k1));
+    const yb = y0 + (o.lift ? o.lift(s, L) : 0), t = tF(s, L), H = Math.max(yb + 2, hF(s, L)), c = t / 2, hw = k * t / 2, rr = Math.min(hw, (H - yb) * 0.45);
+    const ring = [[c + hw, yb]];
+    for (let j = 0; j <= 2 * A; j++) { const f = j / (2 * A) * Math.PI; ring.push([c + hw * Math.cos(f), H - rr + rr * Math.sin(f)]); }
+    ring.push([c - hw, yb]);
+    for (const q of ring) { const v = Math.min(1, Math.max(0, (q[1] - yb) / (H - yb))), wi = Math.min(1, Math.max(0, q[0] / t)); q[0] -= (o.bulge || 0) * k * Math.sin(Math.PI * Math.pow(v, 0.8)) * (1 - wi) + (o.taper || 0) * t * v * wi; }
+    ring.forEach((q, j) => { pos.push(pts[i][0] + nx * q[0], q[1], pts[i][1] + nz * q[0]); uv.push(s / 60, j / M); });
+    cen.push([pts[i][0] + nx * c, (yb + H) / 2, pts[i][1] + nz * c]);
+  }
+  for (let i = 0; i < n - 1; i++) for (let j = 0; j < M; j++) {
+    const a = i * M + j, b = i * M + (j + 1) % M, c = a + M, e = b + M;
+    idx.push(a, c, b, b, c, e);
+  }
+  const c0 = n * M, c1 = c0 + 1; pos.push(...cen[0], ...cen[n - 1]); uv.push(0, 0.5, L / 60, 0.5);
+  for (let j = 0; j < M; j++) { idx.push(c0, j, (j + 1) % M); idx.push(c1, (n - 1) * M + (j + 1) % M, (n - 1) * M + j); }
+  let vol = 0;                                                             // 面的正反看體積的正負：算出來是負的就整個翻面
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3;
+    vol += pos[a] * (pos[b + 1] * pos[c + 2] - pos[b + 2] * pos[c + 1]) - pos[a + 1] * (pos[b] * pos[c + 2] - pos[b + 2] * pos[c]) + pos[a + 2] * (pos[b] * pos[c + 1] - pos[b + 1] * pos[c]);
+  }
+  if (vol < 0) for (let i = 0; i < idx.length; i += 3) { const q = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = q; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+  geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere();
+  return geo;
+}
+const RCH_PIL_OPT = { key: 'rp', label: '圓抱枕', list: [opt('on', '放圓抱枕'), opt('off', '不放')] };
+// 雷內沙發的造型參數（單位 cm）：要微調造型改這張表就好，不用動下面的建模程式
+const RENE = {
+  mainDepth: 80,     // 主座（一字型）的深度；圓貴妃的直徑＝家具的「深」
+  seatH: 40,         // 座面高度
+  seatEdge: 7,       // 座面上緣的圓角半徑
+  seatInset: 5,      // 圓座比貴妃靠背的外緣內縮多少
+  bite: 25,          // 主座靠貴妃那端內凹，最後面最多伸進圓座多少
+  backT: 15,         // 主座靠背厚度
+  armT: 22,          // 主座扶手厚度
+  chaiseBackT: 14,   // 貴妃靠背厚度
+  cornerR: 32,       // 靠背轉成扶手的轉角半徑
+  bulge: 2.2,        // 靠背、扶手外側面中段往外鼓多少
+  taper: 0.22,       // 靠背、扶手越往上越薄的比例（0＝上下一樣厚）
+  armDrop: 30,       // 扶手前端從多長開始圓弧降低
+  armEndH: 55,       // 扶手最前端（最低點）離地的高度；靠背最高點＝家具的「高」（預設 73）
+  chaiseEnd: 0.16,   // 貴妃靠背繞到哪裡結束（弧度：0＝圓座正側邊，正值往前多繞一點，負值提早結束）
+  chaiseDrop: 34,    // 貴妃靠背尾端從多長開始圓弧降低
+  sqPillow: [62, 50, 21],   // 主座方抱枕：寬、高、厚
+  sqPillowChaise: [72, 50, 21],   // 貴妃方抱枕：寬、高、厚
+  sqPillowAt: [0.17, 0.68],   // 主座兩顆方抱枕的位置（0＝靠貴妃那端、1＝靠扶手那端）
+  pillowLean: 0.24,  // 方抱枕往後靠的角度（弧度）
+  roundPillowR: 23,  // 圓抱枕半徑
+};
+function buildRoundChaiseSofa(it) { // 雷內沙發：落地的整塊軟包主座＋圓形貴妃（雙色），靠背順著轉角彎成扶手、貴妃的靠背繞著圓座半圈；方形大背枕、圓抱枕（預設貴妃在右，選左時鏡射）
+  const g = new THREE.Group(), { w, d, h } = it;
+  const F = fabMat(it), F2 = fabMat(it, 'color2'), Dk = mat('#232323', 0.7);
+  const seamOf = c => surfMat(it.fabric || 'fabric', '#' + new THREE.Color(c).multiplyScalar(0.86).getHexString());
+  const xL = -w / 2, xR = w / 2, zb = -d / 2;
+  const P = RENE, R = Math.min(d / 2, w * 0.3), cx = xR - R, cz = zb + R, Rs = R - P.seatInset;          // 圓貴妃：直徑＝總深度，圓座比外圈的靠背內縮一點
+  const sd = Math.min(P.mainDepth, d * 0.6), zf = zb + sd, xJ = xR - 2 * R + 4;              // 主座深度、主座和圓貴妃的交界
+  const seatTop = Math.min(P.seatH, h * 0.58), y0 = 1.5, yw = 2.5, er = Math.min(P.seatEdge, seatTop * 0.2);
+  const tb = P.backT, ta = Math.min(P.armT, (xJ - xL) * 0.15), tc = P.chaiseBackT, rc = Math.min(P.cornerR, sd * 0.42), bg = P.bulge;   // 靠背、扶手、貴妃靠背的厚度；殼的外側面中段微鼓（bg）
+  const Rg = Rs + 0.8, xb = xJ + Math.min(P.bite, R * 0.33);                                 // 主座靠貴妃那端是內凹的弧，貼著圓座；越往後越伸進去，最多伸到 xb
+  const line = (P, x0, z0, x1, z1) => { const m = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 4)); for (let i = 1; i <= m; i++) P.push([x0 + (x1 - x0) * i / m, z0 + (z1 - z0) * i / m]); };
+  const arc = (P, ax, az, r, a0, a1) => { const m = Math.max(4, Math.ceil(Math.abs(a1 - a0) * r / 3)); for (let i = 1; i <= m; i++) { const a = a0 + (a1 - a0) * i / m; P.push([ax + r * Math.cos(a), az + r * Math.sin(a)]); } };
+  const drop = (s, L, len, top, low) => { const u = Math.min(1, Math.max(0, (s - (L - len)) / len)); return top - (top - low) * (1 - Math.sqrt(1 - u * u)); };   // 尾端的頂高用四分之一圓弧降下來
+  // 主座：深色底座、底部一圈滾邊、整塊的軟包座體（前緣一道車線）；平面輪廓靠貴妃那端內凹
+  const mx0 = xL + ta - 5, mz0 = zb + tb - 5;
+  const aF = Math.PI - Math.asin(Math.max(-1, Math.min(1, (zf - cz) / Rg))), aB = Math.PI + Math.acos(Math.min(1, (cx - xb) / Rg));
+  const xF = cx + Rg * Math.cos(aF), fl = Math.min(7, sd * 0.1);
+  const slab = (y, ht, bv, grow) => {                                        // 照主座的平面輪廓擠出一塊：上下緣倒圓角
+    const sh = new THREE.Shape(), a0 = aF + fl / Rg;
+    sh.moveTo(mx0, -mz0); sh.lineTo(mx0, -zf); sh.lineTo(xF - fl, -zf); sh.quadraticCurveTo(xF, -zf, cx + Rg * Math.cos(a0), -(cz + Rg * Math.sin(a0)));
+    for (let i = 1; i <= 28; i++) { const q = a0 + (aB - a0) * i / 28; sh.lineTo(cx + Rg * Math.cos(q), -(cz + Rg * Math.sin(q))); }
+    sh.lineTo(xb, -mz0); sh.closePath();
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: ht - 2 * bv, bevelEnabled: true, bevelThickness: bv, bevelSize: bv, bevelOffset: grow - bv, bevelSegments: 5, curveSegments: 10 }), uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 60, uv.getY(i) / 60);
+    geo.rotateX(-Math.PI / 2); geo.translate(0, y + bv, 0); return geo;
+  };
+  B(g, xJ - xL - 14, yw, sd - 10, (xL + xJ) / 2, yw / 2, zb + sd / 2, Dk);
+  add(g, slab(yw, 3.8, 1.4, -0.2), F, 0, 0, 0);
+  add(g, slab(5.4, seatTop - 5.4, er, -0.6), F, 0, 0, 0);
+  C(g, 0.22, 0.22, xF - fl - mx0 - er, (mx0 + er + xF - fl) / 2, seatTop - er - 0.3, zf - 0.62, seamOf(it.color), 6).rotation.z = Math.PI / 2;
+  // 主座的靠背＋扶手：一片厚殼從交界沿著背面走、轉過圓角、順著側邊往前，扶手比靠背厚，前端圓弧收低、底緣微微離地
+  const mp = [[xb, zb + bg]]; line(mp, xb, zb + bg, xL + bg + rc, zb + bg); arc(mp, xL + bg + rc, zb + bg + rc, rc, -Math.PI / 2, -Math.PI); line(mp, xL + bg, zb + bg + rc, xL + bg, zf + 2);
+  const sC = xb - xL - bg - rc, eC = sC + Math.PI * rc / 2, tail = (s, L, len) => Math.min(1, Math.max(0, (s - (L - len)) / len));
+  add(g, sweepShellGeo(mp, 1, y0, s => { const u = Math.min(1, Math.max(0, (s - sC + 14) / (eC - sC + 14))); return tb + (ta - tb) * u * u * (3 - 2 * u); },
+    (s, L) => drop(s, L, Math.min(P.armDrop, sd * 0.4), h, Math.max(seatTop + 4, Math.min(P.armEndH, h))), 2, ta * 0.62, { bulge: bg, taper: P.taper, lift: (s, L) => 4 * tail(s, L, 26) ** 2 }), F, 0, 0, 0);
+  // 圓貴妃：深色底座、圓座（上緣圓角、底部滾邊、側面一圈車線）、靠主座那個後角補一小塊
+  C(g, Rs - 7, Rs - 7, yw, cx, yw / 2, cz, Dk, 48);
+  const pr = [[0, yw], [Rs - 2.4, yw], [Rs - 0.6, 3.1], [Rs - 0.1, 4.4], [Rs - 0.6, 5.7], [Rs - 1.6, 6.3], [Rs - 0.5, 7.4], [Rs, 9.4]];
+  for (let j = 0; j <= 8; j++) { const f = j / 8 * Math.PI / 2; pr.push([Rs - er + er * Math.cos(f), seatTop - er + er * Math.sin(f)]); }
+  pr.push([0, seatTop]);
+  add(g, new THREE.LatheGeometry(pr.map(p => new THREE.Vector2(p[0], p[1])), 96), F2, cx, 0, cz);
+  const zc = cz - Math.sqrt(Math.max(0, Rs * Rs - (cx - xb) ** 2)) + 1.5;
+  RB(g, cx - xb - 0.8, seatTop - 5.4, zc - zb - 6, 3, (xb + 0.8 + cx) / 2, 5.4 + (seatTop - 5.4) / 2, (zb + 6 + zc) / 2, F2);
+  add(g, new THREE.TorusGeometry(Rs + 0.02, 0.22, 6, 120), seamOf(it.color2), cx, seatTop - er - 0.3, cz).rotation.x = Math.PI / 2;
+  // 圓貴妃的靠背：從交界直直走到圓心正後方，再繞著圓座到外側，全程等高、尾端大圓角收下來
+  const cp = [[xb, zb + bg]]; line(cp, xb, zb + bg, cx, zb + bg); arc(cp, cx, cz, R - bg, -Math.PI / 2, P.chaiseEnd);
+  add(g, sweepShellGeo(cp, -1, y0, (s, L) => tc - 2 * tail(s, L, L * 0.4),
+    (s, L) => drop(s, L, Math.min(P.chaiseDrop, R * 0.46), h, seatTop + 2), 2, 8, { bulge: bg, taper: P.taper, lift: (s, L) => 3 * tail(s, L, 22) ** 2 }), F2, 0, 0, 0);
+  // 小黑腳
+  for (const [x, z] of [[xL + 12, zb + 10], [xL + 12, zf - 10], [xJ - 12, zb + 10], [xJ - 12, zf - 10]]) C(g, 2.2, 2.2, 1.2, x, 0.6, z, Dk, 12);
+  for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; C(g, 2.2, 2.2, 1.2, cx + (Rs - 14) * Math.cos(a), 0.6, cz + (Rs - 14) * Math.sin(a), Dk, 12); }
+  // 方抱枕：斜靠在靠背上、高出靠背；主座兩顆用貴妃的布色、貴妃一顆用主座的布色（跳色）
+  const lean = (geo, nm, m, x, z, ry, ln, rz) => {                          // (x, z)＝枕頭上緣靠著的位置，底部往前滑出去；nm＝面板上顯示的名字
+    geo.userData.pilName = nm; const o = new THREE.Group(), ph = geo.boundingBox.max.y - geo.boundingBox.min.y; o.position.set(x, seatTop - 1, z); o.rotation.y = ry || 0;
+    const q = add(o, geo, m, 0, ph / 2 * Math.cos(ln), Math.sin(ln) * ph / 2); q.rotation.x = -ln; q.rotation.z = rz || 0; g.add(o);
+  };
+  const span = xJ - (xL + ta), bw = Math.min(P.sqPillow[0], span * 0.44), bz = zb + tb + 6;
+  for (const f of P.sqPillowAt) lean(softPillowGeo(bw, P.sqPillow[1], P.sqPillow[2]), '方抱枕', F2, xJ - span * f, bz, 0, P.pillowLean, f < 0.5 ? 0.015 : -0.02);
+  lean(softPillowGeo(Math.min(P.sqPillowChaise[0], R * 0.96), P.sqPillowChaise[1], P.sqPillowChaise[2]), '方抱枕', F, cx - R * 0.1, zb + tc + 6, 0, P.pillowLean, 0.02);
+  // 圓抱枕：扶手那端一顆、貴妃外側一顆
+  if (it.rp !== 'off') {
+    const P3 = surfMat(it.fabric || 'fabric', it.color3 || '#d49a2e'), rp = Math.min(P.roundPillowR, R * 0.31);
+    const rpGeo = () => {
+      const pts = []; for (let j = 0; j <= 20; j++) { const a = -Math.PI / 2 + j / 20 * Math.PI; pts.push(new THREE.Vector2(Math.max(0, rp * Math.pow(Math.cos(a), 0.8)), rp * 0.33 * Math.sin(a))); }
+      const geo = new THREE.LatheGeometry(pts, 40); geo.rotateX(Math.PI / 2); geo.computeBoundingBox(); geo.userData.pil = true; return geo;
+    };
+    lean(rpGeo(), '圓抱枕', P3, xL + ta + rp * 0.85, zb + tb + 25, 0.5, 0.28);
+    const a = -0.72, rr = R - tc - 10;
+    lean(rpGeo(), '圓抱枕', P3, cx + rr * Math.cos(a), cz + rr * Math.sin(a), Math.atan2(-Math.cos(a), -Math.sin(a)), 0.3);
   }
   return mirrorIfLeft(it, g);
 }
@@ -2346,7 +2478,7 @@ function buildPillow(it) {
   }
   return g;
 }
-const SOFA_LIKE = ['ownRecliner', 'ownDanSofa', 'ownLetItBe', 'own171', 'ownAthena', 'own120', 'ownFloatL', 'armchair', 'sofa2', 'sofa', 'baysofa', 'lsofa', 'lounge', 'shellchair', 'wingchair', 'woodchair', 'bench', 'bed', 'queen', 'single'];   // 抱枕會自動放到這些家具上
+const SOFA_LIKE = ['ownRecliner', 'ownDanSofa', 'ownLetItBe', 'ownRoundChaise', 'own171', 'ownAthena', 'own120', 'ownFloatL', 'armchair', 'sofa2', 'sofa', 'baysofa', 'lsofa', 'lounge', 'shellchair', 'wingchair', 'woodchair', 'bench', 'bed', 'queen', 'single'];   // 抱枕會自動放到這些家具上
 const NIGHT_OPTS = [{ key: 'style', label: '款式', list: [opt('drawer', '雙抽屜'), opt('open', '抽屜＋開放格'), opt('round', '圓形邊櫃')] }];
 function buildNight(it) {
   const g = new THREE.Group(), { w, d, h } = it, style = it.style || 'drawer';
@@ -4500,6 +4632,7 @@ const TYPES = {
   ownRecliner: { name: '131型沙發', cat: '自家商品', w: 276, d: 105, h: 105, color: '#b9bcc2', color2: '#86aecb', c1: '布料顏色', c2: '抱枕顏色', build: buildReclinerSofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
   ownDanSofa:  { name: '丹麥沙發', cat: '自家商品', w: 210, d: 90, h: 90, color: '#cfc8b8', color2: '#d9b382', c1: '布料顏色', c2: '木腳顏色', build: buildDanishSofa, opts: [SEATS_OPT], def: { seats: '2' }, wall: true, own: true },
   ownLetItBe:  { name: 'Let it be沙發', cat: '自家商品', w: 368, d: 267, h: 80, color: '#e3e1dc', color2: '#9a6038', c1: '布料顏色', c2: '底框皮革顏色', build: buildLetItBeSofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '3', side: 'left' }, wall: true, own: true },
+  ownRoundChaise: { name: '雷內沙發', cat: '自家商品', w: 308, d: 150, h: 73, color: '#dedad4', color2: '#6d6f73', color3: '#d49a2e', c1: '主座布料', c2: '貴妃布料', c3: '圓抱枕顏色', build: buildRoundChaiseSofa, opts: [SIDE_OPT, RCH_PIL_OPT], def: { side: 'left', rp: 'on' }, wall: true, own: true },
   own171:      { name: '171型沙發', cat: '自家商品', w: 285, d: 185, h: 90, color: '#8f9291', color2: '#b5b1b2', color3: '#232325', c1: '牛皮顏色', c2: '腰枕顏色', c3: '鐵腳顏色', build: build171Sofa, opts: [SEATS_OPT_L, SIDE_OPT], def: { seats: '2', side: 'right' }, wall: true, own: true },
   own120:      { name: '120型沙發', cat: '自家商品', w: 250, d: 90, h: 102, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Sofa, opts: [SEATS_OPT], def: { seats: '3' }, wall: true, own: true },
   own120Ott:   { name: '120型腳椅', cat: '自家商品', w: 85, d: 90, h: 58, color: '#d3d2cf', color2: '#67666a', color3: '#55524f', c1: '布料顏色', c2: '合成皮顏色', c3: '金屬腳顏色', build: build120Ottoman, opts: [{ key: 'side', label: '扶手位置', list: [opt('right', '扶手在右'), opt('left', '扶手在左')] }], def: { side: 'right' }, own: true },
@@ -4693,7 +4826,7 @@ const LEGMAT_OPT = { key: 'legmat', label: '腳材質', list: LEGMATS };
 const POT_OPT = { key: 'potmat', label: '盆器材質', list: [opt('ceramic', '陶瓷'), opt('cement', '水泥'), opt('rattan', '藤編')] };
 const CAB_TOP = { key: 'topmat', label: '檯面材質', list: TOPMAT_LIST, c3: '檯面顏色' };
 const EXTRA_OPTS = {
-  ownRecliner: [FABRIC_OPT], ownDanSofa: [FABRIC_OPT], ownLetItBe: [FABRIC_OPT], own171: [FABRIC_OPT], ownAthena: [FABRIC_OPT], own120: [FABRIC_OPT], own120Ott: [FABRIC_OPT], ownFloatL: [FABRIC_OPT], ownVChair: [FABRIC_OPT], ownMiyazaki: [FABRIC_OPT], ownDanishBench: [FABRIC_OPT], armchair: [FABRIC_OPT], sofa2: [FABRIC_OPT], sofa: [FABRIC_OPT], lsofa: [FABRIC_OPT], baysofa: [FABRIC_OPT],
+  ownRecliner: [FABRIC_OPT], ownDanSofa: [FABRIC_OPT], ownLetItBe: [FABRIC_OPT], ownRoundChaise: [FABRIC_OPT], own171: [FABRIC_OPT], ownAthena: [FABRIC_OPT], own120: [FABRIC_OPT], own120Ott: [FABRIC_OPT], ownFloatL: [FABRIC_OPT], ownVChair: [FABRIC_OPT], ownMiyazaki: [FABRIC_OPT], ownDanishBench: [FABRIC_OPT], armchair: [FABRIC_OPT], sofa2: [FABRIC_OPT], sofa: [FABRIC_OPT], lsofa: [FABRIC_OPT], baysofa: [FABRIC_OPT],
   lounge: [FABRIC_OPT], shellchair: [FABRIC_OPT], wingchair: [FABRIC_OPT], woodchair: [FABRIC_OPT], pouf: [FABRIC_OPT], bench: [FABRIC_OPT],
   chair: [FABRIC_OPT, LEGMAT_OPT], barstool: [FABRIC_OPT], barstoolBack: [FABRIC_OPT], barstoolWood: [FABRIC_OPT], barstoolSwivel: [FABRIC_OPT], barisland: [BODYMAT_OPT, CAB_TOP], vstool: [FABRIC_OPT], office: [FABRIC_OPT], desk: [LEGMAT_OPT], plant: [POT_OPT],
   bed: [FRAMEMAT_OPT], queen: [FRAMEMAT_OPT], single: [FRAMEMAT_OPT],
@@ -4746,7 +4879,7 @@ const state = { room: { w: 400, d: 350, h: 280 }, items: [], structs: [], nextId
 const opts = { wallSnap: true, grid: false, people: (() => { try { return localStorage.getItem('fp-people') !== '0'; } catch (e) { return true; } })() };
 let view = '3d';
 let sel = null; // {k:'item'|'struct', id}
-let selPil = null; const PILN = new Map(), PIL_NAME = { own171: '腰枕', own120: '腰枕', ownFloatL: '腰枕' };   // 選取中的抱枕／腰枕（sel 是那件沙發）、每件家具有幾顆
+let selPil = null; const PILN = new Map(), PILL = new Map(), PIL_NAME = { own171: '腰枕', own120: '腰枕', ownFloatL: '腰枕' };   // 選取中的抱枕／腰枕（sel 是那件沙發）、每件家具有幾顆
 let selPart = null;                                                     // 選取中的櫃體板材（sel 是那座系統櫃）
 /* 可收合的大類：左右兩側面板的選項分成幾類，開合狀態記在這台裝置 */
 const GRP = (() => { try { return JSON.parse(localStorage.getItem('fp-grp') || '{}') || {}; } catch (e) { return {}; } })();
@@ -5259,10 +5392,10 @@ function buildItem(it) {
   if (old) { furnGroup.remove(old); disposeObj(old); }
   TRI_CUR = triSize(it); TRI_MAX = Math.max(it.w || 0, it.d || 0); let g; try { g = TYPES[it.type].build(it); } finally { TRI_CUR = TRI_MAX = 0; }
   applySeat(it, g);
-  { let n = 0; const seen = new Map(), pc = it.pcol || {};                 // 家具上附的抱枕、腰枕：編號，並套上個別改過的顏色
+  { let n = 0; const seen = new Map(), pc = it.pcol || {}, names = [];                 // 家具上附的抱枕、腰枕：編號，並套上個別改過的顏色
     if (!TYPES[it.type].pillow) g.traverse(o => { if (!o.isMesh) return; const gp = o.geometry && o.geometry.userData && o.geometry.userData.pil; if (!gp && !o.userData.pil) return;
-      const key = gp ? o.parent : o; if (!seen.has(key)) seen.set(key, ++n); const k = o.userData.pil = seen.get(key); if (pc[k]) o.material = surfMat('fabric', pc[k]); });
-    if (n) PILN.set(it.id, n); else PILN.delete(it.id); }
+      const key = gp ? o.parent : o; if (!seen.has(key)) seen.set(key, ++n); const k = o.userData.pil = seen.get(key); if (gp && o.geometry.userData.pilName) names[k] = o.geometry.userData.pilName; if (pc[k]) o.material = surfMat('fabric', pc[k]); });
+    if (n) { PILN.set(it.id, n); PILL.set(it.id, names); } else { PILN.delete(it.id); PILL.delete(it.id); } }   // names：模型有幫枕頭取名（geometry.userData.pilName）的話，面板用名字分組編號
   g.traverse(o => { o.userData.id = it.id; });
   if (TYPES[it.type].person) { g.userData.person = true; if (!opts.people) g.visible = false; }   // 空間設定關掉「顯示人物」
   g.position.set(it.x, it.elev || 0, it.z);
@@ -6378,9 +6511,9 @@ function renderPanel() {
       ${isCab(T) ? grp('parts', '個別板材', `<div class="muted" style="font-size:12px;margin-bottom:6px;line-height:1.5">櫃子已選取時，在畫面上再點一下某片板材，或在這裡點名稱，就能只改那一片的顏色或把它拿掉。${sysOpts.inside ? '透視櫃內時門片不顯示，仍可在這裡選。' : ''}</div>
         <div class="stylechips">${partKeys(o).map(k => { const ov = (o.parts || {})[k] || {}; return `<button class="chip" data-act="part" data-id="${k}">${partName(k, T.custom)}${ov.hide ? '（已拿掉）' : [ov.color ? '已改色' : '', ov.w > 0 || ov.h > 0 || ov.d > 0 || ov.dx || ov.dy || ov.dz ? '已改尺寸' : ''].filter(Boolean).map(x => '・' + x).join('')}</button>`; }).join('')}</div>
         ${Object.keys(o.parts || {}).length ? '<button class="link" data-act="partClear" style="margin-top:8px">↺ 全部恢復成整座櫃子的設定</button>' : ''}`) : ''}
-      ${PILN.get(o.id) ? (() => { const nm = PIL_NAME[o.type] || '抱枕', n = PILN.get(o.id), cur = selPil && selPil <= n ? (o.pcol || {})[selPil] || '' : '';
+      ${PILN.get(o.id) ? (() => { const nm = PIL_NAME[o.type] || '抱枕', n = PILN.get(o.id), nmL = PILL.get(o.id) || [], cnt = {}, lab = Array.from({ length: n }, (_, i) => { const b = nmL[i + 1] || nm; cnt[b] = (cnt[b] || 0) + 1; return b + ' ' + cnt[b]; }), cur = selPil && selPil <= n ? (o.pcol || {})[selPil] || '' : '';
         return grp('pil', nm + '顏色（可以每一顆不同）', `<div class="muted" style="font-size:12px;margin-bottom:6px;line-height:1.5">在畫面上再點一下某一顆${nm}，或在這裡點編號，就能只改那一顆的顏色。</div>
-        <div class="stylechips">${Array.from({ length: n }, (_, i) => `<button class="chip${selPil === i + 1 ? ' on' : ''}" data-act="pil" data-id="${i + 1}">${nm} ${i + 1}${(o.pcol || {})[i + 1] ? '・已改' : ''}</button>`).join('')}</div>
+        <div class="stylechips">${Array.from({ length: n }, (_, i) => `<button class="chip${selPil === i + 1 ? ' on' : ''}" data-act="pil" data-id="${i + 1}">${lab[i]}${(o.pcol || {})[i + 1] ? '・已改' : ''}</button>`).join('')}</div>
         ${selPil && selPil <= n ? `<div class="sws" style="margin-top:8px">${PALETTE.map(c => `<button class="sw${cur === c ? ' on' : ''}" style="background:${c}" title="${c}" data-act="pilColor" data-id="${c}"></button>`).join('')}${customSw(c => `class="sw" data-act="pilColor" data-id="${c}"`, cur, nm)}</div>
         ${cur ? '<button class="link" data-act="pilColor" data-id="" style="margin-top:8px">↺ 這一顆恢復原本的顏色</button>' : ''}` : ''}`); })() : ''}
       ${grp('color', '顏色', `<h4>${colorLabel(o, 1)}</h4>${swatches(o, 'color')}
@@ -6493,7 +6626,7 @@ const SUB_ORDER = {
   '擺飾': ['掛畫', '藝術品', '花藝植栽', '香氛', '相框', '托盤收納', '餐具', '時鐘', '書本'],
 };
 const TYPE_SUB = {
-  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
+  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
   lounge: '單椅', shellchair: '單椅', wingchair: '單椅', woodchair: '單椅', pouf: '椅凳', bench: '椅凳',
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
   dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
@@ -7983,8 +8116,14 @@ async function shortCode(json) {
 }
 // 分享連結：代碼放在網址 # 後面，對方點開就直接開啟專案（openExternalBrowser=1：LINE 會改用手機的瀏覽器開，專案才會留在對方常用的瀏覽器）
 const SITE_URL = 'https://andytsai-000.github.io/furniture-planner/';
-const shareLink = code => code.startsWith('FP2') ? SITE_URL + '?openExternalBrowser=1#' + code : code;
+const LINK_MAX = 1000;                                                    // 連結太長，手機的通訊軟體不會把它變成可以點的連結：改傳「短連結＋代碼」
+const shareLink = code => !code.startsWith('FP2') ? code : (SITE_URL + '?openExternalBrowser=1#' + code).length <= LINK_MAX ? SITE_URL + '?openExternalBrowser=1#' + code
+  : '家具配置專案（內容較多，分 3 步開啟）\n① 長按這則訊息 → 複製\n② 點這個連結：' + SITE_URL + '?openExternalBrowser=1#paste\n③ 按「貼上並開啟」\n\n' + code;
 async function openFromLink() {
+  if (location.hash === '#paste') {                                       // 從「短連結＋代碼」進來：直接跳出貼上的視窗
+    try { history.replaceState(null, '', location.pathname); } catch (e) { }
+    resumeIds = []; $('#resumeModal').hidden = true; openIO('open'); return;
+  }
   const m = location.hash.match(/^#(FP2[0-9A-Za-z]{20,})/); if (!m) return;
   try { history.replaceState(null, '', location.pathname); } catch (e) { }   // 拿掉網址裡的代碼：重新整理不會再開一次
   resumeIds = []; $('#resumeModal').hidden = true;
@@ -8011,14 +8150,14 @@ function openIO(mode) {
   const saving = mode === 'save', p = curProject();
   $('#ioTitle').textContent = saving ? `另存新檔：${p ? p.name : '目前專案'}` : '開啟專案';
   $('#ioDesc').textContent = saving
-    ? `會把整個專案（${p ? p.list.length : 1} 個空間）存成一個檔案。配置平常會自動保存在這台裝置；要留底、換裝置或傳給別人，請下載 .json 專案檔，或按「複製分享連結」貼到 LINE、Email，對方點開連結就會直接開啟這個專案。`
-    : '按「開啟 .json 檔」選擇專案檔，或把收到的專案代碼貼在下方，按「開啟這個專案」。會加入成一個新專案，不會覆蓋你現有的專案。';
+    ? `會把整個專案（${p ? p.list.length : 1} 個空間）存成一個檔案。配置平常會自動保存在這台裝置；要留底、換裝置或傳給別人，請下載 .json 專案檔，或按「複製分享連結」貼到 LINE、Email，對方點開連結就會直接開啟這個專案（專案內容較多時，訊息裡會附上 3 步驟的開啟說明）。`
+    : '先複製收到的整則訊息（或代碼），再按「貼上並開啟」；也可以按「開啟 .json 檔」選擇專案檔。會加入成一個新專案，不會覆蓋你現有的專案。';
   ioJson = saving ? projectCode() : '';
   $('#ioCode').value = ioJson;
   if (saving) { const j = ioJson; shortCode(j).then(c => { if (ioJson === j && !$('#ioModal').hidden && $('#ioCode').readOnly) $('#ioCode').value = shareLink(c); }); }   // 顯示分享連結（內含代碼）；下載的 .json 檔內容不變
   $('#ioCode').readOnly = saving;
   $('#ioCode').placeholder = saving ? '' : '在這裡貼上專案代碼（Ctrl+V）';
-  $('#ioCopy').hidden = !saving; $('#ioDl').hidden = !saving || $('#ioDl').dataset.off === '1'; $('#ioLoad').hidden = saving; $('#ioFile').hidden = saving;
+  $('#ioCopy').hidden = !saving; $('#ioDl').hidden = !saving || $('#ioDl').dataset.off === '1'; $('#ioLoad').hidden = saving; $('#ioPaste').hidden = saving; $('#ioFile').hidden = saving;
   $('#ioMsg').textContent = ''; $('#ioModal').hidden = false;
   if (!saving) setTimeout(() => $('#ioCode').focus(), 50);
 }
@@ -8077,10 +8216,18 @@ async function quickSave() {
 $('#quickSave').onclick = () => quickSave();
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if ($('#home').hidden) quickSave(); } });
 $('#ioCopy').onclick = async e => { if (await copyText($('#ioCode').value, $('#ioCode'), e.currentTarget)) markSaved(); };
-$('#ioLoad').onclick = async () => {
+const ioOpenCode = async () => {
   if (!$('#ioCode').value.trim()) { $('#ioMsg').textContent = '請先貼上專案代碼。'; return; }
   try { loadDesign(await codeToJson($('#ioCode').value)); }
   catch (err) { $('#ioMsg').textContent = '代碼不完整，無法開啟。請從頭到尾完整複製整段代碼再貼一次；還是不行的話，請對方改傳 .json 專案檔。'; }
+};
+$('#ioLoad').onclick = ioOpenCode;
+$('#ioPaste').onclick = async () => {                                     // 一鍵：讀剪貼簿裡剛複製的訊息／代碼，直接開啟
+  let t = '';
+  try { t = await navigator.clipboard.readText(); } catch (e) { }
+  if (t && t.trim()) { $('#ioCode').value = t; return ioOpenCode(); }
+  if ($('#ioCode').value.trim()) return ioOpenCode();
+  $('#ioCode').focus(); $('#ioMsg').textContent = '這個瀏覽器不能自動貼上：請在上面的框裡長按 → 貼上，再按「開啟這個專案」。';
 };
 $('#ioFile').onclick = () => canFS ? openWithPicker() : $('#fileIn').click();
 $('#fileIn').onchange = async e => {
@@ -9153,7 +9300,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setInterval(saveUI, 3000);
 if (restoreUI()) resumeIds = [];
 uiReady = true;                                        // 回到原畫面時不跳「上次沒存檔」視窗（右下仍會提醒儲存）
-if (/^#FP2/.test(location.hash)) openFromLink();                        // 從分享連結進來：直接開啟專案
+if (/^#(FP2|paste$)/.test(location.hash)) openFromLink();                        // 從分享連結進來：直接開啟專案
 else renderResume(true);
 $('#resumeList').addEventListener('click', e => {
   const del = e.target.closest('[data-rdel]');
