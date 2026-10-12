@@ -4157,7 +4157,7 @@ function buildPuffStool(it) { // 泡芙化妝椅：圓筒形的布面椅身坐�
 }
 function buildHeartTable(it) { // 愛心腳餐桌：酒桶形的陶板桌面（長邊微微外鼓、圓角）貼在黑色底板上，底下一圈金屬橫框；桌腳是兩片金屬帶從地上的底板兩端彎上來、在半空交叉（正面看像愛心），帶子在地面是整個深度寬，越往上越窄、一前一後錯開
   const g = new THREE.Group(), { w, d, h } = it;
-  const T = topMat(it), M = surfMat('metal', it.color2), Bk = mat('#1b1b1c', 0.5, 0.2);
+  const T = topMat(it), M = surfMat('metal', it.color2), Bk = mat(it.color3 || '#1b1b1c', 0.5, 0.2);
   const tt = 1, ut = 1.7, ah = Math.min(5.5, h * 0.08), yU = h - tt - ut, yA = yU - ah;
   // 桌面：圓角長方形再把四邊往外鼓
   const slab = (W, D, th, y, m) => { const r = Math.min(9, D * 0.09), sh0 = new THREE.Shape(), x0 = -W / 2, z0 = -D / 2;
@@ -4985,7 +4985,7 @@ const TYPES = {
   ownEmma:     { name: 'Emma床台', cat: '自家商品', w: 154, d: 200, h: 107, color: '#8f9394', color2: '#1f1c1b', c1: '布料顏色', c2: '木腳顏色', build: buildEmmaBed, opts: [BED_MATT_OPT], def: { matt: 'on' }, wall: true, own: true },
   ownDanish:   { name: '丹麥餐桌', cat: '自家商品', w: 180, d: 90, h: 75, color: '#f2f0ec', color2: '#dcc39c', c1: '桌面顏色', c2: '木腳顏色', build: buildDanishTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownPencil:   { name: '鉛筆腳餐桌', cat: '自家商品', w: 150, d: 85, h: 75, color: '#f2f0ec', color2: '#1f1f1f', c1: '桌面顏色', c2: '鐵件顏色', build: buildPencilTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
-  ownHeart:    { name: '愛心腳餐桌', cat: '自家商品', w: 240, d: 105, h: 75, color: '#6f6862', color2: '#3d322d', c1: '陶板顏色', c2: '金屬顏色', build: buildHeartTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
+  ownHeart:    { name: '愛心腳餐桌', cat: '自家商品', w: 240, d: 105, h: 75, color: '#6f6862', color2: '#3d322d', color3: '#1b1b1c', c1: '陶板顏色', c2: '金屬顏色', c3: '底板顏色', build: buildHeartTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownVChair:   { name: 'V型餐椅', cat: '自家商品', w: 46, d: 62, h: 84, color: '#b8aa9e', color2: '#dcc39c', c1: '皮面顏色', c2: '木腳顏色', build: buildVChair, own: true },
   ownMiyazaki: { name: '宮崎餐椅', cat: '自家商品', w: 50, d: 56, h: 74, color: '#a9a39c', color2: '#e6cfa6', c1: '皮面顏色', c2: '木腳顏色', build: buildMiyazakiChair, own: true },
   ownDanishBench: { name: '丹麥長凳', cat: '自家商品', w: 150, d: 38, h: 45, color: '#a9a39c', color2: '#dcb98c', c1: '皮面顏色', c2: '木腳顏色', build: buildDanishBench, own: true },
