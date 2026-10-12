@@ -5813,6 +5813,36 @@ function helper(box, color, onTop) {
   if (onTop) { h.material.depthTest = false; h.material.transparent = true; h.renderOrder = 11; }
   overlay.add(h);
 }
+// 家具自己方向上的外框（不跟著旋轉變大）：選取框、紅框、量距離都用它，斜放的家具才不會框得比實際大
+const LOCALBOX = new WeakMap();
+function localBox(it) {
+  const g = objById.get(it.id); let b = LOCALBOX.get(g);
+  if (!b) { const p = g.position.clone(), r = g.rotation.y; g.position.set(0, 0, 0); g.rotation.y = 0; g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(g); g.position.copy(p); g.rotation.y = r; g.updateMatrixWorld(true); LOCALBOX.set(g, b); }
+  return b;
+}
+function itemFrame(it, color, onTop, pad = 0) {
+  const h = new THREE.Box3Helper(localBox(it).clone().expandByScalar(pad), color), o = new THREE.Group();
+  h.material.userData.own = true;
+  if (onTop) { h.material.depthTest = false; h.material.transparent = true; h.renderOrder = 11; }
+  o.position.set(it.x, it.elev || 0, it.z); o.rotation.y = -it.rot * deg; o.add(h); overlay.add(o);
+}
+// 地面上的外框四個角（家具照自己的方向；柱子、隔間用正的方框）
+function footRect(e) {
+  if (e.k === 'item') { const it = getItem(e.id), b = localBox(it), th = -it.rot * deg, c = Math.cos(th), s = Math.sin(th);
+    return [[b.min.x, b.min.z], [b.max.x, b.min.z], [b.max.x, b.max.z], [b.min.x, b.max.z]].map(([x, z]) => [it.x + x * c + z * s, it.z - x * s + z * c]); }
+  const b = e.box; return [[b.min.x, b.min.z], [b.max.x, b.min.z], [b.max.x, b.max.z], [b.min.x, b.max.z]];
+}
+// 兩個外框最近的距離與那兩個點；互相重疊回傳 null。兩邊平行時取重疊那一段的中間
+function rectGap(A, B) {
+  const inside = (p, R) => { let sg = 0; for (let i = 0; i < 4; i++) { const a = R[i], b = R[(i + 1) % 4], c = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]); if (Math.abs(c) < 1e-6) continue; if (sg && Math.sign(c) !== sg) return false; sg = Math.sign(c); } return true; };
+  const cross = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
+  for (let i = 0; i < 4; i++) { if (inside(A[i], B) || inside(B[i], A)) return null; for (let j = 0; j < 4; j++) if (cross(A[i], A[(i + 1) % 4], B[j], B[(j + 1) % 4])) return null; }
+  const prs = [];
+  const vs = (P, Q, flip) => { for (const v of P) for (let j = 0; j < 4; j++) { const a = Q[j], b = Q[(j + 1) % 4], ex = b[0] - a[0], ez = b[1] - a[1], t = clamp(((v[0] - a[0]) * ex + (v[1] - a[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), q = [a[0] + ex * t, a[1] + ez * t], d = Math.hypot(v[0] - q[0], v[1] - q[1]); prs.push(flip ? [d, q, v] : [d, v, q]); } };
+  vs(A, B, false); vs(B, A, true);
+  const d = Math.min(...prs.map(x => x[0])), near = prs.filter(x => x[0] < d + 0.05), avg = k => [near.reduce((t, x) => t + x[k][0], 0) / near.length, near.reduce((t, x) => t + x[k][1], 0) / near.length];
+  return { d, a: avg(1), b: avg(2) };
+}
 let rotKnob = null;
 function updateOverlay() {
   clearOverlay(); rotKnob = null;
@@ -5820,7 +5850,7 @@ function updateOverlay() {
   const W = state.room.w / 2, D = state.room.d / 2;
   for (const it of state.items) {
     const bad = hits.has(it.id);
-    if (bad && !(sel && sel.k === 'item' && sel.id === it.id)) helper(itemBox(it), DANGER, false);
+    if (bad && !(sel && sel.k === 'item' && sel.id === it.id)) itemFrame(it, DANGER, false);
     if (view === 'top') { const b = itemBox(it), c = b.getCenter(new V3()); label(it.name, 'namelbl' + (bad ? ' bad' : ''), c.x, b.max.y + 1, c.z, overlay); }
   }
   if (!sel && selWall) {
@@ -5834,7 +5864,7 @@ function updateOverlay() {
   if (sel.k === 'item') box = itemBox(o);
   else box = new THREE.Box3().setFromObject(structById.get(o.id));
   const bad = sel.k === 'item' && hits.has(o.id);
-  helper(box.clone().expandByScalar(0.8), bad ? DANGER : ACCENT, true);
+  if (sel.k === 'item') itemFrame(o, bad ? DANGER : ACCENT, true, 0.8); else helper(box.clone().expandByScalar(0.8), ACCENT, true);
   if (selPart && sel.k === 'item') {                                    // 選取中的板材再框一次
     const g = objById.get(o.id), pb = new THREE.Box3();
     if (g) { g.updateMatrixWorld(true); for (const m of g.children) if (m.userData.part === selPart && m.visible) pb.expandByObject(m); }
@@ -5875,22 +5905,16 @@ function updateOverlay() {
     label(Math.round(v) + '', 'dimlbl', (a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2, overlay);
   }
   if (pts.length) line(pts, ACCENT);
-  // 與旁邊家具的距離：四個方向各找最近的一件（要有對到才算），藍色標示
+  // 與旁邊家具的距離：家具前後左右各找最近的一件，量兩個外框最近的地方（斜放也照實際方向量），藍色標示
   if (sel.k === 'item') {
-    const gp = [], T = 0.5;
-    const others = allBoxes().filter(e => !(e.k === 'item' && e.id === o.id) && !e.ceil && e.box.max.y > box.min.y + 1 && e.box.min.y < box.max.y - 1);
-    for (const [ax, sg] of [['x', -1], ['x', 1], ['z', -1], ['z', 1]]) {
-      const pa = ax === 'x' ? 'z' : 'x'; let best = null;
-      for (const e of others) {
-        const lo = Math.max(box.min[pa], e.box.min[pa]), hi = Math.min(box.max[pa], e.box.max[pa]); if (hi - lo < 2) continue;   // 側邊要有重疊到才是「旁邊」
-        const g = sg > 0 ? e.box.min[ax] - box.max[ax] : box.min[ax] - e.box.max[ax]; if (g < T) continue;
-        if (!best || g < best.g) best = { g, m: (lo + hi) / 2, e };
-      }
-      if (!best) continue;
-      const a0 = sg > 0 ? box.max[ax] : box.min[ax], a1 = a0 + sg * best.g, P = (u, v) => ax === 'x' ? new V3(u, y + 0.6, v) : new V3(v, y + 0.6, u);
-      gp.push(P(a0, best.m), P(a1, best.m));
-      const lp = P((a0 + a1) / 2, best.m); label(Math.round(best.g) + '', 'dimlbl gap', lp.x, lp.y, lp.z, overlay);
+    const gp = [], me = footRect({ k: 'item', id: o.id }), th = -o.rot * deg, cs = Math.cos(th), sn = Math.sin(th), best = {};
+    for (const e of allBoxes()) {
+      if (e.k === 'item' && e.id === o.id || e.ceil || e.box.max.y <= box.min.y + 1 || e.box.min.y >= box.max.y - 1) continue;
+      const r = rectGap(me, footRect(e)); if (!r || r.d < 0.5) continue;
+      const dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], lx = dx * cs - dz * sn, lz = dx * sn + dz * cs, k = Math.abs(lx) > Math.abs(lz) ? (lx > 0 ? 'r' : 'l') : (lz > 0 ? 'f' : 'b');   // 在這件家具的哪一側
+      if (!best[k] || r.d < best[k].d) best[k] = r;
     }
+    for (const r of Object.values(best)) { gp.push(new V3(r.a[0], y + 0.6, r.a[1]), new V3(r.b[0], y + 0.6, r.b[1])); label(Math.round(r.d) + '', 'dimlbl gap', (r.a[0] + r.b[0]) / 2, y + 0.6, (r.a[1] + r.b[1]) / 2, overlay); }
     if (gp.length) line(gp, 0x2f6fd0);
   }
 }
