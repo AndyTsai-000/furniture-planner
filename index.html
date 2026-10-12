@@ -7810,7 +7810,7 @@ async function planOpenFile(file) {
       await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = url; });
       const k = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
       c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
-      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      const x = c.getContext('2d', { willReadFrequently: true }); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url); PLAN.img = c; PLAN.texts = []; PLAN.userScale = 0; planRun();
     }
   } catch (e) { $('#planMsg').textContent = '這個檔案無法讀取。請確認是平面圖的 PDF 或圖片檔（PNG、JPG）；也可以按「取消」，改用手動輸入尺寸。'; PLAN.img = null; }
@@ -7818,7 +7818,7 @@ async function planOpenFile(file) {
 async function planRenderPage(n) {
   const pg = await PLAN.pdf.getPage(n), v0 = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: Math.min(3, 1800 / Math.max(v0.width, v0.height)) });
   const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  const x = c.getContext('2d', { willReadFrequently: true }); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
   await pg.render({ canvasContext: x, viewport: vp }).promise;
   PLAN.texts = [];
   try {                                                                 // 圖上的文字（尺寸標註）：位置換算成畫面座標
