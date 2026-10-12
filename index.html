@@ -4155,6 +4155,43 @@ function buildPuffStool(it) { // 泡芙化妝椅：圓筒形的布面椅身坐�
   add(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(sp), 40, 0.22, 6, false), St, 0, 0, 0);                             // 背後正中的交叉縫線
   return g;
 }
+function buildHeartTable(it) { // 愛心腳餐桌：酒桶形的陶板桌面（長邊微微外鼓、圓角）貼在黑色底板上，底下一圈金屬橫框；桌腳是兩片金屬帶從地上的底板兩端彎上來、在半空交叉（正面看像愛心），帶子在地面是整個深度寬，越往上越窄、一前一後錯開
+  const g = new THREE.Group(), { w, d, h } = it;
+  const T = topMat(it), M = surfMat('metal', it.color2), Bk = mat('#1b1b1c', 0.5, 0.2);
+  const tt = 1, ut = 1.7, ah = Math.min(5.5, h * 0.08), yU = h - tt - ut, yA = yU - ah;
+  // 桌面：圓角長方形再把四邊往外鼓
+  const slab = (W, D, th, y, m) => { const r = Math.min(9, D * 0.09), sh0 = new THREE.Shape(), x0 = -W / 2, z0 = -D / 2;
+    sh0.moveTo(x0 + r, z0); sh0.lineTo(-x0 - r, z0); sh0.absarc(-x0 - r, z0 + r, r, -Math.PI / 2, 0); sh0.lineTo(-x0, -z0 - r); sh0.absarc(-x0 - r, -z0 - r, r, 0, Math.PI / 2); sh0.lineTo(x0 + r, -z0); sh0.absarc(x0 + r, -z0 - r, r, Math.PI / 2, Math.PI); sh0.lineTo(x0, z0 + r); sh0.absarc(x0 + r, z0 + r, r, Math.PI, Math.PI * 1.5);
+    const pts = sh0.getSpacedPoints(160).map(q => new THREE.Vector2(q.x * (1 - 0.012 * (q.y / (D / 2)) ** 2), q.y * (1 - 0.085 * (q.x / (W / 2)) ** 2)));
+    const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: th, bevelEnabled: false }), uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + W / 2) / W, (uv.getY(i) + D / 2) / D);
+    const mesh = add(g, geo, m, 0, y, 0); mesh.rotation.x = -Math.PI / 2; return mesh; };
+  slab(w, d, tt, h - tt, T);
+  slab(w - 0.8, d - 0.8, 0.5, h - tt - 0.5, Bk); slab(w - 2.6, d - 2.6, ut - 0.5, yU, Bk);        // 底板：上緣和陶板齊、往下內收一階
+  // 橫框
+  const aw = w * 0.71, ad = d * 0.5;
+  for (const sd of [-1, 1]) { B(g, aw, ah, 2.2, 0, yA + ah / 2, sd * (ad / 2 - 1.1), M); B(g, 2.2, ah, ad - 4.4, sd * (aw / 2 - 1.1), yA + ah / 2, 0, M); }
+  B(g, aw - 4, 1, ad - 4, 0, yU - 0.5, 0, Bk);
+  // 桌腳：一片扭轉的金屬帶（四個面各自平滑、稜線銳利）
+  const bx = Math.min(47, w * 0.2), zs = Math.min(22, d * 0.21), th = 2.6, tm = 1.22, A = (bx + bx * 0.74) / (1 - Math.cos(tm)), Y = yA / Math.sin(tm), N = 44;
+  const ribbon = sg => { const ring = [];
+    for (let i = 0; i <= N; i++) { const t = i / N, q = t * tm, x = -bx + A * (1 - Math.cos(q)), y = Y * Math.sin(q), tx = A * Math.sin(q), ty = Y * Math.cos(q), tl = Math.hypot(tx, ty), nx = -ty / tl, ny = tx / tl;
+      const u = Math.min(1, Math.max(0, (t - 0.12) / 0.5)), e = u * u * (3 - 2 * u), za = -zs + (zs + 1.2) * e, zb = zs - 1.5 * e, k = th / 2 * (1 - 0.25 * t);
+      ring.push([[x + nx * k, y + ny * k, za], [x + nx * k, y + ny * k, zb], [x - nx * k, y - ny * k, zb], [x - nx * k, y - ny * k, za]].map(([X, Yy, Z]) => [sg * X, Math.min(yA, Math.max(0, Yy)), sg * Z])); }
+    const pos = [], idx = [];
+    for (let f = 0; f < 4; f++) { const o = pos.length / 3; for (let i = 0; i <= N; i++) pos.push(...ring[i][f], ...ring[i][(f + 1) % 4]); for (let i = 0; i < N; i++) { const a = o + i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+    for (const [i, fl] of [[0, 0], [N, 1]]) { const o = pos.length / 3; for (const q of ring[i]) pos.push(...q); fl ? idx.push(o, o + 1, o + 2, o, o + 2, o + 3) : idx.push(o, o + 2, o + 1, o, o + 3, o + 2); }
+    let vol = 0; for (let i = 0; i < idx.length; i += 3) { const a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3; vol += pos[a] * (pos[b + 1] * pos[c + 2] - pos[b + 2] * pos[c + 1]) - pos[a + 1] * (pos[b] * pos[c + 2] - pos[b + 2] * pos[c]) + pos[a + 2] * (pos[b] * pos[c + 1] - pos[b + 1] * pos[c]); }
+    if (vol < 0) for (let i = 0; i < idx.length; i += 3) { const q = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = q; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2)); geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere();
+    add(g, geo, M, 0, 0, 0);
+    const xe = sg * (-bx + A * (1 - Math.cos(tm))); B(g, 20, 1.2, zs - 1, xe - sg * 7, yA - 0.6, sg * (zs / 2 + 0.5), M);       // 接橫框的托片
+  };
+  ribbon(1); ribbon(-1);
+  RB(g, 2 * bx + 1, 1.8, 2 * zs, 0.6, 0, 0.9, 0, M);                                                 // 地上的底板
+  for (const sd of [-1, 1]) { const f = B(g, 9, 1.4, 2 * zs - 1, sd * (bx - 5), 2.6, 0, M); f.rotation.z = sd * 0.5; }   // 底板兩端往上翹、接到帶子上
+  return g;
+}
 function buildOvalSideTable(it) {
   const g = new THREE.Group(), { w, d, h } = it;
   const T = topMat(it), M = surfMat('metal', it.color2), edge = mat('#6a6a6c', 0.6);
@@ -4948,6 +4985,7 @@ const TYPES = {
   ownEmma:     { name: 'Emma床台', cat: '自家商品', w: 154, d: 200, h: 107, color: '#8f9394', color2: '#1f1c1b', c1: '布料顏色', c2: '木腳顏色', build: buildEmmaBed, opts: [BED_MATT_OPT], def: { matt: 'on' }, wall: true, own: true },
   ownDanish:   { name: '丹麥餐桌', cat: '自家商品', w: 180, d: 90, h: 75, color: '#f2f0ec', color2: '#dcc39c', c1: '桌面顏色', c2: '木腳顏色', build: buildDanishTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownPencil:   { name: '鉛筆腳餐桌', cat: '自家商品', w: 150, d: 85, h: 75, color: '#f2f0ec', color2: '#1f1f1f', c1: '桌面顏色', c2: '鐵件顏色', build: buildPencilTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
+  ownHeart:    { name: '愛心腳餐桌', cat: '自家商品', w: 240, d: 105, h: 75, color: '#6f6862', color2: '#3d322d', c1: '陶板顏色', c2: '金屬顏色', build: buildHeartTable, opts: [TOPMAT_OPT], def: { topmat: 'slate' }, own: true },
   ownVChair:   { name: 'V型餐椅', cat: '自家商品', w: 46, d: 62, h: 84, color: '#b8aa9e', color2: '#dcc39c', c1: '皮面顏色', c2: '木腳顏色', build: buildVChair, own: true },
   ownMiyazaki: { name: '宮崎餐椅', cat: '自家商品', w: 50, d: 56, h: 74, color: '#a9a39c', color2: '#e6cfa6', c1: '皮面顏色', c2: '木腳顏色', build: buildMiyazakiChair, own: true },
   ownDanishBench: { name: '丹麥長凳', cat: '自家商品', w: 150, d: 38, h: 45, color: '#a9a39c', color2: '#dcb98c', c1: '皮面顏色', c2: '木腳顏色', build: buildDanishBench, own: true },
@@ -7117,7 +7155,7 @@ const SUB_ORDER = {
   '擺飾': ['掛畫', '藝術品', '花藝植栽', '香氛', '相框', '托盤收納', '餐具', '時鐘', '書本'],
 };
 const TYPE_SUB = {
-  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownAmis: '床台', ownMila: '床台', ownEmma: '床台', ownDanish: '餐桌', ownPencil: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDali: '書桌', ownEgger: '書桌', ownHemingway: '化妝桌椅', ownPuff: '化妝桌椅', ownTawu: '床頭櫃', ownTawuBox: '床頭櫃', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
+  ownRecliner: '沙發', ownDanSofa: '沙發', ownLetItBe: '沙發', ownRoundChaise: '沙發', own171: '沙發', ownAthena: '沙發', own120: '沙發', own120Ott: '沙發', ownFloatL: '沙發', ownAmis: '床台', ownMila: '床台', ownEmma: '床台', ownDanish: '餐桌', ownPencil: '餐桌', ownHeart: '餐桌', ownVChair: '餐椅', ownMiyazaki: '餐椅', ownDanishBench: '長凳', ownOvalSide: '邊几', ownDali: '書桌', ownEgger: '書桌', ownHemingway: '化妝桌椅', ownPuff: '化妝桌椅', ownTawu: '床頭櫃', ownTawuBox: '床頭櫃', ownDorn: '茶几', ownAshBig: '茶几', ownAshSmall: '茶几', ashSet: '茶几', set123: '沙發', armchair: '沙發', sofa2: '沙發', sofa: '沙發', lsofa: '沙發', baysofa: '沙發',
   lounge: '單椅', shellchair: '單椅', wingchair: '單椅', woodchair: '單椅', pouf: '椅凳', bench: '椅凳',
   coffee: '茶几', coffeeset: '茶几', side: '茶几', tvcab: '電視櫃',
   dining: '餐桌', round: '餐桌', chair: '餐椅', bartable: '吧檯桌', barround: '吧檯桌', barwall: '吧檯桌', barstool: '吧檯椅', barstoolBack: '吧檯椅', barstoolWood: '吧檯椅', barstoolSwivel: '吧檯椅', sideboard: '餐櫃', kitchen: '廚房',
