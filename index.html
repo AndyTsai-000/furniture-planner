@@ -171,6 +171,7 @@ kbd{font-family:inherit;font-size:11px;border:1px solid var(--line2);border-bott
 .dimlbl{background:var(--accent);color:#fff;font-size:11px;padding:1px 6px;border-radius:99px;font-weight:600;white-space:nowrap}
 .tag{background:rgba(42,38,34,.85);color:#fff;font-size:11px;padding:2px 7px;border-radius:6px;white-space:nowrap}
 .tag.bad{background:var(--danger)}
+.dimlbl.gap{background:#2f6fd0}
 .roomlbl{color:#6d665c;font-size:12px;font-weight:600;background:rgba(255,253,249,.85);padding:2px 8px;border-radius:6px;white-space:nowrap}
 .namelbl{color:#3d3833;font-size:11px;background:rgba(255,253,249,.8);padding:0 5px;border-radius:4px;white-space:nowrap}
 .namelbl.bad{color:var(--danger)}
@@ -699,6 +700,7 @@ import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
+import { OBB } from 'three/addons/math/OBB.js';
 
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -5755,18 +5757,40 @@ function rebuildAll() {
 /* ================= 碰撞 & 標註 ================= */
 function allBoxes() {
   const r = [];
-  for (const it of state.items) if (!TYPES[it.type].flat && !TYPES[it.type].noHit) r.push({ k: 'item', id: it.id, name: it.name, box: itemBox(it) });
+  for (const it of state.items) if (!TYPES[it.type].flat && !TYPES[it.type].noHit) r.push({ k: 'item', id: it.id, name: it.name, box: itemBox(it), ok: !!it.okHit, ceil: !!TYPES[it.type].ceil });
   for (const s of state.structs) if (!isOpening(s)) r.push({ k: 'struct', id: s.id, name: s.kind === 'column' ? '柱子' : s.kind === 'partition' ? (s.sub === 'part' ? '隔間' : '牆壁') : '樑', box: new THREE.Box3().setFromObject(structById.get(s.id)) });
   return r;
 }
 let hits = new Map(); // id -> [names]
+// 一件家具／結構拆成一個個零件的方塊（跟著零件自己的方向），各縮 1.5 cm 當容許值
+function partBoxes(e) {
+  if (e.parts) return e.parts;
+  const root = e.k === 'item' ? objById.get(e.id) : structById.get(e.id), out = [];
+  if (root) { root.updateMatrixWorld(true); root.traverse(o => {
+    if (!o.isMesh || !o.visible || !o.geometry) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox; if (!bb || bb.isEmpty()) return;
+    const ob = new OBB().fromBox3(bb).applyMatrix4(o.matrixWorld);
+    ob.halfSize.set(Math.max(0.05, ob.halfSize.x - 1.5), Math.max(0.05, ob.halfSize.y - 1.5), Math.max(0.05, ob.halfSize.z - 1.5));
+    out.push({ ob, bx: new THREE.Box3().setFromObject(o) });
+  }); }
+  return e.parts = out;
+}
+function partsHit(a, b) {
+  const A = partBoxes(a), B = partBoxes(b);
+  if (!A.length || !B.length) return true;
+  for (const p of A) { if (!p.bx.intersectsBox(b.box)) continue; for (const q of B) if (p.bx.intersectsBox(q.bx) && p.ob.intersectsOBB(q.ob)) return true; }
+  return false;
+}
 function computeHits() {
   hits = new Map();
   const bs = allBoxes();
   for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) {
     const a = bs[i], b = bs[j];
     if (a.k === 'struct' && b.k === 'struct') continue;
+    if (a.ok || b.ok) continue;                                          // 使用者說這件的重疊不用提醒（例如餐椅收在餐桌下）
     if (!a.box.clone().expandByScalar(-1.5).intersectsBox(b.box)) continue;
+    if (!partsHit(a, b)) continue;                                       // 外框碰到不算，零件真的碰到才算（L 型沙發的凹處可以放茶几）
     for (const [p, q] of [[a, b], [b, a]]) {
       if (p.k !== 'item') continue;
       if (!hits.has(p.id)) hits.set(p.id, []);
@@ -5851,6 +5875,24 @@ function updateOverlay() {
     label(Math.round(v) + '', 'dimlbl', (a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2, overlay);
   }
   if (pts.length) line(pts, ACCENT);
+  // 與旁邊家具的距離：四個方向各找最近的一件（要有對到才算），藍色標示
+  if (sel.k === 'item') {
+    const gp = [], T = 0.5;
+    const others = allBoxes().filter(e => !(e.k === 'item' && e.id === o.id) && !e.ceil && e.box.max.y > box.min.y + 1 && e.box.min.y < box.max.y - 1);
+    for (const [ax, sg] of [['x', -1], ['x', 1], ['z', -1], ['z', 1]]) {
+      const pa = ax === 'x' ? 'z' : 'x'; let best = null;
+      for (const e of others) {
+        const lo = Math.max(box.min[pa], e.box.min[pa]), hi = Math.min(box.max[pa], e.box.max[pa]); if (hi - lo < 2) continue;   // 側邊要有重疊到才是「旁邊」
+        const g = sg > 0 ? e.box.min[ax] - box.max[ax] : box.min[ax] - e.box.max[ax]; if (g < T) continue;
+        if (!best || g < best.g) best = { g, m: (lo + hi) / 2, e };
+      }
+      if (!best) continue;
+      const a0 = sg > 0 ? box.max[ax] : box.min[ax], a1 = a0 + sg * best.g, P = (u, v) => ax === 'x' ? new V3(u, y + 0.6, v) : new V3(v, y + 0.6, u);
+      gp.push(P(a0, best.m), P(a1, best.m));
+      const lp = P((a0 + a1) / 2, best.m); label(Math.round(best.g) + '', 'dimlbl gap', lp.x, lp.y, lp.z, overlay);
+    }
+    if (gp.length) line(gp, 0x2f6fd0);
+  }
 }
 
 /* ================= 相機 ================= */
@@ -6473,7 +6515,8 @@ function syncInputs() {
   if (w && sel && sel.k === 'item') {
     const hs = hits.get(sel.id);
     w.hidden = !hs;
-    if (hs) w.textContent = `⚠ 與「${[...new Set(hs)].join('、')}」重疊，請調整位置或尺寸`;
+    if (hs) w.innerHTML = `⚠ 與「${esc([...new Set(hs)].join('、'))}」重疊，請調整位置或尺寸<br><button type="button" class="link" data-act="okHit" style="margin-top:4px">這樣放沒問題，不用提醒</button>`;
+    const it = getItem(sel.id), k = $('#okHitRow'); if (k) k.hidden = !(it && it.okHit);
   }
 }
 document.addEventListener('input', e => {
@@ -6658,6 +6701,7 @@ function doAct(a, arg, key) {
   const o = getObj(sel.k, sel.id);
   if (a === 'del') return deleteSel();
   if (sel.k !== 'item') return;
+  if (a === 'okHit') { if (o.okHit) delete o.okHit; else o.okHit = true; updateOverlay(); renderPanel(); renderPanelList(); commit(); return; }   // 這件家具的重疊提醒：關掉／恢復
   const W = R().w / 2, D = R().d / 2, acc = accInside(o);
   if (a === 'rotBy' || a === 'rotL' || a === 'rotR') { const dv = a === 'rotBy' ? +arg : a === 'rotR' ? 15 : -15; o.rot = ((o.rot + dv) % 360 + 360) % 360; fitItem(o); }
   if (a === 'dup') return duplicate(o);
@@ -6868,6 +6912,7 @@ function renderPanel() {
         <li>直接拖曳家具移動，靠近牆面會自動貼齊</li>
         <li>點選家具後可修改尺寸、顏色、方向</li>
         <li><span style="color:var(--danger)">紅框</span>表示家具重疊或撞到梁柱</li>
+        <li>選取家具時，<span style="color:#2f6fd0">藍色數字</span>是和旁邊家具的距離（公分）</li>
         <li><kbd>R</kbd> 旋轉 15°・<kbd>Del</kbd> 刪除・<kbd>Ctrl</kbd>+<kbd>D</kbd> 複製</li>
         <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原・方向鍵微調（<kbd>Shift</kbd> 10cm）</li>
       </ul>
@@ -6900,6 +6945,7 @@ function renderPanel() {
     }
     p.innerHTML = `<div class="p-head"><input class="p-name" data-k="item" data-id="${o.id}" data-f="name" maxlength="30"><span class="p-type">${T.name}・可點名稱重新命名</span></div>
       <div class="warn" id="warn" hidden></div>
+      <div class="muted" id="okHitRow" hidden style="font-size:12px;margin:4px 0">這件家具的重疊提醒已關閉。<button type="button" class="link" data-act="okHit">恢復提醒</button></div>
       ${grp('size', T.person ? '身高體重' : '尺寸（cm）', T.person ? `
       <div class="dim"><label>身高</label><input type="range" min="90" max="210" step="1" data-k="item" data-id="${o.id}" data-f="ht" aria-label="身高">${numIn('item', o.id, 'ht', 'min="80" max="220" step="1"')}</div>
       <div class="dim"><label>體重</label><input type="range" min="20" max="150" step="1" data-k="item" data-id="${o.id}" data-f="wt" aria-label="體重">${numIn('item', o.id, 'wt', 'min="15" max="200" step="1"')}</div>
