@@ -5817,7 +5817,12 @@ function helper(box, color, onTop) {
 const LOCALBOX = new WeakMap();
 function localBox(it) {
   const g = objById.get(it.id); let b = LOCALBOX.get(g);
-  if (!b) { const p = g.position.clone(), r = g.rotation.y; g.position.set(0, 0, 0); g.rotation.y = 0; g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(g); g.position.copy(p); g.rotation.y = r; g.updateMatrixWorld(true); LOCALBOX.set(g, b); }
+  if (!b) { const p = g.position.clone(), r = g.rotation.y; g.position.set(0, 0, 0); g.rotation.y = 0; g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(g);
+    let rs = [];                                                         // 每個零件在地面上佔的方塊（L 型、ㄇ字型的家具才量得到凹進去的那一邊）；被別的零件完全蓋住的不用留
+    g.traverse(m => { if (!m.isMesh || !m.visible) return; const q = new THREE.Box3().setFromObject(m); if (!q.isEmpty() && q.max.x - q.min.x > 1 && q.max.z - q.min.z > 1) rs.push([q.min.x, q.min.z, q.max.x, q.max.z]); });
+    rs = rs.filter((a, i) => !rs.some((c, j) => j !== i && c[0] <= a[0] + 0.01 && c[1] <= a[1] + 0.01 && c[2] >= a[2] - 0.01 && c[3] >= a[3] - 0.01 && (j < i || c[0] < a[0] - 0.01 || c[1] < a[1] - 0.01 || c[2] > a[2] + 0.01 || c[3] > a[3] + 0.01)));
+    b.rects = rs.length ? rs : [[b.min.x, b.min.z, b.max.x, b.max.z]];
+    g.position.copy(p); g.rotation.y = r; g.updateMatrixWorld(true); LOCALBOX.set(g, b); }
   return b;
 }
 function itemFrame(it, color, onTop, pad = 0) {
@@ -5827,10 +5832,16 @@ function itemFrame(it, color, onTop, pad = 0) {
   o.position.set(it.x, it.elev || 0, it.z); o.rotation.y = -it.rot * deg; o.add(h); overlay.add(o);
 }
 // 地面上的外框四個角（家具照自己的方向；柱子、隔間用正的方框）
-function footRect(e) {
+function footRects(e) {
   if (e.k === 'item') { const it = getItem(e.id), b = localBox(it), th = -it.rot * deg, c = Math.cos(th), s = Math.sin(th);
-    return [[b.min.x, b.min.z], [b.max.x, b.min.z], [b.max.x, b.max.z], [b.min.x, b.max.z]].map(([x, z]) => [it.x + x * c + z * s, it.z - x * s + z * c]); }
-  const b = e.box; return [[b.min.x, b.min.z], [b.max.x, b.min.z], [b.max.x, b.max.z], [b.min.x, b.max.z]];
+    return b.rects.map(([x0, z0, x1, z1]) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([x, z]) => [it.x + x * c + z * s, it.z - x * s + z * c])); }
+  const b = e.box; return [[[b.min.x, b.min.z], [b.max.x, b.min.z], [b.max.x, b.max.z], [b.min.x, b.max.z]]];
+}
+function itemsGap(As, Bs) {                                               // 兩件家具（各由好幾塊組成）最近的距離；有任何一塊重疊就回傳 null
+  const all = []; let best = null;
+  for (const A of As) for (const B of Bs) { const r = rectGap(A, B); if (!r) return null; all.push(r); if (!best || r.d < best.d) best = r; }
+  if (best) best.main = true;
+  return all;                                                           // 每一塊對每一塊的距離；main＝整件最近的那一組
 }
 // 兩個外框最近的距離與那兩個點；互相重疊回傳 null。兩邊平行時取重疊那一段的中間
 function rectGap(A, B) {
@@ -5907,12 +5918,14 @@ function updateOverlay() {
   if (pts.length) line(pts, ACCENT);
   // 與旁邊家具的距離：家具前後左右各找最近的一件，量兩個外框最近的地方（斜放也照實際方向量），藍色標示
   if (sel.k === 'item') {
-    const gp = [], me = footRect({ k: 'item', id: o.id }), th = -o.rot * deg, cs = Math.cos(th), sn = Math.sin(th), best = {};
+    const gp = [], me = footRects({ k: 'item', id: o.id }), th = -o.rot * deg, cs = Math.cos(th), sn = Math.sin(th), best = {};
     for (const e of allBoxes()) {
       if (e.k === 'item' && e.id === o.id || e.ceil || e.box.max.y <= box.min.y + 1 || e.box.min.y >= box.max.y - 1) continue;
-      const r = rectGap(me, footRect(e)); if (!r || r.d < 0.5) continue;
-      const dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], lx = dx * cs - dz * sn, lz = dx * sn + dz * cs, k = Math.abs(lx) > Math.abs(lz) ? (lx > 0 ? 'r' : 'l') : (lz > 0 ? 'f' : 'b');   // 在這件家具的哪一側
-      if (!best[k] || r.d < best[k].d) best[k] = r;
+      const rs = itemsGap(me, footRects(e)); if (!rs) continue;
+      for (const r of rs) { if (r.d < 0.5) continue;
+        const dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], lx = dx * cs - dz * sn, lz = dx * sn + dz * cs, k = Math.abs(lx) > Math.abs(lz) ? (lx > 0 ? 'r' : 'l') : (lz > 0 ? 'f' : 'b');   // 在這件家具的哪一側
+        if (!r.main && Math.min(Math.abs(lx), Math.abs(lz)) > 0.5) continue;   // 同一件家具的其他部分：要正對著才標（L 型沙發的一字和貴妃各標一個），斜對角的不標
+        if (!best[k] || r.d < best[k].d) best[k] = r; }
     }
     for (const r of Object.values(best)) { gp.push(new V3(r.a[0], y + 0.6, r.a[1]), new V3(r.b[0], y + 0.6, r.b[1])); label(Math.round(r.d) + '', 'dimlbl gap', (r.a[0] + r.b[0]) / 2, y + 0.6, (r.a[1] + r.b[1]) / 2, overlay); }
     if (gp.length) line(gp, 0x2f6fd0);
