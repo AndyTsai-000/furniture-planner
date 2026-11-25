@@ -139,7 +139,9 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
 
 /* AR 內提示 */
 #arPrompt{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);background:rgba(20,18,16,.72);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;display:none;align-items:center;gap:10px;backdrop-filter:blur(6px)}
-model-viewer[ar-status="session-started"] #arPrompt{display:flex}
+model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="session-started"] #arPrompt2{display:flex}
+.arPromptX{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);background:rgba(20,18,16,.72);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;display:none;align-items:center;gap:10px}
+.arPromptX svg{width:28px;height:28px}
 #arPrompt svg{width:28px;height:28px;animation:sway 2s ease-in-out infinite}
 @keyframes sway{0%,100%{transform:translateX(-10px) rotate(-8deg)}50%{transform:translateX(10px) rotate(8deg)}}
 
@@ -245,6 +247,57 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 .inapp{margin-top:10px;font-size:13px;line-height:1.55;background:#fff3df;color:#7a4b12;border-radius:10px;padding:9px 12px;display:none}
 .inapp.show{display:block}
 
+/* 組合擺放 */
+.combo-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:999px;padding:8px 16px;font-size:14px;font-weight:500}
+.combo-btn b{background:var(--accent);color:var(--accent-ink);border-radius:999px;min-width:22px;height:22px;display:inline-grid;place-items:center;font-size:12px;padding:0 6px}
+.combo-btn svg{width:18px;height:18px}
+.hero-r{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+.tocombo{display:block;text-align:center;margin-top:8px;font-size:13px;color:var(--accent);font-weight:500;text-decoration:none}
+#combo{position:fixed;inset:0;z-index:31;background:var(--bg);display:none;grid-template-rows:auto minmax(0,1fr) auto auto}
+#combo.show{display:grid}
+.cb-top{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.cb-top h2{flex:1;margin:0;font-family:"Noto Serif TC",serif;font-size:19px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cb-top h2 small{font-family:"Noto Sans TC",sans-serif;font-weight:400;font-size:13px;color:var(--ink3);margin-left:6px}
+.cbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;font-size:13.5px;white-space:nowrap}
+.cbtn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.cb-main{display:grid;grid-template-rows:minmax(0,1fr) 32vh;grid-template-rows:minmax(0,1fr) 32svh;min-height:0}
+.cb-plan{position:relative;min-height:0;background:var(--stage2);overflow:hidden;touch-action:none}
+#cbSvg{width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none}
+#cbSvg .it{cursor:grab}
+#cbSvg .it rect{stroke:var(--ink2);stroke-width:1.2px;vector-effect:non-scaling-stroke}
+#cbSvg .it.sel rect{stroke:var(--accent);stroke-width:2.5px}
+#cbSvg .it .front{stroke:var(--accent);stroke-width:3px;vector-effect:non-scaling-stroke;stroke-linecap:round}
+#cbSvg text{font-family:"Noto Sans TC",system-ui,sans-serif;fill:var(--ink);pointer-events:none;paint-order:stroke;stroke:var(--stage2);stroke-width:3px;stroke-linejoin:round}
+#cbSvg .gm{stroke:var(--line);stroke-width:1px;vector-effect:non-scaling-stroke}
+#cbSvg .gM{stroke:color-mix(in srgb,var(--ink3) 45%,transparent);stroke-width:1px;vector-effect:non-scaling-stroke}
+.cb-total{position:absolute;left:12px;top:10px;font-size:12.5px;color:var(--ink2);background:color-mix(in srgb,var(--card) 85%,transparent);padding:4px 10px;border-radius:8px;font-variant-numeric:tabular-nums;pointer-events:none}
+.cb-scale{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--ink3);pointer-events:none;display:flex;flex-direction:column;gap:2px}
+.cb-scale i{display:block;height:6px;border:1.5px solid var(--ink3);border-top:0}
+.cb-empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;color:var(--ink2);font-size:14px;padding:20px;pointer-events:none}
+.cb-empty b{display:block;font-family:"Noto Serif TC",serif;font-size:19px;color:var(--ink);margin-bottom:6px}
+.cb-3d{position:relative;border-top:1px solid var(--line);background:radial-gradient(ellipse at 50% 65%,var(--stage2) 0%,var(--stage) 75%);min-height:0}
+#cv{width:100%;height:100%;--poster-color:transparent;--progress-bar-color:var(--accent)}
+.cb-busy{position:absolute;right:10px;top:10px;font-size:12px;background:var(--card);border-radius:8px;padding:4px 10px;display:none;align-items:center;gap:6px;box-shadow:var(--shadow);z-index:2}
+.cb-busy.show{display:flex}
+.cb-sel{border-top:1px solid var(--line);padding:10px 14px 4px;display:none}
+.cb-sel.show{display:block}
+.cb-sel .r1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cb-sel .nm{flex:1;min-width:120px;font-weight:700;font-size:15px}
+.cb-sel .nm small{font-weight:400;color:var(--ink3);font-size:12px;margin-left:6px}
+.cb-sel .r2{display:grid;grid-template-columns:40px 1fr 48px;align-items:center;gap:10px;font-size:13px;color:var(--ink2);margin-top:6px}
+.cb-sel input[type=range]{width:100%;accent-color:var(--accent)}
+.cb-sel output{text-align:right;font-variant-numeric:tabular-nums}
+.cb-foot{border-top:1px solid var(--line);padding:10px 14px calc(12px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px}
+.cb-foot .frow{margin:0;flex:none}
+.cb-foot .arbtn{flex:1;padding:12px 0;font-size:16px}
+@media (min-width:861px){
+  .cb-main{grid-template-rows:none;grid-template-columns:minmax(0,1fr) 440px}
+  .cb-3d{border-top:0;border-left:1px solid var(--line)}
+}
+@media (max-width:860px){
+  .cb-top .cbtn{padding:6px 9px;font-size:13px}
+  .cb-foot .frow .tx small{display:none}
+}
 @media (max-width:860px){
   #detail{grid-template-columns:1fr;grid-template-rows:54vh 1fr;grid-template-rows:54svh 1fr}
   .panel{border-left:0;border-radius:22px 22px 0 0;margin-top:-18px;position:relative;z-index:2;box-shadow:0 -8px 24px rgba(0,0,0,.08)}
@@ -272,7 +325,8 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
       <h1>AR 試擺間</h1>
       <p>挑一件家具，用手機鏡頭<wbr>把它以實際大小放進你家看看。</p>
     </div>
-    <div class="howto"><span><b>1</b>挑家具、選顏色</span><span><b>2</b>按「在我家擺擺看」</span><span><b>3</b>鏡頭對著地板</span></div>
+    <div class="hero-r"><div class="howto"><span><b>1</b>挑家具、選顏色</span><span><b>2</b>按「在我家擺擺看」</span><span><b>3</b>鏡頭對著地板</span></div>
+    <button class="combo-btn" id="comboBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>組合擺放<b id="comboN">0</b></button></div>
   </header>
   <nav class="chips" id="chips"></nav>
   <div class="grid" id="grid"></div>
@@ -315,6 +369,8 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
       <p class="sznote">輸入公分，按「套用」後會依新尺寸重新做模型，AR 和照片試擺也會用新尺寸。</p>
     </div>
     <div id="dColors"></div>
+    <button class="arbtn2" id="addCombo" style="margin-top:22px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg><span>加入組合擺放</span></button>
+    <a class="tocombo" id="toCombo" href="#combo" hidden></a>
     <div class="tips"><b>擺放小技巧</b>
       <ol>
         <li>站在要擺放的位置前面，鏡頭對著地板。</li>
@@ -364,6 +420,39 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
     <button class="pm-save" id="pmSave">存成照片</button>
   </div></div>
   <input type="file" id="pmFile" accept="image/*" hidden>
+</section>
+<section id="combo" aria-hidden="true">
+  <div class="cb-top">
+    <button class="ibtn" id="cbBack" aria-label="返回" style="box-shadow:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>組合擺放<small id="cbCount"></small></h2>
+    <button class="cbtn pri" id="cbAdd">＋ 加家具</button><button class="cbtn" id="cbShare">分享</button><button class="cbtn" id="cbClear">清空</button>
+  </div>
+  <div class="cb-main">
+    <div class="cb-plan" id="cbPlan">
+      <svg id="cbSvg" preserveAspectRatio="xMidYMid meet"><g id="cbGrid"></g><g id="cbItems"></g></svg>
+      <div class="cb-total" id="cbTotal"></div>
+      <div class="cb-scale" id="cbScale"><span>1 m</span><i id="cbScaleBar"></i></div>
+      <div class="cb-empty" id="cbEmpty"><div><b>還沒有家具</b>按右上角「＋ 加家具」，<br>或在商品頁按「加入組合擺放」</div></div>
+    </div>
+    <div class="cb-3d">
+      <model-viewer id="cv" camera-controls touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" ar-placement="floor" loading="eager"
+        shadow-intensity="1.1" shadow-softness="0.9" exposure="0.88" environment-image="neutral" tone-mapping="neutral" interaction-prompt="none"
+        camera-orbit="-20deg 60deg 105%" max-camera-orbit="auto 92deg 300%" interpolation-decay="120">
+        <button slot="ar-button" style="display:none"></button>
+        <div id="arPrompt2" slot="ar-prompt" class="arPromptX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>慢慢左右移動手機，讓它找到地板</div>
+      </model-viewer>
+      <div class="cb-busy" id="cbBusy"><span class="spin"></span>更新 3D⋯</div>
+    </div>
+  </div>
+  <div class="cb-sel" id="cbSel">
+    <div class="r1"><div class="nm" id="cbSelName"></div>
+      <button class="cbtn" data-rot="-90">↺ 90°</button><button class="cbtn" data-rot="90">↻ 90°</button><button class="cbtn" id="cbDup">複製</button><button class="cbtn" id="cbDel" style="color:#c0462b">刪除</button></div>
+    <label class="r2"><span>角度</span><input type="range" id="cbRot" min="-180" max="180" step="5"><output id="cbRotO"></output></label>
+  </div>
+  <div class="cb-foot">
+    <label class="frow"><input type="checkbox" id="cbFrame"><span class="sw2"></span><span class="tx">地面輪廓<small>每件佔地與總寬深</small></span></label>
+    <button class="arbtn" id="cbAR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看（整組）</span></button>
+  </div>
 </section>
 <div id="calSheet"><div class="sh">
   <h4>這段線實際有多長？</h4>
@@ -441,7 +530,7 @@ function openP(k, size) {
   $('dCat').textContent = p.cat;
   $('dName').textContent = p.n;
   document.title = p.n + '｜AR 試擺間';
-  renderSpecs(); renderColors();
+  renderSpecs(); renderColors(); syncToCombo();
   $('detail').classList.add('show'); $('detail').setAttribute('aria-hidden', 'false');
   $('list').style.display = 'none';
   $('hint').style.opacity = 1;
@@ -462,6 +551,7 @@ $('frameOn').checked = frameOn;
 $('frameOn').onchange = e => {
   frameOn = e.target.checked; try { localStorage.setItem('ar-frame', frameOn ? '1' : '0'); } catch (err) {}
   if (cur && urls.plain) mv.src = frameOn ? urls.frame : urls.plain;
+  $('cbFrame').checked = frameOn;
 };
 /* 尺寸：顯示／修改 */
 const LIM = v => ({ lo: Math.max(20, Math.round(v * 0.5)), hi: Math.round(v * 2) });
@@ -595,7 +685,7 @@ $('qrPhoto').onclick = () => { $('qrModal').classList.remove('show'); openPhoto(
 $('arBtn').onclick = () => {
   if (mv.canActivateAR) { mv.activateAR(); return; }
   if (isMobile) { openPhoto(); return; }
-  $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.M });
+  $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.M }); $('qrPhoto').style.display = '';
   $('qrModal').classList.add('show');
 };
 $('qrClose').onclick = () => $('qrModal').classList.remove('show');
@@ -607,7 +697,7 @@ $('shareBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(url); toast('已複製這件家具的連結'); } catch (e) { toast(url); }
 };
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2200); }
-addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('calSheet').classList.contains('show') || cal.on) calEnd(); else if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('calSheet').classList.contains('show') || cal.on) calEnd(); else if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if ($('combo').classList.contains('show')) $('cbBack').click(); else if (cur) location.hash = ''; } });
 
 
 /* ---------- 照片試擺：拍一張家裡的照片，放好幾件 3D 家具 ---------- */
@@ -719,14 +809,15 @@ function renderSheet() {
   $('pmSheetCats').innerHTML = cats.map(c => `<button class="${c === sheetCat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
   $('pmSheetGrid').innerHTML = P.filter(p => sheetCat === '全部' || p.cat === sheetCat).map(p => `<button data-k="${p.k}"><img src="thumbs/${p.k}.webp" alt="" loading="lazy">${p.n}</button>`).join('');
 }
-$('pmAdd').onclick = () => { renderSheet(); $('pmSheet').classList.add('show'); };
+let pickCb = null;
+function openPicker(cb) { pickCb = cb; renderSheet(); $('pmSheet').classList.add('show'); }
+$('pmAdd').onclick = () => openPicker(p => addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` }));
 $('pmSheetClose').onclick = () => $('pmSheet').classList.remove('show');
 $('pmSheet').onclick = e => { if (e.target === $('pmSheet')) $('pmSheet').classList.remove('show'); };
 $('pmSheetCats').onclick = e => { const b = e.target.closest('button'); if (b) { sheetCat = b.dataset.c; renderSheet(); } };
 $('pmSheetGrid').onclick = e => {
   const b = e.target.closest('button'); if (!b) return; const p = P.find(x => x.k === b.dataset.k);
-  addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` });
-  $('pmSheet').classList.remove('show');
+  $('pmSheet').classList.remove('show'); if (pickCb) pickCb(p);
 };
 /* 對比例：在照片上拉一條已知長度的線 → 換算每公尺幾像素 → 所有家具照實際尺寸縮放 */
 const cal = { on: false, a: null, b: null, drawing: false };
@@ -832,8 +923,156 @@ $('pmShare').onclick = async () => { try { await navigator.share({ files: [new F
 $('pmDl').onclick = () => { const a = document.createElement('a'); a.href = $('pmOutImg').src; a.download = outName; document.body.appendChild(a); a.click(); a.remove(); };
 $('pmOutClose').onclick = () => $('pmOut').classList.remove('show');
 
+
+/* ---------- 組合擺放：平面圖排位置 → 合成一個模型 → AR 看整組 ---------- */
+const CB = { items: [], sel: null, nid: 0, view: null, drag: null, url: '', seq: 0, timer: 0 };
+const CB_KEY = 'ar-combo';
+const colsArr = (p, selMap) => ['c1', 'c2', 'c3'].map(r => { const c = p.cs.find(x => x[0] === r); return c ? (selMap && selMap[r]) || c[2] : null; });
+const cbEnc = () => CB.items.map(i => [i.k, i.w, i.d, i.h, Math.round(i.x), Math.round(i.z), i.r, i.c.map(c => (c || '').replace('#', '')).join('-')].join('~')).join('_');
+function cbDec(str) {
+  const out = [];
+  for (const t of String(str || '').split('_')) {
+    const a = t.split('~'), p = P.find(x => x.k === a[0]); if (!p || a.length < 7) continue;
+    const z = clampSize(p, { w: +a[1], d: +a[2], h: +a[3] }).z, cs = (a[7] || '').split('-');
+    out.push({ id: ++CB.nid, k: p.k, w: z.w, d: z.d, h: z.h, x: +a[4] || 0, z: +a[5] || 0, r: +a[6] || 0, c: colsArr(p).map((d, i) => /^[0-9a-f]{6}$/i.test(cs[i] || '') ? '#' + cs[i].toLowerCase() : d) });
+  }
+  return out;
+}
+function cbSave() { try { localStorage.setItem(CB_KEY, cbEnc()); } catch (e) {} $('comboN').textContent = CB.items.length; }
+try { CB.items = cbDec(localStorage.getItem(CB_KEY)); } catch (e) {}
+$('comboN').textContent = CB.items.length;
+const corners = i => { const t = i.r * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const x = a * i.w / 2, z = b * i.d / 2; return [i.x + x * c - z * s, i.z + x * s + z * c]; }); };
+function cbBox() { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const i of CB.items) for (const [x, z] of corners(i)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return CB.items.length ? { x0, x1, z0, z1 } : null; }
+function cbAddProduct(p, size, selMap) {
+  const z = size || { w: p.w, d: p.d, h: p.h }, b = cbBox();
+  const it = { id: ++CB.nid, k: p.k, w: z.w, d: z.d, h: z.h, x: b ? Math.round((b.x1 + 30 + z.w / 2) / 5) * 5 : 0, z: b ? Math.round(((b.z0 + b.z1) / 2) / 5) * 5 : 0, r: 0, c: colsArr(p, selMap) };
+  CB.items.push(it); CB.sel = it.id; cbSave(); return it;
+}
+/* 商品頁 → 加入組合 */
+$('addCombo').onclick = () => { if (!cur) return; cbAddProduct(cur, { ...curSize }, sel); toast(`已加入組合擺放（共 ${CB.items.length} 件）`); syncToCombo(); };
+function syncToCombo() { const n = CB.items.length; $('toCombo').hidden = !n; $('toCombo').textContent = `前往組合擺放（${n} 件）→`; }
+$('comboBtn').onclick = () => { location.hash = 'combo'; };
+function openCombo(data) {
+  if (data) {
+    const items = cbDec(data);
+    if (items.length && (!CB.items.length || cbEnc() === data || confirm('要用分享連結裡的組合，取代目前排好的組合嗎？'))) { CB.items = items; CB.sel = null; cbSave(); }
+    history.replaceState(null, '', '#combo');
+  }
+  $('combo').classList.add('show'); $('combo').setAttribute('aria-hidden', 'false');
+  $('list').style.display = 'none'; $('cbFrame').checked = frameOn;
+  CB.view = null; cbRender(); requestAnimationFrame(() => { CB.view = null; cbRender(); }); cbBuildSoon(0);
+}
+function closeCombo() { if (!$('combo').classList.contains('show')) return; $('combo').classList.remove('show'); $('combo').setAttribute('aria-hidden', 'true'); if (!cur) $('list').style.display = ''; }
+$('cbBack').onclick = () => { if (history.length > 1) history.back(); else location.hash = ''; };
+$('cbAdd').onclick = () => openPicker(p => { cbAddProduct(p); CB.view = null; cbRender(); cbBuildSoon(); });
+$('cbClear').onclick = () => { if (!CB.items.length || !confirm('要清空組合裡的所有家具嗎？')) return; CB.items = []; CB.sel = null; cbSave(); cbRender(); cbBuildSoon(0); };
+$('cbShare').onclick = async () => {
+  if (!CB.items.length) { toast('先加入家具'); return; }
+  const url = location.href.split('#')[0] + '#combo=' + cbEnc();
+  if (navigator.share && isMobile) { try { await navigator.share({ title: '家具組合', text: '用手機 AR 看這組家具擺在家裡的樣子', url }); } catch (e) {} return; }
+  try { await navigator.clipboard.writeText(url); toast('已複製組合連結'); } catch (e) { prompt('複製這個連結', url); }
+};
+/* 平面圖 */
+const NS = 'http://www.w3.org/2000/svg';
+function cbFit() {
+  const b = cbBox() || { x0: -150, x1: 150, z0: -100, z1: 100 }, m = 70;
+  let x0 = b.x0 - m, x1 = b.x1 + m, z0 = b.z0 - m, z1 = b.z1 + m;
+  const pr = $('cbPlan').getBoundingClientRect(), ar = pr.width / Math.max(1, pr.height);
+  let w = Math.max(300, x1 - x0), h = Math.max(240, z1 - z0); const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  if (w / h > ar) h = w / ar; else w = h * ar;
+  CB.view = { x: cx - w / 2, y: cz - h / 2, w, h };
+}
+function cbRender() {
+  if (!CB.view) cbFit();
+  const v = CB.view, svg = $('cbSvg'), pr = $('cbPlan').getBoundingClientRect();
+  svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+  const ppc = pr.width / v.w;                       // 每公分幾像素
+  // 格線：50 cm 細線、100 cm 粗線
+  let g = '';
+  for (let x = Math.ceil(v.x / 50) * 50; x < v.x + v.w; x += 50) g += `<line class="${x % 100 ? 'gm' : 'gM'}" x1="${x}" y1="${v.y}" x2="${x}" y2="${v.y + v.h}"/>`;
+  for (let z = Math.ceil(v.y / 50) * 50; z < v.y + v.h; z += 50) g += `<line class="${z % 100 ? 'gm' : 'gM'}" x1="${v.x}" y1="${z}" x2="${v.x + v.w}" y2="${z}"/>`;
+  $('cbGrid').innerHTML = g;
+  const fs = 11 / ppc;
+  $('cbItems').innerHTML = CB.items.map(i => {
+    const p = P.find(x => x.k === i.k), fill = i.c[0] || '#ccc';
+    const t = i.r * Math.PI / 180, ew = Math.abs(i.w * Math.cos(t)) + Math.abs(i.d * Math.sin(t)), eh = Math.abs(i.w * Math.sin(t)) + Math.abs(i.d * Math.cos(t));
+    const dimT = `${i.w}×${i.d}`, showN = p.n.length * fs * 1.05 < ew * 0.92 && eh > fs * 2.6, showD = dimT.length * fs * 0.5 < ew * 0.92 && eh > fs * 1.3;
+    return `<g class="it${i.id === CB.sel ? ' sel' : ''}" data-id="${i.id}">
+      <g transform="translate(${i.x} ${i.z}) rotate(${i.r})"><rect x="${-i.w / 2}" y="${-i.d / 2}" width="${i.w}" height="${i.d}" rx="3" fill="${fill}" fill-opacity=".75"/>
+      <line class="front" x1="${-i.w / 2 + 4}" y1="${i.d / 2}" x2="${i.w / 2 - 4}" y2="${i.d / 2}"/></g>
+      ${showN ? `<text x="${i.x}" y="${i.z - fs * 0.2}" text-anchor="middle" font-size="${fs * 1.05}" font-weight="700">${p.n}</text>` : ''}
+      ${showD ? `<text x="${i.x}" y="${showN ? i.z + fs * 1.05 : i.z + fs * 0.35}" text-anchor="middle" font-size="${fs * 0.9}">${dimT}</text>` : ''}<title>${p.n} ${i.w}×${i.d}×${i.h} cm</title></g>`;
+  }).join('');
+  const b = cbBox();
+  $('cbTotal').textContent = b ? `總寬 ${Math.round(b.x1 - b.x0)} × 總深 ${Math.round(b.z1 - b.z0)} cm・橘線是正面` : '';
+  $('cbTotal').style.display = b ? '' : 'none';
+  $('cbScaleBar').style.width = Math.round(100 * ppc) + 'px';
+  $('cbEmpty').style.display = CB.items.length ? 'none' : '';
+  $('cbCount').textContent = CB.items.length ? `${CB.items.length} 件` : '';
+  cbSelUI();
+}
+function cbSelUI() {
+  const i = CB.items.find(x => x.id === CB.sel); $('cbSel').classList.toggle('show', !!i); if (!i) return;
+  const p = P.find(x => x.k === i.k);
+  $('cbSelName').innerHTML = `${p.n}<small>${i.w}×${i.d}×${i.h} cm</small>`;
+  $('cbRot').value = i.r; $('cbRotO').textContent = i.r + '°';
+}
+const svgPt = e => { const s = $('cbSvg'), pt = s.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(s.getScreenCTM().inverse()); };
+$('cbSvg').addEventListener('pointerdown', e => {
+  const gEl = e.target.closest('.it');
+  if (!gEl) { CB.sel = null; cbRender(); return; }
+  const i = CB.items.find(x => x.id === +gEl.dataset.id); CB.sel = i.id;
+  const p = svgPt(e); CB.drag = { id: i.id, dx: p.x - i.x, dz: p.y - i.z, moved: false };
+  $('cbSvg').setPointerCapture(e.pointerId); cbRender();
+});
+$('cbSvg').addEventListener('pointermove', e => {
+  if (!CB.drag) return; const i = CB.items.find(x => x.id === CB.drag.id), p = svgPt(e);
+  i.x = Math.round((p.x - CB.drag.dx) / 5) * 5; i.z = Math.round((p.y - CB.drag.dz) / 5) * 5; CB.drag.moved = true; cbRender();
+});
+const cbUp = () => { if (!CB.drag) return; const m = CB.drag.moved; CB.drag = null; if (m) { cbSave(); cbFitIfOut(); cbBuildSoon(); } };
+$('cbSvg').addEventListener('pointerup', cbUp); $('cbSvg').addEventListener('pointercancel', cbUp);
+function cbFitIfOut() { const b = cbBox(), v = CB.view; if (b && (b.x0 < v.x || b.x1 > v.x + v.w || b.z0 < v.y || b.z1 > v.y + v.h)) { CB.view = null; cbRender(); } }
+try { new ResizeObserver(() => { if ($('combo').classList.contains('show') && !CB.drag) { CB.view = null; cbRender(); } }).observe($('cbPlan')); } catch (e) { addEventListener('resize', () => { if ($('combo').classList.contains('show')) { CB.view = null; cbRender(); } }); }
+const cbEdit = fn => { const i = CB.items.find(x => x.id === CB.sel); if (!i) return; fn(i); cbSave(); cbRender(); cbFitIfOut(); cbBuildSoon(); };
+document.querySelectorAll('#cbSel [data-rot]').forEach(b => b.onclick = () => cbEdit(i => { const r = Math.round(i.r + +b.dataset.rot); i.r = ((r + 540) % 360) - 180; }));
+$('cbRot').oninput = e => { const i = CB.items.find(x => x.id === CB.sel); if (i) { i.r = +e.target.value; cbRender(); } };
+$('cbRot').onchange = () => cbEdit(() => {});
+$('cbDup').onclick = () => cbEdit(i => { const n = { ...i, id: ++CB.nid, c: [...i.c], x: i.x + Math.round((i.w / 2 + 40) / 5) * 5 }; CB.items.push(n); CB.sel = n.id; });
+$('cbDel').onclick = () => { const i = CB.items.find(x => x.id === CB.sel); if (!i) return; CB.items = CB.items.filter(x => x !== i); CB.sel = null; cbSave(); cbRender(); cbBuildSoon(); };
+$('cbFrame').onchange = e => { frameOn = e.target.checked; $('frameOn').checked = frameOn; try { localStorage.setItem('ar-frame', frameOn ? '1' : '0'); } catch (err) {} cbBuildSoon(0); };
+/* 合成一個模型（用家具配置網站同一套建模程式），給 3D 預覽和 AR */
+function cbBuildSoon(ms = 500) { clearTimeout(CB.timer); CB.timer = setTimeout(cbBuild, ms); $('cbBusy').classList.toggle('show', CB.items.length > 0); }
+async function cbBuild() {
+  const seq = ++CB.seq;
+  if (!CB.items.length) { $('cbBusy').classList.remove('show'); $('cv').removeAttribute('src'); CB.url = ''; return; }
+  try {
+    const E = await eng(), T3 = E.THREE, F = await import('./frame.js');
+    const b = cbBox(), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, content = new T3.Group();
+    for (const i of CB.items) { const g = E.buildOwn(i.k, { w: i.w, d: i.d, h: i.h }, i.c); g.position.set(i.x - cx, 0, i.z - cz); g.rotation.y = -i.r * Math.PI / 180; content.add(g); }
+    if (frameOn) content.add(F.makeComboFrame(T3, CB.items.map(i => corners({ ...i, x: i.x - cx, z: i.z - cz })), { x0: b.x0 - cx, x1: b.x1 - cx, z0: b.z0 - cz, z1: b.z1 - cz }));
+    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(content); root.updateMatrixWorld(true);
+    const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
+    if (seq !== CB.seq) return;
+    const old = CB.url; CB.url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+    $('cv').addEventListener('load', () => { if (seq === CB.seq) $('cbBusy').classList.remove('show'); if (old) setTimeout(() => URL.revokeObjectURL(old), 3000); }, { once: true });
+    $('cv').src = CB.url;
+  } catch (e) { console.error(e); if (seq === CB.seq) { $('cbBusy').classList.remove('show'); toast('3D 更新失敗'); } }
+}
+$('cbAR').onclick = () => {
+  const cv = $('cv');
+  if (!CB.items.length) { toast('先加入家具'); return; }
+  if ($('cbBusy').classList.contains('show') || !cv.loaded) { toast('3D 還在更新，請稍等一下'); return; }
+  if (cv.canActivateAR) { cv.activateAR(); return; }
+  if (isMobile) { toast(IN_APP ? '請用 Safari 或 Chrome 開啟才能用 AR' : '這支手機不支援 AR'); return; }
+  $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href.split('#')[0] + '#combo=' + cbEnc(), width: 380, height: 380, correctLevel: QRCode.CorrectLevel.L });
+  $('qrPhoto').style.display = 'none'; $('qrModal').classList.add('show');
+};
+
 function route() {
-  const [k, sz] = decodeURIComponent(location.hash.slice(1)).split('@'), m = (sz || '').match(/^(\d+)x(\d+)x(\d+)$/);
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h === 'combo' || h.startsWith('combo=')) { openCombo(h.startsWith('combo=') ? h.slice(6) : null); return; }
+  closeCombo();
+  const [k, sz] = h.split('@'), m = (sz || '').match(/^(\d+)x(\d+)x(\d+)$/);
   if (k) openP(k, m ? { w: +m[1], d: +m[2], h: +m[3] } : null); else if (cur) closeP();
 }
 addEventListener('hashchange', route);

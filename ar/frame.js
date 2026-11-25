@@ -60,3 +60,16 @@ export function makeFrame(THREE, box, size, zone) {
   const ld = label(THREE, `深 ${size.d} cm`, H, LINE, x1 + off, cz, Math.PI / 2); grp.add(ld.o);
   return grp;
 }
+
+/* 組合擺放：每件家具的佔地框（可旋轉）＋整組外框與總寬／總深（單位：公分） */
+export function makeComboFrame(THREE, polys, box) {
+  const grp = new THREE.Group(); grp.name = 'ar-frame';
+  const mL = mat(THREE, LINE), mZ = mat(THREE, ZONE);
+  for (const p of polys) for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; grp.add(strip(THREE, mL, a[0], a[1], b[0], b[1], 2)); }
+  const { x0, x1, z0, z1 } = box, g = 8;
+  rect(THREE, grp, mZ, x0 - g, z0 - g, x1 + g, z1 + g, true);
+  const H = Math.max(10, Math.min(18, Math.min(x1 - x0, z1 - z0) * 0.12)), off = g + H * 0.75 + 4;
+  grp.add(label(THREE, `總寬 ${Math.round(x1 - x0)} cm`, H, LINE, (x0 + x1) / 2, z1 + off).o);
+  grp.add(label(THREE, `總深 ${Math.round(z1 - z0)} cm`, H, LINE, x1 + off, (z0 + z1) / 2, Math.PI / 2).o);
+  return grp;
+}
