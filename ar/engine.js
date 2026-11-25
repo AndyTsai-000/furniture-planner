@@ -4659,4 +4659,15 @@ export function buildOwn(k, size, cols) {
   try { g = T.build(it); } finally { TRI_CUR = TRI_MAX = 0; }
   g.updateMatrixWorld(true); return g;
 }
+/* 任何家具（含家具配置網站的一般家具）：o 是款式選項（例如座位數、桌面形狀） */
+export function buildAny(k, size, cols, o) {
+  const T = TYPES[k]; if (!T || !T.build) return null;
+  const it = applyDefaults({ ...T, type: k, id: 0, rot: 0, ...(o || {}) }, T);
+  if (size) { it.w = size.w; it.d = size.d; it.h = size.h; }
+  if (cols) { if (cols[0]) it.color = cols[0]; if (cols[1]) it.color2 = cols[1]; if (cols[2]) it.color3 = cols[2]; }
+  let g; try { TRI_CUR = triSize(it); TRI_MAX = Math.max(it.w || 0, it.d || 0); } catch (e) {}
+  try { g = T.build(it); } finally { TRI_CUR = TRI_MAX = 0; }
+  g.updateMatrixWorld(true); return g;
+}
+export function typeInfo(k) { const T = TYPES[k]; return T ? { n: T.name, cat: T.cat, w: T.w, d: T.d, h: T.h, c1: T.c1, c2: T.c2, c3: T.c3 } : null; }
 export { THREE, TYPES };

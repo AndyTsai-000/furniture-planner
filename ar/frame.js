@@ -62,7 +62,7 @@ export function makeFrame(THREE, box, size, zone) {
 }
 
 /* 組合擺放：每件家具的佔地框（可旋轉）＋整組外框與總寬／總深（單位：公分） */
-export function makeComboFrame(THREE, polys, box) {
+export function makeComboFrame(THREE, polys, box, room) {
   const grp = new THREE.Group(); grp.name = 'ar-frame';
   const mL = mat(THREE, LINE), mZ = mat(THREE, ZONE);
   for (const p of polys) for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; grp.add(strip(THREE, mL, a[0], a[1], b[0], b[1], 2)); }
@@ -71,5 +71,10 @@ export function makeComboFrame(THREE, polys, box) {
   const H = Math.max(10, Math.min(18, Math.min(x1 - x0, z1 - z0) * 0.12)), off = g + H * 0.75 + 4;
   grp.add(label(THREE, `總寬 ${Math.round(x1 - x0)} cm`, H, LINE, (x0 + x1) / 2, z1 + off).o);
   grp.add(label(THREE, `總深 ${Math.round(z1 - z0)} cm`, H, LINE, x1 + off, (z0 + z1) / 2, Math.PI / 2).o);
+  if (room) {   // 房間牆線（從家具配置網站送過來時才有）：對準真實的牆角就能看出整個空間
+    const mR = mat(THREE, '#3d7bd9'), W = room.w / 2, D = room.d / 2;
+    for (const [a, b] of [[[-W, -D], [W, -D]], [[W, -D], [W, D]], [[W, D], [-W, D]], [[-W, D], [-W, -D]]]) grp.add(strip(THREE, mR, a[0], a[1], b[0], b[1], 4));
+    grp.add(label(THREE, `房間 ${room.w}×${room.d} cm`, Math.max(12, H), '#2f63b5', 0, -D + Math.max(12, H) * 0.75 + 6).o);
+  }
   return grp;
 }

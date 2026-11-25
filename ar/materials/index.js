@@ -1,0 +1,2 @@
+// 自動產生（build_materials.mjs）
+window.ARMAT_INDEX = [{"key":"common","name":"常用木頭、金屬","types":["木頭","金屬"],"n":4,"colors":64},{"key":"gradea","name":"尚慶 Grade-A","types":["真皮","合成皮","布料"],"n":63,"colors":1091},{"key":"shengchyi","name":"勝騏實業","types":["真皮","合成皮","布料"],"n":55,"colors":1525},{"key":"greencity","name":"綠都 Green City","types":["布料","合成皮"],"n":36,"colors":563},{"key":"ligo","name":"利谷 LIGO","types":["真皮"],"n":51,"colors":1165},{"key":"abu","name":"ABU 沙發布","types":["布料"],"n":47,"colors":395},{"key":"marmo","name":"台灣瑪摩（磁磚、陶板）","types":["磁磚"],"n":346,"colors":346}];

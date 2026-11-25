@@ -381,6 +381,7 @@ body.present.presset #rpanel{display:block}
   <button class="hbtn" id="listBtn">清單</button>
   <button class="hbtn hide-sm" id="shotBtn" title="把目前畫面存成圖片">截圖</button>
   <button class="hbtn" id="renderBtn" title="高品質光影預覽，可輸出圖片或動畫">✦<span class="hide-sm"> 渲染</span></button>
+  <button class="hbtn" id="arBtnP" title="把這個空間的家具（含房間大小）送到 AR 試擺間，用手機鏡頭擺進真實空間看">▣<span class="hide-sm"> AR 實景</span></button>
   <button class="hbtn" id="quickSave" title="直接儲存到這台裝置的專案，不會跳出視窗（Ctrl+S）">儲存舊檔</button>
   <button class="hbtn" id="exportBtn" title="存成一個新的專案檔">另存新檔</button>
   <div class="spacebar"><span class="projlabel hide-sm" id="projLabel"></span><select id="spaceSel" title="切換空間"></select><button class="hbtn" id="newBtn">＋ 新空間</button><button class="hbtn" id="mergeBtn" title="把專案裡所有空間放在一起，拖曳排列成完整平面">⊞<span class="hide-sm"> 空間合併</span></button></div>
@@ -9714,6 +9715,23 @@ function enterAllRender() {                                             // 全�
   RM.viaCtx = keep; enterPresent(); $('#presExit').textContent = '✕ 返回編輯';
 }
 $('#renderBtn').onclick = () => RM.on ? exitRender() : MG.on ? enterPresent() : ctxOn() ? enterAllRender() : enterRender();   // 空間合併、全部空間一起編輯時直接進展示頁
+/* AR 實景：把目前空間的家具（含房間大小）送到 AR 試擺間的「組合擺放」，用手機鏡頭看整個空間 */
+$('#arBtnP').onclick = async () => {
+  const items = state.items.filter(it => { const T = TYPES[it.type]; return T && T.build && !T.person; }).map(it => {
+    const T = TYPES[it.type], o = {};
+    for (const g of optsOf(T)) if (it[g.key] !== undefined) o[g.key] = it[g.key];
+    return { k: it.type, n: T.name, w: Math.round(it.w), d: Math.round(it.d), h: Math.round(it.h), x: Math.round(it.x), z: Math.round(it.z), r: Math.round(it.rot || 0), e: Math.round(it.elev || 0), c: [it.color || null, it.color2 || null, it.color3 || null], o };
+  });
+  if (!items.length) { flash($('#arBtnP'), '空間裡還沒有家具'); return; }
+  const win = window.open('', '_blank');   // 先開視窗（等壓縮完才開會被手機瀏覽器擋下）
+  const b64 = u8 => { let t = ''; for (let i = 0; i < u8.length; i += 0x8000) t += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const raw = new TextEncoder().encode(JSON.stringify({ v: 1, room: { w: Math.round(state.room.w), d: Math.round(state.room.d) }, items }));
+  let enc;
+  try { const buf = await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer(); enc = 'z.' + b64(new Uint8Array(buf)); } catch (e) { enc = 'j.' + b64(raw); }
+  const base = /github\.io$/.test(location.hostname) ? new URL('ar/', location.href.split('#')[0]).href : 'https://andytsai-000.github.io/furniture-planner/ar/';
+  const url = base + '#combo=' + enc;
+  if (win) win.location.href = url; else location.href = url;
+};
 let rMoveT = 0;
 controls.addEventListener('start', () => { clearTimeout(rMoveT); RM.moving = true; });
 controls.addEventListener('end', () => { clearTimeout(rMoveT); rMoveT = setTimeout(() => { RM.moving = false; }, 200); });

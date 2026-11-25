@@ -132,8 +132,14 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
 .arbtn{width:100%;border:0;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-size:17px;font-weight:700;letter-spacing:.06em;padding:15px 0;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent)}
 .arbtn svg{width:22px;height:22px}
 .arnote{font-size:12px;color:var(--ink3);text-align:center;margin-top:8px}
-.tips{margin-top:26px;padding:16px 18px;border-radius:12px;background:var(--bg2);font-size:13px;color:var(--ink2)}
-.tips b{color:var(--ink);font-weight:500}
+.ctarow{display:flex;gap:8px;align-items:stretch}
+.ctarow .arbtn{flex:1.7;min-width:0}
+.ctarow .arbtn2{flex:1;width:auto;margin:0;min-width:0;border-radius:14px;padding:0 6px;font-size:14px}
+.tips{margin-top:18px;padding:12px 16px;border-radius:12px;background:var(--bg2);font-size:13px;color:var(--ink2)}
+.tips summary{color:var(--ink);font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+.tips summary::-webkit-details-marker{display:none}
+.tips summary::after{content:'＋';color:var(--ink3)}
+.tips[open] summary::after{content:'－'}
 .tips ol{margin:6px 0 0;padding-left:20px}
 .tips li{margin:3px 0}
 
@@ -294,6 +300,46 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
   .cb-main{grid-template-rows:none;grid-template-columns:minmax(0,1fr) 440px}
   .cb-3d{border-top:0;border-left:1px solid var(--line)}
 }
+/* 型錄材質 */
+.matbtn{border:1px dashed var(--ink3);background:none;color:var(--ink2);border-radius:999px;height:34px;padding:0 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px}
+.matbtn:hover{border-color:var(--accent);color:var(--accent)}
+.matlab{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:12.5px;line-height:1.4}
+.matlab img{width:34px;height:34px;border-radius:6px;object-fit:cover;flex:none}
+.matlab span{flex:1;min-width:0}
+.matlab b{display:block;font-size:13px}
+.matlab i{font-style:normal;color:var(--ink3)}
+#matSheet{position:fixed;inset:0;z-index:44;background:rgba(20,16,12,.45);display:none;align-items:flex-end;justify-content:center}
+#matSheet.show{display:flex}
+#matSheet .ms{background:var(--bg);color:var(--ink);width:100%;max-width:760px;height:min(86vh,760px);border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+@media (min-width:861px){#matSheet{align-items:center}#matSheet .ms{border-radius:20px}}
+.msh{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
+.msh h4{flex:1;margin:0;font-family:"Noto Serif TC",serif;font-size:19px}
+.msh button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 14px}
+.msv,.mst{display:flex;gap:6px;overflow-x:auto;padding:4px 18px 8px;scrollbar-width:none;flex:none}
+.msv button,.mst button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:999px;padding:5px 13px;font-size:13px}
+.msv button.on,.mst button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.msq{padding:2px 18px 8px;flex:none}
+.msq input{width:100%;font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);color:var(--ink)}
+.msg{flex:1;min-height:0;overflow-y:auto;padding:4px 18px 20px}
+.msgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.mser{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:6px;text-align:left;font-size:12.5px;line-height:1.35;display:flex;flex-direction:column;gap:5px}
+.mser img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--bg2)}
+.mser small{color:var(--ink3)}
+.mback{border:0;background:none;color:var(--accent);font-weight:500;padding:4px 0 10px;font-size:14px}
+.mshead{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.mshead img{width:64px;height:64px;border-radius:10px;object-fit:cover}
+.mshead b{font-size:15px}
+.mcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:12px 8px}
+.mcol{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--ink2);line-height:1.25;text-align:center}
+.mcol i{width:46px;height:46px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--ring);background-size:cover;background-position:center}
+.mcol.on i{outline:2px solid var(--ink);outline-offset:3px}
+.msload{padding:30px;text-align:center;color:var(--ink3)}
+/* 間距標示 */
+#cbSvg .gap line{stroke:#2a7de1;stroke-width:1.6px;vector-effect:non-scaling-stroke}
+#cbSvg .gap text{fill:#1d64c2;font-weight:700}
+#cbSvg .it.hit rect{stroke:#d33;stroke-width:2.5px;fill-opacity:.55}
+#cbSvg .room{fill:none;stroke:var(--ink);stroke-width:4px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+#cbSvg .roomL{fill:var(--ink2)}
 @media (max-width:860px){
   .cb-top .cbtn{padding:6px 9px;font-size:13px}
   .cb-foot .frow .tx small{display:none}
@@ -305,6 +351,12 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
   .panel h2{font-size:25px}
   .cta{padding-left:16px;padding-right:16px}
   .arnote{display:none}
+  .cta{padding-top:10px}
+  .cta .frow{margin-bottom:8px}
+  .cta .frow .tx small{display:none}
+  .ctarow .arbtn{font-size:15.5px;padding:13px 0;gap:7px}
+  .ctarow .arbtn svg{width:19px;height:19px}
+  .ctarow .arbtn2{font-size:13.5px;gap:5px}
   .hint{bottom:30px}
   .hero{padding-top:30px}
   .hero p{font-size:14px}
@@ -371,18 +423,21 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
     <div id="dColors"></div>
     <button class="arbtn2" id="addCombo" style="margin-top:22px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg><span>加入組合擺放</span></button>
     <a class="tocombo" id="toCombo" href="#combo" hidden></a>
-    <div class="tips"><b>擺放小技巧</b>
+    <details class="tips"><summary>AR 擺放小技巧</summary>
       <ol>
         <li>站在要擺放的位置前面，鏡頭對著地板。</li>
         <li>慢慢左右移動手機，畫面出現家具後，用手指拖曳就能移動位置，雙指可以旋轉方向。</li>
         <li>光線充足、地板有紋路的地方比較容易對準。</li>
+        <li>AR 畫面裡按白色快門鍵（iPhone）或手機截圖，就能存下照片。</li>
       </ol>
-    </div>
+    </details>
     </div><div class="cta">
       <label class="frow"><input type="checkbox" id="frameOn"><span class="sw2"></span><span class="tx">地面輪廓<small>在地上標出家具佔地範圍和建議留空的走道</small></span></label>
-      <button class="arbtn" id="arBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看</span></button>
+      <div class="ctarow">
+        <button class="arbtn" id="arBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看</span></button>
+        <button class="arbtn2" id="photoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>用照片擺擺看</span></button>
+      </div>
       <div class="arnote" id="arNote">以實際大小出現在你家，可以走過去從各角度看</div>
-      <button class="arbtn2" id="photoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>用照片擺擺看</span></button>
       <div class="inapp" id="inapp">在 LINE、FB、IG 裡面打開的網頁不能用 AR。請點右上角「⋯」選「用瀏覽器開啟」，或先用照片擺擺看。</div>
     </div>
   </aside>
@@ -454,6 +509,13 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
     <button class="arbtn" id="cbAR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看（整組）</span></button>
   </div>
 </section>
+<div id="matSheet"><div class="ms">
+  <div class="msh"><h4 id="msTitle">選擇材質</h4><button id="msClose">關閉</button></div>
+  <div class="msv" id="msVendors"></div>
+  <div class="mst" id="msTypes"></div>
+  <div class="msq"><input id="msQ" type="search" placeholder="搜尋系列名稱或色號"></div>
+  <div class="msg" id="msGrid"></div>
+</div></div>
 <div id="calSheet"><div class="sh">
   <h4>這段線實際有多長？</h4>
   <p>輸入公分，所有家具會照這個比例自動調整大小。</p>
@@ -525,7 +587,7 @@ function openP(k, size) {
   const p = P.find(x => x.k === k); if (!p) return closeP();
   if (!cur) listScroll = scrollY;
   const same = cur && cur.k === k;
-  cur = p; if (!same) sel = Object.fromEntries(p.cs.map(c => [c[0], c[2]]));
+  cur = p; if (!same) { sel = Object.fromEntries(p.cs.map(c => [c[0], c[2]])); mats = {}; matInfo = {}; }
   curSize = size ? clampSize(p, size).z : { w: p.w, d: p.d, h: p.h }; editing = false;
   $('dCat').textContent = p.cat;
   $('dName').textContent = p.n;
@@ -536,8 +598,8 @@ function openP(k, size) {
   $('hint').style.opacity = 1;
   mv.cameraOrbit = '-28deg 72deg 108%'; mv.fieldOfView = 'auto'; setDims(false); mv.jumpCameraToGoal();
   mv.alt = p.n + ' 3D 模型';
-  if (same && mv.dataset.size === sizeKey(curSize)) return;
-  if (isDefSize(p, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`, `models/${p.k}-f.glb`); mv.poster = `thumbs/${p.k}.webp`; }
+  if (same && mv.dataset.size === modelKey()) return;
+  if (isDefSize(p, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`, `models/${p.k}-f.glb`); mv.poster = `thumbs/${p.k}.webp`; }
   else { mv.poster = ''; rebuild(); }
 }
 const sizeKey = z => `${z.w}x${z.d}x${z.h}`;
@@ -545,7 +607,7 @@ let frameOn = true; try { frameOn = localStorage.getItem('ar-frame') !== '0'; } 
 const urls = { plain: '', frame: '' };
 function setSrc(plain, frame) {
   urls.plain = plain; urls.frame = frame;
-  mv.dataset.k = cur.k; mv.dataset.size = sizeKey(curSize); mv.src = frameOn ? frame : plain;
+  mv.dataset.k = cur.k; mv.dataset.size = modelKey(); mv.src = frameOn ? frame : plain;
 }
 $('frameOn').checked = frameOn;
 $('frameOn').onchange = e => {
@@ -579,31 +641,97 @@ function applySize(z) {
   if (r.bad.length) toast('可調整範圍：' + r.bad.join('、') + ' 公分');
   editing = false; curSize = r.z; renderSpecs();
   history.replaceState(null, '', '#' + cur.k + (isDefSize(cur, curSize) ? '' : '@' + sizeKey(curSize)));
-  if (mv.dataset.size === sizeKey(curSize) && mv.dataset.k === cur.k) return;
-  if (isDefSize(cur, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); }
+  if (mv.dataset.size === modelKey() && mv.dataset.k === cur.k) return;
+  if (isDefSize(cur, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); }
   else rebuild();
 }
-/* 依尺寸重建：用家具配置網站同一套建模程式（engine.js） */
+/* 依尺寸、材質重建：用家具配置網站同一套建模程式（engine.js） */
 let ENG = null;
 async function eng() {
   if (!ENG) ENG = Promise.all([import('./engine.js'), import('three/addons/exporters/GLTFExporter.js')]).then(([e, x]) => ({ ...e, GLTFExporter: x.GLTFExporter }));
   return ENG;
 }
+/* ---------- 型錄材質（資料來自家具材質更換系統） ---------- */
+const MATV = {};
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+function loadVendor(key) {
+  if (!MATV[key]) MATV[key] = (window.ARMAT && window.ARMAT[key] ? Promise.resolve() : loadScript(`materials/${key}.js`)).then(() => window.ARMAT[key]).catch(e => { delete MATV[key]; throw e; });
+  return MATV[key];
+}
+let MIDX = null;
+function loadIndex() { if (!MIDX) MIDX = (window.ARMAT_INDEX ? Promise.resolve() : loadScript('materials/index.js')).then(() => window.ARMAT_INDEX).catch(e => { MIDX = null; throw e; }); return MIDX; }
+async function resolveMat(ref) {
+  if (!ref) return null;
+  const list = await loadVendor(ref.v), m = list && list.find(x => x.id === ref.id); if (!m) return null;
+  const c = m.c[ref.ci] || m.c[0];
+  return { v: ref.v, id: m.id, ci: ref.ci, series: m.n, type: m.t, pattern: !!m.p, hex: c[0], code: c[1], cname: c[2], src: m.p ? c[3] : m.tx, thumb: m.th || (m.p ? c[3] : '') };
+}
+const TILE = t => /木/.test(t) ? 70 : /金屬/.test(t) ? 40 : /磁磚/.test(t) ? 120 : 18;   // 一張紋理在家具上幾公分
+const TEXC = new Map();
+function matTex(T3, r) {
+  const key = r.pattern ? `p|${r.v}|${r.id}|${r.ci}` : `t|${r.v}|${r.id}`;
+  if (!TEXC.has(key)) TEXC.set(key, (async () => {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = r.src; });
+    const N = 512, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.drawImage(img, 0, 0, N, N);
+    if (!r.pattern) {   // 布料、皮革、木頭：只留明暗紋理，顏色另外乘上去
+      const d = g.getImageData(0, 0, N, N), a = d.data, L = new Float32Array(N * N); let sum = 0;
+      for (let i = 0; i < N * N; i++) { L[i] = a[i * 4] * .299 + a[i * 4 + 1] * .587 + a[i * 4 + 2] * .114; sum += L[i]; }
+      const mean = sum / (N * N) || 1;
+      for (let i = 0; i < N * N; i++) { const v = Math.max(.3, Math.min(1, 1 - .6 * Math.max(0, (mean - L[i]) / mean))), b = Math.round(v * 255); a[i * 4] = a[i * 4 + 1] = a[i * 4 + 2] = b; a[i * 4 + 3] = 255; }
+      g.putImageData(d, 0, 0);
+    }
+    const t = new T3.CanvasTexture(c); t.colorSpace = T3.SRGBColorSpace; t.wrapS = t.wrapT = T3.RepeatWrapping; t.anisotropy = 4; t.userData.mimeType = 'image/jpeg'; return t;
+  })());
+  return TEXC.get(key);
+}
+/* 依實際尺寸重新貼紋理（從三個方向投影，布紋大小跟實品一樣） */
+function boxUV(T3, mesh, tile) {
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+  const P = geo.attributes.position, M = mesh.matrixWorld, n = P.count, uv = new Float32Array(n * 2);
+  const a = new T3.Vector3(), b = new T3.Vector3(), c = new T3.Vector3(), e1 = new T3.Vector3(), e2 = new T3.Vector3();
+  for (let i = 0; i + 2 < n; i += 3) {
+    a.fromBufferAttribute(P, i).applyMatrix4(M); b.fromBufferAttribute(P, i + 1).applyMatrix4(M); c.fromBufferAttribute(P, i + 2).applyMatrix4(M);
+    const nn = e1.subVectors(b, a).cross(e2.subVectors(c, a)), ax = Math.abs(nn.x), ay = Math.abs(nn.y), az = Math.abs(nn.z);
+    [a, b, c].forEach((p, j) => { const k = (i + j) * 2; if (ax >= ay && ax >= az) { uv[k] = p.z / tile; uv[k + 1] = p.y / tile; } else if (ay >= az) { uv[k] = p.x / tile; uv[k + 1] = p.z / tile; } else { uv[k] = p.x / tile; uv[k + 1] = p.y / tile; } });
+  }
+  geo.setAttribute('uv', new T3.BufferAttribute(uv, 2)); return geo;
+}
+const SENT = ['#ff0080', '#00ff80', '#8000ff'];
+/* 建一件家具（公分）：材質依部位命名 c1／c2／c3，有選型錄材質的部位貼上紋理 */
+async function makeGroup(E, k, size, cols, mats, o) {
+  const T3 = E.THREE, sh = SENT.map(c => new T3.Color(c).getHexString());
+  const g = E.buildAny(k, size, cols, o), s = E.buildAny(k, size, SENT, o); if (!g) return null;
+  const A = [], B = []; g.traverse(x => { if (x.isMesh) A.push(x); }); s.traverse(x => { if (x.isMesh) B.push(x); });
+  const cache = new Map();
+  A.forEach((x, i) => {
+    const so = B[i], ma = [].concat(x.material), mb = so ? [].concat(so.material) : [];
+    const out = ma.map((m, j) => { const ix = mb[j] && mb[j].color ? sh.indexOf(mb[j].color.getHexString()) : -1, role = ix >= 0 ? 'c' + (ix + 1) : null, key = m.uuid + '|' + role;
+      if (!cache.has(key)) { const c = m.clone(); c.name = role || ('m' + cache.size); cache.set(key, c); } return cache.get(key); });
+    x.material = Array.isArray(x.material) ? out : out[0];
+  });
+  const res = {};
+  for (const r in (mats || {})) { const m = await resolveMat(mats[r]); if (m) res[r] = { m, tex: await matTex(T3, m) }; }
+  if (Object.keys(res).length) {
+    g.updateMatrixWorld(true); const done = new Map();
+    g.traverse(x => {
+      if (!x.isMesh) return; const arr = [].concat(x.material), hit = arr.find(m => res[m.name]); if (!hit) return;
+      x.geometry = boxUV(T3, x, TILE(res[hit.name].m.type));
+      const out = arr.map(m => { const R = res[m.name]; if (!R) return m; if (!done.has(m.uuid)) { const c = m.clone(); c.name = m.name; c.map = R.tex; c.color.set(R.m.pattern ? '#ffffff' : R.m.hex); c.needsUpdate = true; done.set(m.uuid, c); } return done.get(m.uuid); });
+      x.material = Array.isArray(x.material) ? out : out[0];
+    });
+  }
+  return g;
+}
+let mats = {}, matInfo = {};
+const hasMats = () => Object.keys(mats).length > 0;
+const modelKey = () => sizeKey(curSize) + '|' + JSON.stringify(mats);
+const colsOf = (p, selMap) => ['c1', 'c2', 'c3'].map(r => { const c = p.cs.find(x => x[0] === r); return c ? (selMap && selMap[r]) || c[2] : null; });
 async function rebuild() {
-  const seq = ++buildSeq, p = cur, z = { ...curSize };
+  const seq = ++buildSeq, p = cur, z = { ...curSize }, M = JSON.parse(JSON.stringify(mats));
   $('building').classList.add('show');
   try {
-    const E = await eng(), T3 = E.THREE, SENT = ['#ff0080', '#00ff80', '#8000ff'];
-    const sh = SENT.map(c => new T3.Color(c).getHexString());
-    const g = E.buildOwn(p.k, z), s = E.buildOwn(p.k, z, SENT);
-    const A = [], B = []; g.traverse(o => { if (o.isMesh) A.push(o); }); s.traverse(o => { if (o.isMesh) B.push(o); });
-    const cache = new Map();
-    A.forEach((o, i) => {
-      const so = B[i], ma = [].concat(o.material), mb = so ? [].concat(so.material) : [];
-      const out = ma.map((m, j) => { const ix = mb[j] && mb[j].color ? sh.indexOf(mb[j].color.getHexString()) : -1, role = ix >= 0 ? 'c' + (ix + 1) : null, key = m.uuid + '|' + role;
-        if (!cache.has(key)) { const c = m.clone(); c.name = role || ('m' + cache.size); cache.set(key, c); } return cache.get(key); });
-      o.material = Array.isArray(o.material) ? out : out[0];
-    });
+    const E = await eng(), T3 = E.THREE;
+    const g = await makeGroup(E, p.k, z, colsOf(p, sel), M);
     const bb = new T3.Box3().setFromObject(g);   // 公分（要在縮成公尺之前量）
     const root = new T3.Group(); root.scale.setScalar(0.01); root.add(g); root.updateMatrixWorld(true);
     const X = new E.GLTFExporter(), opt = { binary: true, onlyVisible: true, maxTextureSize: 1024 };
@@ -628,18 +756,77 @@ function closeP() {
   document.title = 'AR 試擺間';
   scrollTo(0, listScroll);
 }
+const MATKIND = { fabric: ['gradea', 'shengchyi', 'greencity', 'ligo', 'abu'], leather: ['gradea', 'shengchyi', 'greencity', 'ligo', 'abu'], wood: ['common'], metal: ['common'], stone: ['marmo'] };
 function renderColors() {
   const p = cur;
   $('dColors').innerHTML = p.cs.map(([r, label, def]) => {
-    const n = nice(label), pal = [def, ...PAL[kindOf(label)].filter(c => c.toLowerCase() !== def.toLowerCase())];
-    return `<div class="grp"><h3><span>${n.t}${n.sub ? ` <small>${n.sub}</small>` : ''}</span>${sel[r] !== def ? `<button class="reset" data-r="${r}">還原</button>` : ''}</h3>
-      <div class="sws">${pal.map(c => `<button class="sw${c === sel[r] ? ' on' : ''}" style="background:${c}" data-r="${r}" data-c="${c}" aria-label="${n.t} ${c}"></button>`).join('')}</div></div>`;
+    const n = nice(label), kind = kindOf(label), pal = [def, ...PAL[kind].filter(c => c.toLowerCase() !== def.toLowerCase())], mi = matInfo[r];
+    const on = !mats[r];
+    return `<div class="grp"><h3><span>${n.t}${n.sub ? ` <small>${n.sub}</small>` : ''}</span>${(sel[r] !== def || mats[r]) ? `<button class="reset" data-r="${r}">還原</button>` : ''}</h3>
+      ${mi ? `<div class="matlab"><img src="${mi.thumb}" alt=""><span><b>${mi.series}</b><i>${MNAME[mi.v] || ''}${mi.code ? '・' + mi.code : ''}${mi.cname ? ' ' + mi.cname : ''}</i></span></div>` : ''}
+      <div class="sws">${pal.map(c => `<button class="sw${on && c === sel[r] ? ' on' : ''}" style="background:${c}" data-r="${r}" data-c="${c}" aria-label="${n.t} ${c}"></button>`).join('')}${MATKIND[kind] ? `<button class="matbtn" data-mat="${r}">◫ 型錄材質</button>` : ''}</div></div>`;
   }).join('');
 }
+const MNAME = { common: '常用材質', gradea: '尚慶 Grade-A', shengchyi: '勝騏實業', greencity: '綠都', ligo: '利谷 LIGO', abu: 'ABU', marmo: '台灣瑪摩' };
 $('dColors').onclick = e => {
+  const mb = e.target.closest('.matbtn'); if (mb) { openMatSheet(mb.dataset.mat); return; }
   const b = e.target.closest('.sw, .reset'); if (!b) return;
-  const r = b.dataset.r; sel[r] = b.classList.contains('reset') ? cur.cs.find(c => c[0] === r)[2] : b.dataset.c;
+  const r = b.dataset.r, hadMat = !!mats[r];
+  sel[r] = b.classList.contains('reset') ? cur.cs.find(c => c[0] === r)[2] : b.dataset.c;
+  if (hadMat) { delete mats[r]; delete matInfo[r]; renderColors(); afterMatChange(); return; }
   paint(r); renderColors();
+};
+function afterMatChange() {
+  if (mv.dataset.size === modelKey()) return;
+  if (isDefSize(cur, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); mv.poster = `thumbs/${cur.k}.webp`; }
+  else { mv.poster = ''; rebuild(); }
+}
+/* 材質選單 */
+const MS = { role: null, kind: null, v: null, type: '全部', q: '', series: null };
+async function openMatSheet(r) {
+  const c = cur.cs.find(x => x[0] === r), kind = kindOf(c[1]);
+  MS.role = r; MS.kind = kind; MS.type = '全部'; MS.q = ''; MS.series = null; $('msQ').value = '';
+  MS.v = (mats[r] && MATKIND[kind].includes(mats[r].v)) ? mats[r].v : MATKIND[kind][0];
+  if (mats[r]) MS.series = mats[r].id;
+  $('msTitle').textContent = '選擇材質：' + nice(c[1]).t;
+  $('matSheet').classList.add('show'); msRender();
+}
+const msTypeOk = (kind, t) => kind === 'wood' ? /木/.test(t) : kind === 'metal' ? /金屬/.test(t) : kind === 'stone' ? /磁磚/.test(t) : /布|皮/.test(t);
+async function msRender() {
+  const idx = await loadIndex().catch(() => null);
+  const vs = MATKIND[MS.kind] || [];
+  $('msVendors').innerHTML = vs.map(v => { const it = idx && idx.find(x => x.key === v); return `<button class="${v === MS.v ? 'on' : ''}" data-v="${v}">${it ? it.name : v}</button>`; }).join('');
+  $('msVendors').style.display = vs.length > 1 ? '' : 'none';
+  $('msGrid').innerHTML = '<div class="msload">載入材質中⋯</div>';
+  let list; try { list = await loadVendor(MS.v); } catch (e) { $('msGrid').innerHTML = '<div class="msload">材質載入失敗，請再試一次</div>'; return; }
+  list = list.filter(m => msTypeOk(MS.kind, m.t));
+  const types = [...new Set(list.map(m => m.t))];
+  $('msTypes').innerHTML = types.length > 1 ? ['全部', ...types].map(t => `<button class="${t === MS.type ? 'on' : ''}" data-t="${t}">${t}</button>`).join('') : '';
+  $('msTypes').style.display = types.length > 1 ? '' : 'none';
+  if (MS.series) {
+    const m = list.find(x => x.id === MS.series); if (!m) { MS.series = null; return msRender(); }
+    const curRef = mats[MS.role];
+    $('msGrid').innerHTML = `<button class="mback" data-back="1">‹ 回系列列表</button>
+      <div class="mshead"><img src="${m.th || (m.p && m.c[0] ? m.c[0][3] : '')}" alt=""><div><b>${m.n}</b><br><small style="color:var(--ink3)">${m.t}・${m.c.length} 色　點一個顏色套用</small></div></div>
+      <div class="mcols">${m.c.map((c, i) => `<button class="mcol${curRef && curRef.v === MS.v && curRef.id === m.id && curRef.ci === i ? ' on' : ''}" data-ci="${i}"><i style="${m.p && c[3] ? `background-image:url(${c[3]})` : `background:${c[0]}`}"></i>${c[1] || ''}${c[2] ? '<br>' + c[2] : ''}</button>`).join('')}</div>`;
+    return;
+  }
+  const q = MS.q.trim().toLowerCase();
+  const shown = list.filter(m => (MS.type === '全部' || m.t === MS.type) && (!q || m.n.toLowerCase().includes(q) || m.c.some(c => (c[1] + ' ' + c[2]).toLowerCase().includes(q))));
+  $('msGrid').innerHTML = shown.length ? `<div class="msgrid">${shown.map(m => `<button class="mser" data-id="${m.id}"><img loading="lazy" src="${m.th || (m.p && m.c[0] ? m.c[0][3] : '')}" alt="">${m.n}<small>${m.t}・${m.c.length} 色</small></button>`).join('')}</div>` : '<div class="msload">找不到符合的材質</div>';
+}
+$('msVendors').onclick = e => { const b = e.target.closest('button'); if (b) { MS.v = b.dataset.v; MS.series = null; MS.type = '全部'; msRender(); } };
+$('msTypes').onclick = e => { const b = e.target.closest('button'); if (b) { MS.type = b.dataset.t; MS.series = null; msRender(); } };
+$('msQ').oninput = e => { MS.q = e.target.value; MS.series = null; msRender(); };
+$('msClose').onclick = () => $('matSheet').classList.remove('show');
+$('matSheet').onclick = e => { if (e.target === $('matSheet')) $('matSheet').classList.remove('show'); };
+$('msGrid').onclick = async e => {
+  if (e.target.closest('[data-back]')) { MS.series = null; msRender(); return; }
+  const s1 = e.target.closest('.mser'); if (s1) { MS.series = s1.dataset.id; msRender(); $('msGrid').scrollTop = 0; return; }
+  const c = e.target.closest('.mcol'); if (!c) return;
+  const ref = { v: MS.v, id: MS.series, ci: +c.dataset.ci }, info = await resolveMat(ref);
+  mats[MS.role] = ref; matInfo[MS.role] = info; sel[MS.role] = info.pattern ? '#ffffff' : info.hex;   // 磁磚是彩色紋理，不再疊顏色
+  $('matSheet').classList.remove('show'); renderColors(); afterMatChange();
 };
 function paint(r) { paintOn(mv, r); }
 function paintOn(v, r) {
@@ -697,7 +884,7 @@ $('shareBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(url); toast('已複製這件家具的連結'); } catch (e) { toast(url); }
 };
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2200); }
-addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('calSheet').classList.contains('show') || cal.on) calEnd(); else if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if ($('combo').classList.contains('show')) $('cbBack').click(); else if (cur) location.hash = ''; } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('calSheet').classList.contains('show') || cal.on) calEnd(); else if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('matSheet').classList.contains('show')) $('matSheet').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if ($('combo').classList.contains('show')) $('cbBack').click(); else if (cur) location.hash = ''; } });
 
 
 /* ---------- 照片試擺：拍一張家裡的照片，放好幾件 3D 家具 ---------- */
@@ -925,57 +1112,95 @@ $('pmOutClose').onclick = () => $('pmOut').classList.remove('show');
 
 
 /* ---------- 組合擺放：平面圖排位置 → 合成一個模型 → AR 看整組 ---------- */
-const CB = { items: [], sel: null, nid: 0, view: null, drag: null, url: '', seq: 0, timer: 0 };
-const CB_KEY = 'ar-combo';
-const colsArr = (p, selMap) => ['c1', 'c2', 'c3'].map(r => { const c = p.cs.find(x => x[0] === r); return c ? (selMap && selMap[r]) || c[2] : null; });
-const cbEnc = () => CB.items.map(i => [i.k, i.w, i.d, i.h, Math.round(i.x), Math.round(i.z), i.r, i.c.map(c => (c || '').replace('#', '')).join('-')].join('~')).join('_');
+const CB = { items: [], room: null, sel: null, nid: 0, view: null, drag: null, url: '', seq: 0, timer: 0, link: '' };
+const CB_KEY = 'ar-combo2';
+const colsArr = (p, selMap) => colsOf(p, selMap);
+/* 舊版分享連結：型號~寬~深~高~x~z~角度~色1-色2-色3_… */
 function cbDec(str) {
   const out = [];
   for (const t of String(str || '').split('_')) {
     const a = t.split('~'), p = P.find(x => x.k === a[0]); if (!p || a.length < 7) continue;
     const z = clampSize(p, { w: +a[1], d: +a[2], h: +a[3] }).z, cs = (a[7] || '').split('-');
-    out.push({ id: ++CB.nid, k: p.k, w: z.w, d: z.d, h: z.h, x: +a[4] || 0, z: +a[5] || 0, r: +a[6] || 0, c: colsArr(p).map((d, i) => /^[0-9a-f]{6}$/i.test(cs[i] || '') ? '#' + cs[i].toLowerCase() : d) });
+    out.push({ k: p.k, w: z.w, d: z.d, h: z.h, x: +a[4] || 0, z: +a[5] || 0, r: +a[6] || 0, c: colsArr(p).map((d, i) => /^[0-9a-f]{6}$/i.test(cs[i] || '') ? '#' + cs[i].toLowerCase() : d) });
   }
   return out;
 }
-function cbSave() { try { localStorage.setItem(CB_KEY, cbEnc()); } catch (e) {} $('comboN').textContent = CB.items.length; }
-try { CB.items = cbDec(localStorage.getItem(CB_KEY)); } catch (e) {}
-$('comboN').textContent = CB.items.length;
+/* 新版：JSON 壓縮後放在網址（家具配置網站也用這個格式送過來） */
+const b64u = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const ub64 = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); const b = atob(s + '==='.slice((s.length + 3) % 4)); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+async function cbPack(o) {
+  const raw = new TextEncoder().encode(JSON.stringify(o));
+  if (window.CompressionStream) { try { const buf = await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer(); return 'z.' + b64u(new Uint8Array(buf)); } catch (e) {} }
+  return 'j.' + b64u(raw);
+}
+async function cbUnpack(str) {
+  if (str.startsWith('z.')) { const buf = await new Response(new Blob([ub64(str.slice(2))]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer(); return JSON.parse(new TextDecoder().decode(buf)); }
+  if (str.startsWith('j.')) return JSON.parse(new TextDecoder().decode(ub64(str.slice(2))));
+  return { items: cbDec(str) };   // 舊格式
+}
+const cbData = () => ({ v: 1, room: CB.room, items: CB.items.map(({ id, ...i }) => i) });
+function cbLoad(o) {
+  const items = [];
+  for (const i of (o && o.items) || []) {
+    if (!i || !i.k) continue; const p = P.find(x => x.k === i.k);
+    const it = { id: ++CB.nid, k: i.k, n: i.n || (p && p.n) || i.k, w: +i.w || (p && p.w) || 100, d: +i.d || (p && p.d) || 100, h: +i.h || (p && p.h) || 80, x: +i.x || 0, z: +i.z || 0, r: +i.r || 0, e: +i.e || 0, c: Array.isArray(i.c) ? i.c : (p ? colsArr(p) : [null, null, null]) };
+    if (i.o && typeof i.o === 'object') it.o = i.o; if (i.m && typeof i.m === 'object' && Object.keys(i.m).length) it.m = i.m;
+    items.push(it);
+  }
+  return { items, room: o && o.room && +o.room.w > 0 && +o.room.d > 0 ? { w: +o.room.w, d: +o.room.d } : null };
+}
+function cbSave() {
+  try { localStorage.setItem(CB_KEY, JSON.stringify(cbData())); } catch (e) {}
+  $('comboN').textContent = CB.items.length;
+  const snap = cbData(); cbPack(snap).then(p => { CB.link = location.href.split('#')[0] + '#combo=' + p; });
+}
+try {
+  const raw = localStorage.getItem(CB_KEY);
+  if (raw) Object.assign(CB, cbLoad(JSON.parse(raw)));
+  else { const old = localStorage.getItem('ar-combo'); if (old) { Object.assign(CB, cbLoad({ items: cbDec(old) })); } }
+} catch (e) {}
+cbSave();
 const corners = i => { const t = i.r * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const x = a * i.w / 2, z = b * i.d / 2; return [i.x + x * c - z * s, i.z + x * s + z * c]; }); };
+const aabb = i => { const cs = corners(i); return { x0: Math.min(...cs.map(p => p[0])), x1: Math.max(...cs.map(p => p[0])), z0: Math.min(...cs.map(p => p[1])), z1: Math.max(...cs.map(p => p[1])) }; };
 function cbBox() { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const i of CB.items) for (const [x, z] of corners(i)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return CB.items.length ? { x0, x1, z0, z1 } : null; }
-function cbAddProduct(p, size, selMap) {
+function cbAddProduct(p, size, selMap, matMap) {
   const z = size || { w: p.w, d: p.d, h: p.h }, b = cbBox();
-  const it = { id: ++CB.nid, k: p.k, w: z.w, d: z.d, h: z.h, x: b ? Math.round((b.x1 + 30 + z.w / 2) / 5) * 5 : 0, z: b ? Math.round(((b.z0 + b.z1) / 2) / 5) * 5 : 0, r: 0, c: colsArr(p, selMap) };
+  const it = { id: ++CB.nid, k: p.k, n: p.n, w: z.w, d: z.d, h: z.h, x: b ? Math.round((b.x1 + 30 + z.w / 2) / 5) * 5 : 0, z: b ? Math.round(((b.z0 + b.z1) / 2) / 5) * 5 : 0, r: 0, e: 0, c: colsArr(p, selMap) };
+  if (matMap && Object.keys(matMap).length) it.m = JSON.parse(JSON.stringify(matMap));
   CB.items.push(it); CB.sel = it.id; cbSave(); return it;
 }
 /* 商品頁 → 加入組合 */
-$('addCombo').onclick = () => { if (!cur) return; cbAddProduct(cur, { ...curSize }, sel); toast(`已加入組合擺放（共 ${CB.items.length} 件）`); syncToCombo(); };
+$('addCombo').onclick = () => { if (!cur) return; cbAddProduct(cur, { ...curSize }, sel, mats); toast(`已加入組合擺放（共 ${CB.items.length} 件）`); syncToCombo(); };
 function syncToCombo() { const n = CB.items.length; $('toCombo').hidden = !n; $('toCombo').textContent = `前往組合擺放（${n} 件）→`; }
 $('comboBtn').onclick = () => { location.hash = 'combo'; };
-function openCombo(data) {
-  if (data) {
-    const items = cbDec(data);
-    if (items.length && (!CB.items.length || cbEnc() === data || confirm('要用分享連結裡的組合，取代目前排好的組合嗎？'))) { CB.items = items; CB.sel = null; cbSave(); }
-    history.replaceState(null, '', '#combo');
-  }
+async function openCombo(data) {
   $('combo').classList.add('show'); $('combo').setAttribute('aria-hidden', 'false');
   $('list').style.display = 'none'; $('cbFrame').checked = frameOn;
+  if (data) {
+    history.replaceState(null, '', '#combo');
+    let o = null; try { o = cbLoad(await cbUnpack(data)); } catch (e) { console.error(e); toast('組合連結讀取失敗'); }
+    if (o && o.items.length) {
+      const same = JSON.stringify(cbData().items.map(({ id, ...i }) => i)) === JSON.stringify(o.items.map(({ id, ...i }) => i));
+      if (!CB.items.length || same || confirm(`要用連結裡的組合（${o.items.length} 件${o.room ? '，含房間尺寸' : ''}），取代目前排好的 ${CB.items.length} 件嗎？`)) { CB.items = o.items; CB.room = o.room; CB.sel = null; cbSave(); }
+    }
+  }
   CB.view = null; cbRender(); requestAnimationFrame(() => { CB.view = null; cbRender(); }); cbBuildSoon(0);
 }
 function closeCombo() { if (!$('combo').classList.contains('show')) return; $('combo').classList.remove('show'); $('combo').setAttribute('aria-hidden', 'true'); if (!cur) $('list').style.display = ''; }
 $('cbBack').onclick = () => { if (history.length > 1) history.back(); else location.hash = ''; };
 $('cbAdd').onclick = () => openPicker(p => { cbAddProduct(p); CB.view = null; cbRender(); cbBuildSoon(); });
-$('cbClear').onclick = () => { if (!CB.items.length || !confirm('要清空組合裡的所有家具嗎？')) return; CB.items = []; CB.sel = null; cbSave(); cbRender(); cbBuildSoon(0); };
+$('cbClear').onclick = () => { if (!CB.items.length && !CB.room) return; if (!confirm('要清空組合裡的所有家具' + (CB.room ? '和房間' : '') + '嗎？')) return; CB.items = []; CB.room = null; CB.sel = null; cbSave(); CB.view = null; cbRender(); cbBuildSoon(0); };
 $('cbShare').onclick = async () => {
   if (!CB.items.length) { toast('先加入家具'); return; }
-  const url = location.href.split('#')[0] + '#combo=' + cbEnc();
+  const url = CB.link || (location.href.split('#')[0] + '#combo=' + await cbPack(cbData()));
   if (navigator.share && isMobile) { try { await navigator.share({ title: '家具組合', text: '用手機 AR 看這組家具擺在家裡的樣子', url }); } catch (e) {} return; }
   try { await navigator.clipboard.writeText(url); toast('已複製組合連結'); } catch (e) { prompt('複製這個連結', url); }
 };
 /* 平面圖 */
 const NS = 'http://www.w3.org/2000/svg';
 function cbFit() {
-  const b = cbBox() || { x0: -150, x1: 150, z0: -100, z1: 100 }, m = 70;
+  let b = cbBox() || { x0: -150, x1: 150, z0: -100, z1: 100 }; const m = 70;
+  if (CB.room) b = { x0: Math.min(b.x0, -CB.room.w / 2), x1: Math.max(b.x1, CB.room.w / 2), z0: Math.min(b.z0, -CB.room.d / 2), z1: Math.max(b.z1, CB.room.d / 2) };
   let x0 = b.x0 - m, x1 = b.x1 + m, z0 = b.z0 - m, z1 = b.z1 + m;
   const pr = $('cbPlan').getBoundingClientRect(), ar = pr.width / Math.max(1, pr.height);
   let w = Math.max(300, x1 - x0), h = Math.max(240, z1 - z0); const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -992,19 +1217,20 @@ function cbRender() {
   for (let x = Math.ceil(v.x / 50) * 50; x < v.x + v.w; x += 50) g += `<line class="${x % 100 ? 'gm' : 'gM'}" x1="${x}" y1="${v.y}" x2="${x}" y2="${v.y + v.h}"/>`;
   for (let z = Math.ceil(v.y / 50) * 50; z < v.y + v.h; z += 50) g += `<line class="${z % 100 ? 'gm' : 'gM'}" x1="${v.x}" y1="${z}" x2="${v.x + v.w}" y2="${z}"/>`;
   $('cbGrid').innerHTML = g;
-  const fs = 11 / ppc;
-  $('cbItems').innerHTML = CB.items.map(i => {
-    const p = P.find(x => x.k === i.k), fill = i.c[0] || '#ccc';
+  const fs = 11 / ppc, gaps = cbGaps(), hits = new Set(gaps.hits);
+  const room = CB.room ? `<rect class="room" x="${-CB.room.w / 2}" y="${-CB.room.d / 2}" width="${CB.room.w}" height="${CB.room.d}"/><text class="roomL" x="${-CB.room.w / 2}" y="${CB.room.d / 2 + fs * 1.5}" font-size="${fs}">房間 ${CB.room.w}×${CB.room.d} cm</text>` : '';
+  $('cbItems').innerHTML = room + CB.items.map(i => {
+    const p = { n: i.n || (P.find(x => x.k === i.k) || {}).n || i.k }, fill = i.c[0] || '#ccc';
     const t = i.r * Math.PI / 180, ew = Math.abs(i.w * Math.cos(t)) + Math.abs(i.d * Math.sin(t)), eh = Math.abs(i.w * Math.sin(t)) + Math.abs(i.d * Math.cos(t));
     const dimT = `${i.w}×${i.d}`, showN = p.n.length * fs * 1.05 < ew * 0.92 && eh > fs * 2.6, showD = dimT.length * fs * 0.5 < ew * 0.92 && eh > fs * 1.3;
-    return `<g class="it${i.id === CB.sel ? ' sel' : ''}" data-id="${i.id}">
+    return `<g class="it${i.id === CB.sel ? ' sel' : ''}${hits.has(i.id) ? ' hit' : ''}" data-id="${i.id}">
       <g transform="translate(${i.x} ${i.z}) rotate(${i.r})"><rect x="${-i.w / 2}" y="${-i.d / 2}" width="${i.w}" height="${i.d}" rx="3" fill="${fill}" fill-opacity=".75"/>
       <line class="front" x1="${-i.w / 2 + 4}" y1="${i.d / 2}" x2="${i.w / 2 - 4}" y2="${i.d / 2}"/></g>
       ${showN ? `<text x="${i.x}" y="${i.z - fs * 0.2}" text-anchor="middle" font-size="${fs * 1.05}" font-weight="700">${p.n}</text>` : ''}
       ${showD ? `<text x="${i.x}" y="${showN ? i.z + fs * 1.05 : i.z + fs * 0.35}" text-anchor="middle" font-size="${fs * 0.9}">${dimT}</text>` : ''}<title>${p.n} ${i.w}×${i.d}×${i.h} cm</title></g>`;
-  }).join('');
+  }).join('') + gaps.svg(fs);
   const b = cbBox();
-  $('cbTotal').textContent = b ? `總寬 ${Math.round(b.x1 - b.x0)} × 總深 ${Math.round(b.z1 - b.z0)} cm・橘線是正面` : '';
+  $('cbTotal').textContent = b ? `總寬 ${Math.round(b.x1 - b.x0)} × 總深 ${Math.round(b.z1 - b.z0)} cm・橘線是正面${hits.size ? '・紅框表示重疊' : ''}` : '';
   $('cbTotal').style.display = b ? '' : 'none';
   $('cbScaleBar').style.width = Math.round(100 * ppc) + 'px';
   $('cbEmpty').style.display = CB.items.length ? 'none' : '';
@@ -1013,9 +1239,34 @@ function cbRender() {
 }
 function cbSelUI() {
   const i = CB.items.find(x => x.id === CB.sel); $('cbSel').classList.toggle('show', !!i); if (!i) return;
-  const p = P.find(x => x.k === i.k);
-  $('cbSelName').innerHTML = `${p.n}<small>${i.w}×${i.d}×${i.h} cm</small>`;
+  $('cbSelName').innerHTML = `${i.n || i.k}<small>${i.w}×${i.d}×${i.h} cm${i.e ? `・離地 ${i.e}` : ''}</small>`;
   $('cbRot').value = i.r; $('cbRotO').textContent = i.r + '°';
+}
+
+/* 間距：選取中的家具到前後左右最近的家具（或牆）的距離；外框重疊的家具標紅 */
+function cbGaps() {
+  const out = { hits: [], lines: [] }, S0 = CB.items.find(x => x.id === CB.sel);
+  out.svg = fs => out.lines.map(L => `<g class="gap"><line x1="${L.x1}" y1="${L.z1}" x2="${L.x2}" y2="${L.z2}"/><line x1="${L.x1 - L.tx}" y1="${L.z1 - L.tz}" x2="${L.x1 + L.tx}" y2="${L.z1 + L.tz}"/><line x1="${L.x2 - L.tx}" y1="${L.z2 - L.tz}" x2="${L.x2 + L.tx}" y2="${L.z2 + L.tz}"/><text x="${(L.x1 + L.x2) / 2 + (L.v ? fs * 0.5 : 0)}" y="${(L.z1 + L.z2) / 2 + (L.v ? fs * 0.35 : -fs * 0.45)}" text-anchor="${L.v ? 'start' : 'middle'}" font-size="${fs}">${L.t}</text></g>`).join('');
+  if (!S0) return out;
+  const S = aabb(S0), others = CB.items.filter(x => x !== S0 && !(x.e > 0 || S0.e > 0)).map(x => ({ x, b: aabb(x) }));
+  for (const o of others) if (Math.min(S.x1, o.b.x1) - Math.max(S.x0, o.b.x0) > 1 && Math.min(S.z1, o.b.z1) - Math.max(S.z0, o.b.z0) > 1) out.hits.push(S0.id, o.x.id);
+  const best = { L: null, R: null, F: null, B: null };
+  const take = (k, d, line) => { if (d >= 0 && d < 600 && (!best[k] || d < best[k].d)) best[k] = { d, line }; };
+  const tk = 4;
+  for (const { b: O } of others) {
+    const zo0 = Math.max(S.z0, O.z0), zo1 = Math.min(S.z1, O.z1), xo0 = Math.max(S.x0, O.x0), xo1 = Math.min(S.x1, O.x1);
+    if (zo1 - zo0 > 0) { const zm = (zo0 + zo1) / 2;
+      if (O.x1 <= S.x0 + 0.5) take('L', S.x0 - O.x1, { x1: O.x1, z1: zm, x2: S.x0, z2: zm, v: 0 });
+      if (O.x0 >= S.x1 - 0.5) take('R', O.x0 - S.x1, { x1: S.x1, z1: zm, x2: O.x0, z2: zm, v: 0 }); }
+    if (xo1 - xo0 > 0) { const xm = (xo0 + xo1) / 2;
+      if (O.z1 <= S.z0 + 0.5) take('B', S.z0 - O.z1, { x1: xm, z1: O.z1, x2: xm, z2: S.z0, v: 1 });
+      if (O.z0 >= S.z1 - 0.5) take('F', O.z0 - S.z1, { x1: xm, z1: S.z1, x2: xm, z2: O.z0, v: 1 }); }
+  }
+  if (CB.room) { const W = CB.room.w / 2, D = CB.room.d / 2, zm = (S.z0 + S.z1) / 2, xm = (S.x0 + S.x1) / 2;
+    take('L', S.x0 + W, { x1: -W, z1: zm, x2: S.x0, z2: zm, v: 0 }); take('R', W - S.x1, { x1: S.x1, z1: zm, x2: W, z2: zm, v: 0 });
+    take('B', S.z0 + D, { x1: xm, z1: -D, x2: xm, z2: S.z0, v: 1 }); take('F', D - S.z1, { x1: xm, z1: S.z1, x2: xm, z2: D, v: 1 }); }
+  for (const k in best) { const g = best[k]; if (!g || g.d < 1) continue; const L = g.line; L.t = Math.round(g.d) + ' cm'; L.tx = L.v ? tk : 0; L.tz = L.v ? 0 : tk; out.lines.push(L); }
+  return out;
 }
 const svgPt = e => { const s = $('cbSvg'), pt = s.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(s.getScreenCTM().inverse()); };
 $('cbSvg').addEventListener('pointerdown', e => {
@@ -1037,7 +1288,7 @@ const cbEdit = fn => { const i = CB.items.find(x => x.id === CB.sel); if (!i) re
 document.querySelectorAll('#cbSel [data-rot]').forEach(b => b.onclick = () => cbEdit(i => { const r = Math.round(i.r + +b.dataset.rot); i.r = ((r + 540) % 360) - 180; }));
 $('cbRot').oninput = e => { const i = CB.items.find(x => x.id === CB.sel); if (i) { i.r = +e.target.value; cbRender(); } };
 $('cbRot').onchange = () => cbEdit(() => {});
-$('cbDup').onclick = () => cbEdit(i => { const n = { ...i, id: ++CB.nid, c: [...i.c], x: i.x + Math.round((i.w / 2 + 40) / 5) * 5 }; CB.items.push(n); CB.sel = n.id; });
+$('cbDup').onclick = () => cbEdit(i => { const n = JSON.parse(JSON.stringify(i)); n.id = ++CB.nid; n.x = i.x + Math.round((i.w / 2 + 40) / 5) * 5; CB.items.push(n); CB.sel = n.id; });
 $('cbDel').onclick = () => { const i = CB.items.find(x => x.id === CB.sel); if (!i) return; CB.items = CB.items.filter(x => x !== i); CB.sel = null; cbSave(); cbRender(); cbBuildSoon(); };
 $('cbFrame').onchange = e => { frameOn = e.target.checked; $('frameOn').checked = frameOn; try { localStorage.setItem('ar-frame', frameOn ? '1' : '0'); } catch (err) {} cbBuildSoon(0); };
 /* 合成一個模型（用家具配置網站同一套建模程式），給 3D 預覽和 AR */
@@ -1045,11 +1296,13 @@ function cbBuildSoon(ms = 500) { clearTimeout(CB.timer); CB.timer = setTimeout(c
 async function cbBuild() {
   const seq = ++CB.seq;
   if (!CB.items.length) { $('cbBusy').classList.remove('show'); $('cv').removeAttribute('src'); CB.url = ''; return; }
+  CB.busyAt = Date.now();
   try {
     const E = await eng(), T3 = E.THREE, F = await import('./frame.js');
-    const b = cbBox(), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, content = new T3.Group();
-    for (const i of CB.items) { const g = E.buildOwn(i.k, { w: i.w, d: i.d, h: i.h }, i.c); g.position.set(i.x - cx, 0, i.z - cz); g.rotation.y = -i.r * Math.PI / 180; content.add(g); }
-    if (frameOn) content.add(F.makeComboFrame(T3, CB.items.map(i => corners({ ...i, x: i.x - cx, z: i.z - cz })), { x0: b.x0 - cx, x1: b.x1 - cx, z0: b.z0 - cz, z1: b.z1 - cz }));
+    const b = cbBox(), cx = CB.room ? 0 : (b.x0 + b.x1) / 2, cz = CB.room ? 0 : (b.z0 + b.z1) / 2, content = new T3.Group();
+    for (const i of CB.items) { const g = await makeGroup(E, i.k, { w: i.w, d: i.d, h: i.h }, i.c, i.m, i.o); if (!g) continue; g.position.set(i.x - cx, i.e || 0, i.z - cz); g.rotation.y = -i.r * Math.PI / 180; content.add(g); }
+    if (seq !== CB.seq) return;
+    if (frameOn) content.add(F.makeComboFrame(T3, CB.items.filter(i => !(i.e > 0)).map(i => corners({ ...i, x: i.x - cx, z: i.z - cz })), { x0: b.x0 - cx, x1: b.x1 - cx, z0: b.z0 - cz, z1: b.z1 - cz }, CB.room));
     const root = new T3.Group(); root.scale.setScalar(0.01); root.add(content); root.updateMatrixWorld(true);
     const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
     if (seq !== CB.seq) return;
@@ -1064,13 +1317,15 @@ $('cbAR').onclick = () => {
   if ($('cbBusy').classList.contains('show') || !cv.loaded) { toast('3D 還在更新，請稍等一下'); return; }
   if (cv.canActivateAR) { cv.activateAR(); return; }
   if (isMobile) { toast(IN_APP ? '請用 Safari 或 Chrome 開啟才能用 AR' : '這支手機不支援 AR'); return; }
-  $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href.split('#')[0] + '#combo=' + cbEnc(), width: 380, height: 380, correctLevel: QRCode.CorrectLevel.L });
+  const link = CB.link || location.href.split('#')[0] + '#combo=';
+  if (link.length > 2300) { toast('組合太大，QR Code 放不下，請用「分享」把連結傳到手機'); return; }
+  $('qr').innerHTML = ''; new QRCode($('qr'), { text: link, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.L });
   $('qrPhoto').style.display = 'none'; $('qrModal').classList.add('show');
 };
 
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
-  if (h === 'combo' || h.startsWith('combo=')) { openCombo(h.startsWith('combo=') ? h.slice(6) : null); return; }
+  if (h === 'combo' || h.startsWith('combo=')) { openCombo(h.startsWith('combo=') ? location.hash.slice(7) : null); return; }
   closeCombo();
   const [k, sz] = h.split('@'), m = (sz || '').match(/^(\d+)x(\d+)x(\d+)$/);
   if (k) openP(k, m ? { w: +m[1], d: +m[2], h: +m[3] } : null); else if (cur) closeP();
