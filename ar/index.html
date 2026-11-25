@@ -120,6 +120,15 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
 .sw.on::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--ink)}
 .reset{border:0;background:none;color:var(--ink3);font-size:12px;padding:0;text-decoration:underline;text-underline-offset:3px}
 .cta{flex:none;padding:14px 26px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg)}
+.frow{display:flex;align-items:center;gap:10px;margin:0 0 12px;cursor:pointer;user-select:none}
+.frow .tx{flex:1;font-size:13.5px;line-height:1.4}
+.frow .tx small{display:block;color:var(--ink3);font-size:11.5px}
+.sw2{position:relative;width:44px;height:26px;flex:none;border-radius:13px;background:var(--line);transition:.2s}
+.sw2::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.2s}
+.frow input{position:absolute;opacity:0;pointer-events:none}
+.frow input:checked + .sw2{background:var(--accent)}
+.frow input:checked + .sw2::after{left:21px}
+.frow input:focus-visible + .sw2{outline:2px solid var(--accent);outline-offset:2px}
 .arbtn{width:100%;border:0;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-size:17px;font-weight:700;letter-spacing:.06em;padding:15px 0;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent)}
 .arbtn svg{width:22px;height:22px}
 .arnote{font-size:12px;color:var(--ink3);text-align:center;margin-top:8px}
@@ -314,6 +323,7 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
       </ol>
     </div>
     </div><div class="cta">
+      <label class="frow"><input type="checkbox" id="frameOn"><span class="sw2"></span><span class="tx">地面輪廓<small>在地上標出家具佔地範圍和建議留空的走道</small></span></label>
       <button class="arbtn" id="arBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看</span></button>
       <div class="arnote" id="arNote">以實際大小出現在你家，可以走過去從各角度看</div>
       <button class="arbtn2" id="photoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>用照片擺擺看</span></button>
@@ -438,13 +448,21 @@ function openP(k, size) {
   mv.cameraOrbit = '-28deg 72deg 108%'; mv.fieldOfView = 'auto'; setDims(false); mv.jumpCameraToGoal();
   mv.alt = p.n + ' 3D 模型';
   if (same && mv.dataset.size === sizeKey(curSize)) return;
-  if (isDefSize(p, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`); mv.poster = `thumbs/${p.k}.webp`; }
+  if (isDefSize(p, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`, `models/${p.k}-f.glb`); mv.poster = `thumbs/${p.k}.webp`; }
   else { mv.poster = ''; rebuild(); }
 }
 const sizeKey = z => `${z.w}x${z.d}x${z.h}`;
-function setSrc(url) {
-  mv.dataset.k = cur.k; mv.dataset.size = sizeKey(curSize); mv.src = url;
+let frameOn = true; try { frameOn = localStorage.getItem('ar-frame') !== '0'; } catch (e) {}
+const urls = { plain: '', frame: '' };
+function setSrc(plain, frame) {
+  urls.plain = plain; urls.frame = frame;
+  mv.dataset.k = cur.k; mv.dataset.size = sizeKey(curSize); mv.src = frameOn ? frame : plain;
 }
+$('frameOn').checked = frameOn;
+$('frameOn').onchange = e => {
+  frameOn = e.target.checked; try { localStorage.setItem('ar-frame', frameOn ? '1' : '0'); } catch (err) {}
+  if (cur && urls.plain) mv.src = frameOn ? urls.frame : urls.plain;
+};
 /* 尺寸：顯示／修改 */
 const LIM = v => ({ lo: Math.max(20, Math.round(v * 0.5)), hi: Math.round(v * 2) });
 function clampSize(p, z) {
@@ -472,7 +490,7 @@ function applySize(z) {
   editing = false; curSize = r.z; renderSpecs();
   history.replaceState(null, '', '#' + cur.k + (isDefSize(cur, curSize) ? '' : '@' + sizeKey(curSize)));
   if (mv.dataset.size === sizeKey(curSize) && mv.dataset.k === cur.k) return;
-  if (isDefSize(cur, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`); }
+  if (isDefSize(cur, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); }
   else rebuild();
 }
 /* 依尺寸重建：用家具配置網站同一套建模程式（engine.js） */
@@ -496,10 +514,17 @@ async function rebuild() {
         if (!cache.has(key)) { const c = m.clone(); c.name = role || ('m' + cache.size); cache.set(key, c); } return cache.get(key); });
       o.material = Array.isArray(o.material) ? out : out[0];
     });
+    const bb = new T3.Box3().setFromObject(g);   // 公分（要在縮成公尺之前量）
     const root = new T3.Group(); root.scale.setScalar(0.01); root.add(g); root.updateMatrixWorld(true);
-    const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
+    const X = new E.GLTFExporter(), opt = { binary: true, onlyVisible: true, maxTextureSize: 1024 };
+    const buf = await X.parseAsync(root, opt);
+    // 再加上地面輪廓匯出一份（AR／3D 用）
+    const F = await import('./frame.js');
+    g.add(F.makeFrame(T3, { x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: bb.max.z }, z, F.zoneFor(p.cat, p.k))); root.updateMatrixWorld(true);
+    const bufF = await X.parseAsync(root, opt);
     if (seq !== buildSeq || cur !== p) return;
-    setSrc(URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' })));
+    const blob = b => URL.createObjectURL(new Blob([b], { type: 'model/gltf-binary' }));
+    setSrc(blob(buf), blob(bufF));
     mv.addEventListener('load', () => { if (seq === buildSeq) $('building').classList.remove('show'); }, { once: true });
   } catch (e) {
     console.error(e); if (seq === buildSeq) { $('building').classList.remove('show'); toast('重建失敗，請再試一次'); }
@@ -536,7 +561,7 @@ function hexLin(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, 
 
 /* 尺寸線：用模型實際外框放端點 */
 function placeDims() {
-  const c = mv.getBoundingBoxCenter(), s = mv.getDimensions();
+  const c = { x: 0, y: curSize.h / 200, z: 0 }, s = { x: curSize.w / 100, y: curSize.h / 100, z: curSize.d / 100 };
   const x0 = c.x - s.x / 2, x1 = c.x + s.x / 2, y0 = c.y - s.y / 2, y1 = c.y + s.y / 2, z0 = c.z - s.z / 2, z1 = c.z + s.z / 2, o = 0.06;
   const set = (n, x, y, z) => mv.updateHotspot({ name: 'hotspot-' + n, position: `${x}m ${y}m ${z}m` });
   set('w1', x0, y0, z1 + o); set('w2', x1, y0, z1 + o); set('wl', c.x, y0, z1 + o + 0.07);
@@ -596,7 +621,7 @@ function openPhoto() {
   // 從商品頁進來：照片裡還沒有這件（同尺寸）就加進去
   const key = sizeKey(curSize), has = pm.items.find(x => x.k === cur.k && x.sizeK === key);
   if (has) { Object.assign(has.cols, sel); paintItem(has); selectIt(has.id); }
-  else addItem({ k: cur.k, n: cur.n, size: { ...curSize }, cols: { ...sel }, src: mv.src });
+  else addItem({ k: cur.k, n: cur.n, size: { ...curSize }, cols: { ...sel }, src: urls.plain });
   $('pmTilt').value = pm.tilt; pmLayout();
 }
 function closePhoto() { calEnd(); $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); $('pmSheet').classList.remove('show'); }
