@@ -925,7 +925,11 @@ async function iosAR(v, staticUrl) {
   if (staticUrl) { v.iosSrc = staticUrl; await new Promise(r => setTimeout(r, 30)); return v.activateAR(); }
   if (navigator.serviceWorker && navigator.serviceWorker.controller && window.caches) {
     try {
-      const u = await v.prepareUSDZ(), blob = await (await fetch(u)).blob(); URL.revokeObjectURL(u);
+      // 原點要在家具底部正中央（地面）：model-viewer 會把「鏡頭對準點」當原點，預設是家具中心 → iPhone 會放成一半在地板下
+      const prevT = v.getAttribute('camera-target');
+      v.cameraTarget = '0m 0m 0m'; v.jumpCameraToGoal(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      let u; try { u = await v.prepareUSDZ(); } finally { if (prevT) v.setAttribute('camera-target', prevT); else v.removeAttribute('camera-target'); v.jumpCameraToGoal(); }
+      const blob = await (await fetch(u)).blob(); URL.revokeObjectURL(u);
       const c = await caches.open('ar-usdz'); for (const k of await c.keys()) await c.delete(k);
       const url = new URL(`usdz-gen/${Date.now()}.usdz`, location.href).href;
       await c.put(url, new Response(blob, { headers: { 'Content-Type': 'model/vnd.usdz+zip' } }));
