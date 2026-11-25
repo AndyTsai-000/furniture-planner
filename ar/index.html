@@ -155,9 +155,28 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 .pm-stage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 #pmImg{position:absolute;display:none;pointer-events:none;-webkit-user-drag:none}
 #photo.has #pmImg{display:block}
-#pv{position:absolute;background:transparent;pointer-events:none;--poster-color:transparent;--progress-bar-height:0;visibility:hidden;left:0;top:0;width:300px;height:300px}
-#photo.has #pv{visibility:visible}
-#pv.busy{outline:1.5px dashed rgba(255,255,255,.75);outline-offset:-2px;border-radius:6px}
+.pvi{position:absolute;background:transparent;pointer-events:none;--poster-color:transparent;--progress-bar-height:0;visibility:hidden;left:0;top:0;width:300px;height:300px}
+#photo.has .pvi.ready{visibility:visible}
+.pin{position:absolute;width:26px;height:10px;margin:-5px 0 0 -13px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 0 8px rgba(0,0,0,.4);pointer-events:none;z-index:60;display:none}
+#photo.has .pin.on{display:block}
+.pm-cur{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.pm-cur b{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-cur b small{font-weight:400;color:#a9a197;font-size:12px;margin-left:6px}
+.pm-cur button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:9px;padding:5px 12px;font-size:13px}
+.pm-cur button.del{color:#ffb4a3}
+.pbtn.add{background:var(--accent);color:var(--accent-ink);font-weight:700}
+#pmSheet{position:fixed;inset:0;z-index:42;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
+#pmSheet.show{display:flex}
+#pmSheet .sh{background:#1c1a18;color:#fff;width:100%;max-width:720px;max-height:78vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+#pmSheet .shh{flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 18px 6px}
+#pmSheet .shh h4{margin:0;font-family:"Noto Serif TC",serif;font-size:19px}
+#pmSheet .shh button{border:0;background:rgba(255,255,255,.1);color:#fff;border-radius:16px;padding:6px 14px}
+#pmSheet .shc{flex:none;display:flex;gap:6px;overflow-x:auto;padding:6px 18px 10px;scrollbar-width:none}
+#pmSheet .shc button{flex:none;border:1px solid rgba(255,255,255,.18);background:none;color:#ccc;border-radius:999px;padding:5px 13px;font-size:13px}
+#pmSheet .shc button.on{background:#fff;color:#1c1a18;border-color:#fff}
+#pmSheet .shg{overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;padding:4px 18px 20px}
+#pmSheet .shg button{border:0;background:#2a2724;color:#fff;border-radius:12px;padding:6px 6px 8px;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:2px}
+#pmSheet .shg img{width:100%;aspect-ratio:4/3;object-fit:contain}
 .pm-empty{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;text-align:center;padding:24px}
 #photo.has .pm-empty{display:none}
 .pm-empty svg.big{width:54px;height:54px;opacity:.85}
@@ -291,26 +310,32 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 <section id="photo" aria-hidden="true">
   <div class="pm-stage" id="pmStage">
     <img id="pmImg" alt="">
-    <model-viewer id="pv" shadow-intensity="1.2" shadow-softness="0.7" exposure="0.9" environment-image="neutral" tone-mapping="neutral" interaction-prompt="none" field-of-view="20deg" camera-orbit="-25deg 72deg auto" min-camera-orbit="auto 0deg 0.1m" max-camera-orbit="auto 180deg 200m" interpolation-decay="30"></model-viewer>
+    <div class="pin" id="pmPin"></div>
     <div class="pm-empty">
       <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
       <h4>拍一張要擺放的地方</h4>
       <p>站遠一點，把地板和牆面一起拍進去，<br>擺起來最自然。也可以從相簿選照片。</p>
       <button class="pm-pick" id="pmPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>拍照或選照片</button>
     </div>
-    <div class="pm-tip" id="pmTip">拖曳移動・雙指縮放和旋轉</div>
+    <div class="pm-tip" id="pmTip">點家具選取・拖曳移動・雙指縮放和旋轉</div>
   </div>
-  <div class="pm-top"><button class="pbtn" id="pmBack" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="t" id="pmName"></div><button class="pbtn" id="pmRe">換照片</button></div>
+  <div class="pm-top"><button class="pbtn" id="pmBack" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="t"></div><button class="pbtn add" id="pmAdd">＋ 加家具</button><button class="pbtn" id="pmRe">換照片</button></div>
   <div class="pm-bar"><div class="in">
-    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="10" max="100" value="55"><output></output></label>
+    <div class="pm-cur"><b id="pmCurName"></b><button id="pmDup">複製</button><button class="del" id="pmDel">刪除</button></div>
+    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="5" max="250" value="100"><output id="oSize"></output></label>
     <label class="pm-sl"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"><output id="oRot"></output></label>
     <div class="pm-rots"><button data-r="-90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 3v5h5"/></svg>90°</button><button data-r="90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 3v5h-5"/></svg>90°</button><button data-r="180">180°</button></div>
-    <label class="pm-sl"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"><output id="oTilt"></output></label>
     <label class="pm-sl"><span>離地</span><input type="range" id="pmElev" min="0" max="200" value="0"><output id="oElev"></output></label>
+    <label class="pm-sl"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"><output id="oTilt"></output></label>
     <button class="pm-save" id="pmSave">存成照片</button>
   </div></div>
   <input type="file" id="pmFile" accept="image/*" hidden>
 </section>
+<div id="pmSheet"><div class="sh">
+  <div class="shh"><h4>加一件家具</h4><button id="pmSheetClose">關閉</button></div>
+  <div class="shc" id="pmSheetCats"></div>
+  <div class="shg" id="pmSheetGrid"></div>
+</div></div>
 <div id="pmOut">
   <img id="pmOutImg" alt="擺放示意照片">
   <p id="pmOutTip">手機可以長按照片儲存或傳給家人</p>
@@ -387,7 +412,6 @@ function openP(k, size) {
 }
 const sizeKey = z => `${z.w}x${z.d}x${z.h}`;
 function setSrc(url) {
-  if (mv.src && mv.src.startsWith('blob:') && mv.src !== url) { const old = mv.src; setTimeout(() => URL.revokeObjectURL(old), 4000); }
   mv.dataset.k = cur.k; mv.dataset.size = sizeKey(curSize); mv.src = url;
 }
 /* 尺寸：顯示／修改 */
@@ -471,7 +495,7 @@ $('dColors').onclick = e => {
   const r = b.dataset.r; sel[r] = b.classList.contains('reset') ? cur.cs.find(c => c[0] === r)[2] : b.dataset.c;
   paint(r); renderColors();
 };
-function paint(r) { paintOn(mv, r); paintOn($('pv'), r); }
+function paint(r) { paintOn(mv, r); }
 function paintOn(v, r) {
   if (!v.model || !cur || v.dataset.k !== cur.k) return;
   const [R, G, B] = hexLin(sel[r]);
@@ -527,84 +551,169 @@ $('shareBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(url); toast('已複製這件家具的連結'); } catch (e) { toast(url); }
 };
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2200); }
-addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
 
 
-/* ---------- 照片試擺：拍一張家裡的照片，把 3D 家具疊上去 ---------- */
-const pv = $('pv'), pm = { fx: .5, fy: .72, fw: .55, rot: -25, tilt: 72, elev: 0, rad: 6, r: null };
+/* ---------- 照片試擺：拍一張家裡的照片，放好幾件 3D 家具 ---------- */
+const PM_MAX = 10;
+const pm = { tilt: 72, r: null, items: [], sel: null, nid: 0 };
+const FOV = 20, TANH = Math.tan(FOV / 2 * Math.PI / 180), KR = 6.5;   // KR：鏡頭距離＝家具最大邊長 × KR（夠遠，高的家具上半部才不會被切掉）
+const selIt = () => pm.items.find(x => x.id === pm.sel) || null;
 function openPhoto() {
   if (!cur) return;
   $('photo').classList.add('show'); $('photo').setAttribute('aria-hidden', 'false');
-  $('pmName').textContent = cur.n;
-  if (pv.src !== mv.src) { pv.dataset.k = cur.k; pv.src = mv.src; }
-  else for (const r in sel) paintOn(pv, r);
-  pm.rot = -25; pm.tilt = 72; pm.elev = 0; $('pmTilt').value = pm.tilt; $('pmElev').value = 0; pmRadius(); setOrbit();
-  pmLayout();
+  // 從商品頁進來：照片裡還沒有這件（同尺寸）就加進去
+  const key = sizeKey(curSize), has = pm.items.find(x => x.k === cur.k && x.sizeK === key);
+  if (has) { Object.assign(has.cols, sel); paintItem(has); selectIt(has.id); }
+  else addItem({ k: cur.k, n: cur.n, size: { ...curSize }, cols: { ...sel }, src: mv.src });
+  $('pmTilt').value = pm.tilt; pmLayout();
 }
-function closePhoto() { $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); }
-pv.addEventListener('load', () => { for (const r in sel) paintOn(pv, r); pmRadius(); setOrbit(); pv.jumpCameraToGoal(); });
-function setOrbit() {
-  pv.cameraTarget = `auto ${(-pm.elev / 100).toFixed(3)}m auto`;
-  pv.cameraOrbit = `${pm.rot}deg ${pm.tilt}deg ${pm.rad}m`;
-  $('pmRot').value = Math.round(pm.rot); $('oRot').textContent = Math.round(pm.rot) + '°';
-  $('oTilt').textContent = Math.round(90 - pm.tilt) + '°'; $('oElev').textContent = pm.elev + ' cm';
+function closePhoto() { $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); $('pmSheet').classList.remove('show'); }
+function addItem(o, from) {
+  if (pm.items.length >= PM_MAX) { toast(`最多放 ${PM_MAX} 件家具`); return; }
+  const ref = from || selIt() || pm.items[0];
+  const n = pm.items.length;
+  const it = { id: ++pm.nid, k: o.k, n: o.n, size: o.size, sizeK: sizeKey(o.size), cols: { ...o.cols }, src: o.src,
+    fx: from ? Math.min(.95, from.fx + .1) : .5 + [0, .2, -.2][n % 3], fy: from ? from.fy : Math.min(.9, .72 + Math.floor(n / 3) * .08),
+    fw: from ? from.fw : 1, rot: from ? from.rot : -25, elev: from ? from.elev : 0, L: from ? from.L : 0, ref: from ? null : ref, el: null };
+  const el = document.createElement('model-viewer');
+  for (const [a, v] of Object.entries({ 'shadow-intensity': '1.2', 'shadow-softness': '0.7', exposure: '0.9', 'environment-image': 'neutral', 'tone-mapping': 'neutral', 'interaction-prompt': 'none', 'field-of-view': FOV + 'deg', 'min-camera-orbit': 'auto 0deg 0.1m', 'max-camera-orbit': 'auto 180deg 200m', 'interpolation-decay': '30', 'camera-target': 'auto 0m auto' })) el.setAttribute(a, v);
+  el.className = 'pvi'; it.el = el;
+  el.addEventListener('load', () => {
+    const d = el.getDimensions(); it.L = Math.max(d.x, d.y, d.z) || 1;
+    // 跟參考家具同比例：畫面上每公尺的像素一樣
+    if (it.ref && it.ref.L) it.fw = Math.min(2.5, Math.max(.05, it.ref.fw * it.L / it.ref.L));
+    it.ref = null; paintItem(it); orbitIt(it); el.jumpCameraToGoal(); el.classList.add('ready'); placeIt(it); syncBar();
+  });
+  $('pmStage').insertBefore(el, $('pmPin'));
+  el.src = o.src;
+  pm.items.push(it); selectIt(it.id); placeIt(it);
+  return it;
 }
-/* 鏡頭距離：以家具最大邊長＋離地高度估算，讓整件家具都在框內 */
-function pmRadius() { const d = pv.getDimensions ? pv.getDimensions() : null; const L = d && d.x ? Math.max(d.x, d.y, d.z) : 2; pm.rad = +(L * 3.4 + pm.elev / 100 * 2.6).toFixed(3); }
+function paintItem(it) {
+  if (!it.el.model) return;
+  for (const r in it.cols) { const [R, G, B] = hexLin(it.cols[r]); for (const m of it.el.model.materials) if (m.name === r) m.pbrMetallicRoughness.setBaseColorFactor([R, G, B, 1]); }
+}
+function orbitIt(it) {
+  it.el.cameraOrbit = `${it.rot}deg ${pm.tilt}deg ${(it.L * KR).toFixed(3)}m`;
+  it.el.shadowIntensity = it.elev > 0 ? 0 : 1.2;
+}
+function selectIt(id) { pm.sel = id; syncBar(); placePin(); }
+function syncBar() {
+  const it = selIt(); if (!it) return;
+  $('pmCurName').innerHTML = `${it.n}<small>${it.size.w}×${it.size.d}×${it.size.h}</small>`;
+  $('pmSize').value = Math.round(it.fw * 100); $('oSize').textContent = Math.round(it.fw * 100) + '%';
+  $('pmRot').value = Math.round(it.rot); $('oRot').textContent = Math.round(it.rot) + '°';
+  $('pmElev').value = it.elev; $('oElev').textContent = it.elev + ' cm';
+  $('oTilt').textContent = Math.round(90 - pm.tilt) + '°';
+}
 function pmLayout() {
   const img = $('pmImg'); if (!img.naturalWidth) return;
   const st = $('pmStage').getBoundingClientRect(), k = Math.min(st.width / img.naturalWidth, st.height / img.naturalHeight);
   const w = img.naturalWidth * k, h = img.naturalHeight * k, x = (st.width - w) / 2, y = (st.height - h) / 2;
   pm.r = { x, y, w, h };
   Object.assign(img.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
-  pmPlace();
+  pm.items.forEach(placeIt);
 }
-function pmPlace() {
-  const r = pm.r; if (!r) return;
-  const size = Math.max(r.w, r.h) * pm.fw;
-  const L = r.x + pm.fx * r.w - size / 2, T = r.y + pm.fy * r.h - size / 2;
-  Object.assign(pv.style, { width: size + 'px', height: size + 'px', left: L + 'px', top: T + 'px',
+/* 元件中心＝家具落地點；離地時整個往上移（依每公尺像素換算） */
+function boxOf(it) {
+  const r = pm.r, size = Math.max(r.w, r.h) * it.fw;
+  const ppm = it.L ? size / (2 * it.L * KR * TANH) : 0, lift = it.elev / 100 * ppm * Math.sin(pm.tilt * Math.PI / 180);
+  return { size, L: r.x + it.fx * r.w - size / 2, T: r.y + it.fy * r.h - size / 2 - lift };
+}
+function placeIt(it) {
+  const r = pm.r; if (!r || !it.el) return;
+  const { size, L, T } = boxOf(it);
+  Object.assign(it.el.style, { width: size + 'px', height: size + 'px', left: L + 'px', top: T + 'px',
     clipPath: `inset(${Math.max(0, r.y - T)}px ${Math.max(0, L + size - r.x - r.w)}px ${Math.max(0, T + size - r.y - r.h)}px ${Math.max(0, r.x - L)}px)` });
-  $('pmSize').value = Math.round(pm.fw * 100); $('pmSize').nextElementSibling.textContent = Math.round(pm.fw * 100) + '%';
+  // 越下面（越靠近鏡頭）的家具排在越前面
+  [...pm.items].sort((a, b) => a.fy - b.fy).forEach((x, i) => { x.el.style.zIndex = 10 + i; });
+  if (it.id === pm.sel) placePin();
+}
+function placePin() {
+  const it = selIt(), p = $('pmPin'); if (!it || !pm.r || pm.items.length < 2) { p.classList.remove('on'); return; }
+  p.classList.add('on'); p.style.left = (pm.r.x + it.fx * pm.r.w) + 'px'; p.style.top = (pm.r.y + it.fy * pm.r.h) + 'px';
 }
 $('pmPick').onclick = $('pmRe').onclick = () => $('pmFile').click();
 $('pmFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const img = $('pmImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-  img.onload = () => { $('photo').classList.add('has'); pm.fx = .5; pm.fy = .72; pm.fw = .55; pmLayout(); $('pmTip').style.opacity = 1; };
+  img.onload = () => { $('photo').classList.add('has'); pmLayout(); $('pmTip').style.opacity = 1; };
   img.src = URL.createObjectURL(f); e.target.value = '';
 };
 $('pmBack').onclick = closePhoto;
 addEventListener('resize', () => { if ($('photo').classList.contains('show')) pmLayout(); });
-$('pmSize').oninput = e => { pm.fw = e.target.value / 100; pmPlace(); };
-$('pmRot').oninput = e => { pm.rot = +e.target.value; setOrbit(); };
-document.querySelector('.pm-rots').onclick = e => { const b = e.target.closest('button'); if (!b) return; let r = Math.round(pm.rot + +b.dataset.r); r = ((r + 540) % 360) - 180; pm.rot = r; setOrbit(); };
-$('pmElev').oninput = e => { pm.elev = +e.target.value; pmRadius(); setOrbit(); };
-$('pmTilt').oninput = e => { pm.tilt = +e.target.value; setOrbit(); };
-/* 手勢：一指拖曳、兩指縮放＋旋轉、滑鼠滾輪縮放 */
+const upd = fn => { const it = selIt(); if (!it) return; fn(it); orbitIt(it); placeIt(it); syncBar(); };
+$('pmSize').oninput = e => upd(it => { it.fw = e.target.value / 100; });
+$('pmRot').oninput = e => upd(it => { it.rot = +e.target.value; });
+$('pmElev').oninput = e => upd(it => { it.elev = +e.target.value; });
+document.querySelector('.pm-rots').onclick = e => { const b = e.target.closest('button'); if (b) upd(it => { let r = Math.round(it.rot + +b.dataset.r); it.rot = ((r + 540) % 360) - 180; }); };
+$('pmTilt').oninput = e => { pm.tilt = +e.target.value; pm.items.forEach(it => { orbitIt(it); placeIt(it); }); syncBar(); };
+$('pmDup').onclick = () => { const it = selIt(); if (it) addItem(it, it); };
+$('pmDel').onclick = () => {
+  const it = selIt(); if (!it) return;
+  if (pm.items.length === 1) { toast('照片裡至少要有一件家具'); return; }
+  it.el.remove(); pm.items = pm.items.filter(x => x !== it); selectIt(pm.items[pm.items.length - 1].id);
+};
+/* 加家具：從型錄挑 */
+let sheetCat = '全部';
+function renderSheet() {
+  const cats = ['全部', ...CATS.filter(c => P.some(p => p.cat === c))];
+  $('pmSheetCats').innerHTML = cats.map(c => `<button class="${c === sheetCat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
+  $('pmSheetGrid').innerHTML = P.filter(p => sheetCat === '全部' || p.cat === sheetCat).map(p => `<button data-k="${p.k}"><img src="thumbs/${p.k}.webp" alt="" loading="lazy">${p.n}</button>`).join('');
+}
+$('pmAdd').onclick = () => { renderSheet(); $('pmSheet').classList.add('show'); };
+$('pmSheetClose').onclick = () => $('pmSheet').classList.remove('show');
+$('pmSheet').onclick = e => { if (e.target === $('pmSheet')) $('pmSheet').classList.remove('show'); };
+$('pmSheetCats').onclick = e => { const b = e.target.closest('button'); if (b) { sheetCat = b.dataset.c; renderSheet(); } };
+$('pmSheetGrid').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return; const p = P.find(x => x.k === b.dataset.k);
+  addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` });
+  $('pmSheet').classList.remove('show');
+};
+/* 點選：看手指底下哪一件家具有畫出東西（由前往後找） */
+function canvasOf(it) { return [...it.el.shadowRoot.querySelectorAll('canvas')].find(x => x.width > 0 && getComputedStyle(x).display !== 'none' && !x.getContext('webgl2') && !x.getContext('webgl')); }
+function hitTest(x, y) {
+  const list = [...pm.items].filter(it => it.el.classList.contains('ready')).sort((a, b) => (+b.el.style.zIndex) - (+a.el.style.zIndex));
+  for (const it of list) {
+    const rc = it.el.getBoundingClientRect(); if (x < rc.left || x > rc.right || y < rc.top || y > rc.bottom) continue;
+    const cv = canvasOf(it); if (!cv) continue;
+    const cr = cv.getBoundingClientRect(), px = Math.floor((x - cr.left) * cv.width / cr.width), py = Math.floor((y - cr.top) * cv.height / cr.height);
+    try { if (cv.getContext('2d').getImageData(px, py, 1, 1).data[3] > 90) return it; } catch (e) { return it; }
+  }
+  return null;
+}
+/* 手勢：一指拖曳、兩指縮放＋旋轉、滑鼠滾輪縮放（只動選取中的家具） */
 const ptrs = new Map(); let g0 = null;
 const two = () => { const [a, b] = [...ptrs.values()]; return { d: Math.hypot(b.x - a.x, b.y - a.y), a: Math.atan2(b.y - a.y, b.x - a.x) }; };
 function gStart() {
-  if (ptrs.size === 1) { const p = [...ptrs.values()][0]; g0 = { m: 1, x: p.x, y: p.y, fx: pm.fx, fy: pm.fy }; }
-  else if (ptrs.size >= 2) { const t = two(); g0 = { m: 2, d: t.d || 1, a: t.a, fw: pm.fw, rot: pm.rot }; }
-  else g0 = null;
+  const it = selIt();
+  if (!it || !ptrs.size) { g0 = null; return; }
+  if (ptrs.size === 1) { const p = [...ptrs.values()][0]; g0 = { m: 1, x: p.x, y: p.y, fx: it.fx, fy: it.fy, drag: g0 && g0.drag !== undefined ? g0.drag : true }; }
+  else { const t = two(); g0 = { m: 2, d: t.d || 1, a: t.a, fw: it.fw, rot: it.rot }; }
 }
 $('pmStage').addEventListener('pointerdown', e => {
   if (!pm.r || e.target.closest('.pm-empty')) return;
-  $('pmStage').setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); gStart();
-  pv.classList.add('busy'); $('pmTip').style.opacity = 0;
+  $('pmStage').setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) {
+    const hit = hitTest(e.clientX, e.clientY);
+    if (hit) selectIt(hit.id);
+    g0 = null; gStart(); if (g0) g0.drag = !!hit || pm.items.length === 1;
+  } else gStart();
+  $('pmTip').style.opacity = 0;
 });
 $('pmStage').addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId) || !g0) return;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (g0.m === 1) { const p = ptrs.get(e.pointerId); pm.fx = Math.min(1.1, Math.max(-.1, g0.fx + (p.x - g0.x) / pm.r.w)); pm.fy = Math.min(1.1, Math.max(-.1, g0.fy + (p.y - g0.y) / pm.r.h)); }
-  else if (ptrs.size >= 2) { const t = two(); pm.fw = Math.min(1, Math.max(.1, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; rot = ((rot + 540) % 360) - 180; pm.rot = rot; setOrbit(); }
-  pmPlace();
+  const it = selIt(); if (!it) return;
+  if (g0.m === 1) { if (!g0.drag) return; const p = ptrs.get(e.pointerId); it.fx = Math.min(1.1, Math.max(-.1, g0.fx + (p.x - g0.x) / pm.r.w)); it.fy = Math.min(1.1, Math.max(-.1, g0.fy + (p.y - g0.y) / pm.r.h)); }
+  else if (ptrs.size >= 2) { const t = two(); it.fw = Math.min(2.5, Math.max(.05, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; it.rot = ((rot + 540) % 360) - 180; orbitIt(it); }
+  placeIt(it); syncBar();
 });
-const pEnd = e => { ptrs.delete(e.pointerId); gStart(); if (!ptrs.size) pv.classList.remove('busy'); };
+const pEnd = e => { ptrs.delete(e.pointerId); const keep = g0 && g0.drag; g0 = null; gStart(); if (g0 && g0.m === 1) g0.drag = keep; };
 $('pmStage').addEventListener('pointerup', pEnd); $('pmStage').addEventListener('pointercancel', pEnd);
-$('pmStage').addEventListener('wheel', e => { if (!pm.r) return; e.preventDefault(); pm.fw = Math.min(1, Math.max(.1, pm.fw * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); pmPlace(); }, { passive: false });
-/* 存成照片：照片＋家具合成一張 */
+$('pmStage').addEventListener('wheel', e => { const it = selIt(); if (!pm.r || !it) return; e.preventDefault(); it.fw = Math.min(2.5, Math.max(.05, it.fw * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); placeIt(it); syncBar(); }, { passive: false });
+/* 存成照片：照片＋所有家具合成一張 */
 let outBlob = null, outName = '';
 $('pmSave').onclick = async () => {
   const img = $('pmImg'), r = pm.r; if (!r) return;
@@ -613,29 +722,25 @@ $('pmSave').onclick = async () => {
     const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
     const g = c.getContext('2d'); g.drawImage(img, 0, 0, c.width, c.height);
-    const s = c.width / r.w, size = Math.max(r.w, r.h) * pm.fw;
-    const dx = (pm.fx * r.w - size / 2) * s, dy = (pm.fy * r.h - size / 2) * s;
-    // 直接取畫面上已畫好的家具（model-viewer 的 toBlob 在高解析度螢幕會截錯範圍）
+    const s = c.width / r.w;
     await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
-    const cv = [...pv.shadowRoot.querySelectorAll('canvas')].find(x => x.width > 0 && getComputedStyle(x).display !== 'none' && !x.getContext('webgl2') && !x.getContext('webgl'));
-    if (cv) {
-      const cw = cv.getBoundingClientRect().width || cv.clientWidth, ch = cv.getBoundingClientRect().height || cv.clientHeight, el = pv.getBoundingClientRect();
-      g.drawImage(cv, 0, 0, el.width * cv.width / cw, el.height * cv.height / ch, dx, dy, size * s, size * s);
-    } else {
-      const blob = await pv.toBlob({ idealAspect: false });
-      const bm = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(blob); });
-      g.drawImage(bm, dx, dy, size * s, size * s);
+    for (const it of [...pm.items].filter(x => x.el.classList.contains('ready')).sort((a, b) => (+a.el.style.zIndex) - (+b.el.style.zIndex))) {
+      const { size, L, T } = boxOf(it), dx = (L - r.x) * s, dy = (T - r.y) * s;
+      // 直接取畫面上已畫好的家具（model-viewer 的 toBlob 在高解析度螢幕會截錯範圍）
+      const cv = canvasOf(it);
+      if (cv) { const cr = cv.getBoundingClientRect(), el = it.el.getBoundingClientRect(); g.drawImage(cv, 0, 0, el.width * cv.width / cr.width, el.height * cv.height / cr.height, dx, dy, size * s, size * s); }
+      else { const blob = await it.el.toBlob({ idealAspect: false }); const bm = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(blob); }); g.drawImage(bm, dx, dy, size * s, size * s); }
     }
-    outBlob = await new Promise(res => c.toBlob(res, 'image/jpeg', .9)); outName = cur.n + '-擺放示意.jpg';
+    outBlob = await new Promise(res => c.toBlob(res, 'image/jpeg', .9)); outName = '擺放示意-' + new Date().toISOString().slice(0, 10) + '.jpg';
     const o = $('pmOutImg'); if (o.src.startsWith('blob:')) URL.revokeObjectURL(o.src); o.src = URL.createObjectURL(outBlob);
     let canShare = false; try { canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([outBlob], outName, { type: 'image/jpeg' })] })); } catch (e) {}
     $('pmShare').style.display = canShare ? '' : 'none';
     $('pmOutTip').style.display = isMobile ? '' : 'none';
     $('pmOut').classList.add('show');
-  } catch (e) { toast('存檔失敗，請再試一次'); }
+  } catch (e) { console.error(e); toast('存檔失敗，請再試一次'); }
   $('pmSave').disabled = false; $('pmSave').textContent = '存成照片';
 };
-$('pmShare').onclick = async () => { try { await navigator.share({ files: [new File([outBlob], outName, { type: 'image/jpeg' })], title: cur.n }); } catch (e) {} };
+$('pmShare').onclick = async () => { try { await navigator.share({ files: [new File([outBlob], outName, { type: 'image/jpeg' })], title: '擺放示意' }); } catch (e) {} };
 $('pmDl').onclick = () => { const a = document.createElement('a'); a.href = $('pmOutImg').src; a.download = outName; document.body.appendChild(a); a.click(); a.remove(); };
 $('pmOutClose').onclick = () => $('pmOut').classList.remove('show');
 
