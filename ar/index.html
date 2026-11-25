@@ -165,6 +165,28 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 .pm-cur button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:9px;padding:5px 12px;font-size:13px}
 .pm-cur button.del{color:#ffb4a3}
 .pbtn.add{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.cal{position:absolute;inset:0;width:100%;height:100%;z-index:70;pointer-events:none;display:none}
+#photo.calon .cal{display:block}
+.cal line{stroke:#ffd24a;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(0,0,0,.7))}
+.cal circle{fill:#ffd24a;stroke:#000;stroke-opacity:.5;stroke-width:1}
+.cal-top{position:absolute;left:12px;right:12px;top:64px;z-index:71;background:rgba(20,18,16,.85);border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.55;display:none;gap:10px;align-items:center}
+#photo.calon .cal-top{display:flex}
+.cal-top span{flex:1}
+.cal-top button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:9px;padding:6px 12px;font-size:13px;flex:none}
+#photo.calon .pm-tip,#photo.calon .pin{display:none !important}
+#calSheet{position:fixed;inset:0;z-index:43;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+#calSheet.show{display:flex}
+#calSheet .sh{background:#1c1a18;color:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+#calSheet h4{margin:0 0 4px;font-family:"Noto Serif TC",serif;font-size:19px}
+#calSheet p{margin:0 0 12px;color:#b9b2a9;font-size:13px}
+#calSheet .row{display:flex;align-items:center;gap:10px}
+#calSheet input{flex:1;min-width:0;font:inherit;font-size:22px;font-weight:700;text-align:center;border:1px solid rgba(255,255,255,.2);background:#2a2724;color:#fff;border-radius:12px;padding:8px 0}
+#calSheet .unit{font-size:15px;color:#c9c2b8}
+#calSheet .presets{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px}
+#calSheet .presets button{border:1px solid rgba(255,255,255,.18);background:none;color:#ddd;border-radius:999px;padding:5px 12px;font-size:13px}
+#calSheet .acts{display:flex;gap:8px}
+#calSheet .acts button{flex:1;border:0;border-radius:12px;padding:12px 0;font-size:15px;font-weight:500;background:rgba(255,255,255,.12);color:#fff}
+#calSheet .acts .go{background:var(--accent);color:var(--accent-ink);font-weight:700}
 #pmSheet{position:fixed;inset:0;z-index:42;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
 #pmSheet.show{display:flex}
 #pmSheet .sh{background:#1c1a18;color:#fff;width:100%;max-width:720px;max-height:78vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
@@ -311,18 +333,20 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
   <div class="pm-stage" id="pmStage">
     <img id="pmImg" alt="">
     <div class="pin" id="pmPin"></div>
+    <svg class="cal" id="calSvg"><line id="calLine"/><circle id="calA" r="6"/><circle id="calB" r="6"/></svg>
+    <div class="cal-top"><span id="calMsg">在照片上沿著一個<b>知道長度</b>的東西拉一條線，例如門寬、窗戶、地磚，最好跟家具放在差不多遠的地方。</span><button id="calCancel">取消</button></div>
     <div class="pm-empty">
       <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
       <h4>拍一張要擺放的地方</h4>
       <p>站遠一點，把地板和牆面一起拍進去，<br>擺起來最自然。也可以從相簿選照片。</p>
       <button class="pm-pick" id="pmPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>拍照或選照片</button>
     </div>
-    <div class="pm-tip" id="pmTip">點家具選取・拖曳移動・雙指縮放和旋轉</div>
+    <div class="pm-tip" id="pmTip">大小不對？按下方「對比例」量一個知道長度的東西</div>
   </div>
   <div class="pm-top"><button class="pbtn" id="pmBack" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="t"></div><button class="pbtn add" id="pmAdd">＋ 加家具</button><button class="pbtn" id="pmRe">換照片</button></div>
   <div class="pm-bar"><div class="in">
-    <div class="pm-cur"><b id="pmCurName"></b><button id="pmDup">複製</button><button class="del" id="pmDel">刪除</button></div>
-    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="5" max="250" value="100"><output id="oSize"></output></label>
+    <div class="pm-cur"><b id="pmCurName"></b><button id="pmCal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;vertical-align:-3px;margin-right:3px"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg>對比例</button><button id="pmDup">複製</button><button class="del" id="pmDel">刪除</button></div>
+    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="2" max="400" value="100"><output id="oSize"></output></label>
     <label class="pm-sl"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"><output id="oRot"></output></label>
     <div class="pm-rots"><button data-r="-90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 3v5h5"/></svg>90°</button><button data-r="90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 3v5h-5"/></svg>90°</button><button data-r="180">180°</button></div>
     <label class="pm-sl"><span>離地</span><input type="range" id="pmElev" min="0" max="200" value="0"><output id="oElev"></output></label>
@@ -331,6 +355,13 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
   </div></div>
   <input type="file" id="pmFile" accept="image/*" hidden>
 </section>
+<div id="calSheet"><div class="sh">
+  <h4>這段線實際有多長？</h4>
+  <p>輸入公分，所有家具會照這個比例自動調整大小。</p>
+  <div class="row"><input type="number" inputmode="numeric" id="calCm" placeholder="例如 90"><span class="unit">公分</span></div>
+  <div class="presets" id="calPresets"><button data-v="90">門寬 90</button><button data-v="80">門寬 80</button><button data-v="210">門高 210</button><button data-v="60">地磚 60</button><button data-v="80" data-t="tile">地磚 80</button><button data-v="120">地磚 120</button></div>
+  <div class="acts"><button id="calRedo">重畫</button><button class="go" id="calApply">套用</button></div>
+</div></div>
 <div id="pmSheet"><div class="sh">
   <div class="shh"><h4>加一件家具</h4><button id="pmSheetClose">關閉</button></div>
   <div class="shc" id="pmSheetCats"></div>
@@ -551,7 +582,7 @@ $('shareBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(url); toast('已複製這件家具的連結'); } catch (e) { toast(url); }
 };
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2200); }
-addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('calSheet').classList.contains('show') || cal.on) calEnd(); else if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('pmSheet').classList.contains('show')) $('pmSheet').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
 
 
 /* ---------- 照片試擺：拍一張家裡的照片，放好幾件 3D 家具 ---------- */
@@ -568,7 +599,7 @@ function openPhoto() {
   else addItem({ k: cur.k, n: cur.n, size: { ...curSize }, cols: { ...sel }, src: mv.src });
   $('pmTilt').value = pm.tilt; pmLayout();
 }
-function closePhoto() { $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); $('pmSheet').classList.remove('show'); }
+function closePhoto() { calEnd(); $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); $('pmSheet').classList.remove('show'); }
 function addItem(o, from) {
   if (pm.items.length >= PM_MAX) { toast(`最多放 ${PM_MAX} 件家具`); return; }
   const ref = from || selIt() || pm.items[0];
@@ -582,7 +613,8 @@ function addItem(o, from) {
   el.addEventListener('load', () => {
     const d = el.getDimensions(); it.L = Math.max(d.x, d.y, d.z) || 1;
     // 跟參考家具同比例：畫面上每公尺的像素一樣
-    if (it.ref && it.ref.L) it.fw = Math.min(2.5, Math.max(.05, it.ref.fw * it.L / it.ref.L));
+    if (pm.ppm && !from) it.fw = Math.min(4, Math.max(.02, pm.ppm * 2 * it.L * KR * TANH));
+    else if (it.ref && it.ref.L) it.fw = Math.min(4, Math.max(.02, it.ref.fw * it.L / it.ref.L));
     it.ref = null; paintItem(it); orbitIt(it); el.jumpCameraToGoal(); el.classList.add('ready'); placeIt(it); syncBar();
   });
   $('pmStage').insertBefore(el, $('pmPin'));
@@ -638,7 +670,7 @@ $('pmPick').onclick = $('pmRe').onclick = () => $('pmFile').click();
 $('pmFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const img = $('pmImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-  img.onload = () => { $('photo').classList.add('has'); pmLayout(); $('pmTip').style.opacity = 1; };
+  img.onload = () => { $('photo').classList.add('has'); pm.ppm = 0; pmLayout(); $('pmTip').style.opacity = 1; };
   img.src = URL.createObjectURL(f); e.target.value = '';
 };
 $('pmBack').onclick = closePhoto;
@@ -671,6 +703,35 @@ $('pmSheetGrid').onclick = e => {
   addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` });
   $('pmSheet').classList.remove('show');
 };
+/* 對比例：在照片上拉一條已知長度的線 → 換算每公尺幾像素 → 所有家具照實際尺寸縮放 */
+const cal = { on: false, a: null, b: null, drawing: false };
+function calShow() {
+  const st = $('pmStage').getBoundingClientRect(), A = cal.a, B = cal.b || cal.a;
+  const set = (id, o) => { for (const k in o) $(id).setAttribute(k, o[k]); };
+  if (!A) { set('calLine', { x1: -9, y1: -9, x2: -9, y2: -9 }); set('calA', { cx: -9, cy: -9 }); set('calB', { cx: -9, cy: -9 }); return; }
+  set('calLine', { x1: A.x - st.left, y1: A.y - st.top, x2: B.x - st.left, y2: B.y - st.top });
+  set('calA', { cx: A.x - st.left, cy: A.y - st.top }); set('calB', { cx: B.x - st.left, cy: B.y - st.top });
+}
+function calStart() { if (!pm.r) { toast('先拍照或選照片'); return; } cal.on = true; cal.a = cal.b = null; calShow(); $('photo').classList.add('calon'); }
+function calEnd() { cal.on = false; cal.drawing = false; $('photo').classList.remove('calon'); $('calSheet').classList.remove('show'); }
+$('pmCal').onclick = calStart;
+$('calCancel').onclick = calEnd;
+$('calRedo').onclick = () => { $('calSheet').classList.remove('show'); cal.a = cal.b = null; calShow(); };
+$('calPresets').onclick = e => { const b = e.target.closest('button'); if (b) { $('calCm').value = b.dataset.v; $('calCm').focus(); } };
+$('calCm').addEventListener('keydown', e => { if (e.key === 'Enter') $('calApply').click(); });
+$('calApply').onclick = () => {
+  const cm = +$('calCm').value; if (!(cm > 0)) { toast('請輸入公分'); return; }
+  const px = Math.hypot(cal.b.x - cal.a.x, cal.b.y - cal.a.y), ppm = px / (cm / 100), S = Math.max(pm.r.w, pm.r.h);
+  for (const it of pm.items) { if (!it.L) continue; it.fw = Math.min(4, Math.max(.02, ppm * 2 * it.L * KR * TANH / S)); orbitIt(it); placeIt(it); }
+  pm.ppm = ppm / S; syncBar(); calEnd(); toast(`已依 ${cm} 公分調整家具大小`);
+};
+function calDown(e) { cal.a = cal.b = { x: e.clientX, y: e.clientY }; cal.drawing = true; calShow(); }
+function calMove(e) { if (!cal.drawing) return; cal.b = { x: e.clientX, y: e.clientY }; calShow(); }
+function calUp() {
+  if (!cal.drawing) return; cal.drawing = false;
+  if (Math.hypot(cal.b.x - cal.a.x, cal.b.y - cal.a.y) < 20) { cal.a = cal.b = null; calShow(); toast('線太短了，請拉長一點'); return; }
+  $('calSheet').classList.add('show'); setTimeout(() => { $('calCm').focus(); $('calCm').select(); }, 50);
+}
 /* 點選：看手指底下哪一件家具有畫出東西（由前往後找） */
 function canvasOf(it) { return [...it.el.shadowRoot.querySelectorAll('canvas')].find(x => x.width > 0 && getComputedStyle(x).display !== 'none' && !x.getContext('webgl2') && !x.getContext('webgl')); }
 function hitTest(x, y) {
@@ -693,7 +754,8 @@ function gStart() {
   else { const t = two(); g0 = { m: 2, d: t.d || 1, a: t.a, fw: it.fw, rot: it.rot }; }
 }
 $('pmStage').addEventListener('pointerdown', e => {
-  if (!pm.r || e.target.closest('.pm-empty')) return;
+  if (!pm.r || e.target.closest('.pm-empty') || e.target.closest('.cal-top')) return;
+  if (cal.on) { $('pmStage').setPointerCapture(e.pointerId); calDown(e); return; }
   $('pmStage').setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1) {
     const hit = hitTest(e.clientX, e.clientY);
@@ -703,16 +765,17 @@ $('pmStage').addEventListener('pointerdown', e => {
   $('pmTip').style.opacity = 0;
 });
 $('pmStage').addEventListener('pointermove', e => {
+  if (cal.on) { calMove(e); return; }
   if (!ptrs.has(e.pointerId) || !g0) return;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   const it = selIt(); if (!it) return;
   if (g0.m === 1) { if (!g0.drag) return; const p = ptrs.get(e.pointerId); it.fx = Math.min(1.1, Math.max(-.1, g0.fx + (p.x - g0.x) / pm.r.w)); it.fy = Math.min(1.1, Math.max(-.1, g0.fy + (p.y - g0.y) / pm.r.h)); }
-  else if (ptrs.size >= 2) { const t = two(); it.fw = Math.min(2.5, Math.max(.05, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; it.rot = ((rot + 540) % 360) - 180; orbitIt(it); }
+  else if (ptrs.size >= 2) { const t = two(); it.fw = Math.min(4, Math.max(.02, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; it.rot = ((rot + 540) % 360) - 180; orbitIt(it); }
   placeIt(it); syncBar();
 });
-const pEnd = e => { ptrs.delete(e.pointerId); const keep = g0 && g0.drag; g0 = null; gStart(); if (g0 && g0.m === 1) g0.drag = keep; };
+const pEnd = e => { if (cal.on) { calUp(); return; } ptrs.delete(e.pointerId); const keep = g0 && g0.drag; g0 = null; gStart(); if (g0 && g0.m === 1) g0.drag = keep; };
 $('pmStage').addEventListener('pointerup', pEnd); $('pmStage').addEventListener('pointercancel', pEnd);
-$('pmStage').addEventListener('wheel', e => { const it = selIt(); if (!pm.r || !it) return; e.preventDefault(); it.fw = Math.min(2.5, Math.max(.05, it.fw * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); placeIt(it); syncBar(); }, { passive: false });
+$('pmStage').addEventListener('wheel', e => { const it = selIt(); if (!pm.r || !it) return; e.preventDefault(); it.fw = Math.min(4, Math.max(.02, it.fw * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); placeIt(it); syncBar(); }, { passive: false });
 /* 存成照片：照片＋所有家具合成一張 */
 let outBlob = null, outName = '';
 $('pmSave').onclick = async () => {
