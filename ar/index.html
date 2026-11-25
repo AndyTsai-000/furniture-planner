@@ -129,6 +129,50 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:50;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
+
+/* 照片試擺 */
+.arbtn2{width:100%;margin-top:8px;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:11px 0;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
+.arbtn2 svg{width:19px;height:19px}
+#photo{position:fixed;inset:0;z-index:30;background:#121110;display:none;flex-direction:column;color:#fff}
+#photo.show{display:flex}
+.pm-stage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#pmImg{position:absolute;display:none;pointer-events:none;-webkit-user-drag:none}
+#photo.has #pmImg{display:block}
+#pv{position:absolute;background:transparent;pointer-events:none;--poster-color:transparent;--progress-bar-height:0;visibility:hidden;left:0;top:0;width:300px;height:300px}
+#photo.has #pv{visibility:visible}
+#pv.busy{outline:1.5px dashed rgba(255,255,255,.75);outline-offset:-2px;border-radius:6px}
+.pm-empty{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;text-align:center;padding:24px}
+#photo.has .pm-empty{display:none}
+.pm-empty svg.big{width:54px;height:54px;opacity:.85}
+.pm-empty h4{font-family:"Noto Serif TC",serif;font-size:22px;margin:4px 0 0;letter-spacing:.04em}
+.pm-empty p{color:#b9b2a9;font-size:14px;margin:0 0 10px}
+.pm-pick{background:var(--accent);color:var(--accent-ink);border:0;border-radius:14px;padding:14px 30px;font-size:17px;font-weight:700;display:flex;gap:10px;align-items:center}
+.pm-pick svg{width:22px;height:22px}
+.pm-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;gap:10px;z-index:3;background:linear-gradient(rgba(0,0,0,.55),transparent);pointer-events:none}
+.pm-top>*{pointer-events:auto}
+.pm-top .t{font-weight:500;font-size:15px;flex:1;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none}
+.pbtn{height:40px;min-width:40px;border-radius:20px;border:0;background:rgba(0,0,0,.45);color:#fff;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center;padding:0 14px;font-size:14px}
+.pbtn svg{width:20px;height:20px}
+#photo:not(.has) #pmRe{visibility:hidden}
+.pm-bar{flex:none;background:#1c1a18;padding:12px 16px calc(14px + env(safe-area-inset-bottom));display:none}
+#photo.has .pm-bar{display:block}
+.pm-bar .in{max-width:560px;margin:0 auto}
+.pm-sl{display:grid;grid-template-columns:40px 1fr;align-items:center;gap:10px;font-size:13px;color:#c9c2b8;margin:0 0 6px}
+.pm-sl input{width:100%;accent-color:var(--accent);height:26px}
+.pm-save{width:100%;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px;padding:12px 0;margin-top:6px;letter-spacing:.04em}
+.pm-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 14px;border-radius:10px;font-size:12.5px;white-space:nowrap;transition:opacity .5s;pointer-events:none;display:none}
+#photo.has .pm-tip{display:block}
+#pmOut{position:fixed;inset:0;z-index:45;background:rgba(10,9,8,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;color:#fff}
+#pmOut.show{display:flex}
+#pmOut img{max-width:100%;max-height:70vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+#pmOut p{margin:0;font-size:14px;color:#d8d1c7;text-align:center}
+#pmOut .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#pmOut .row button{border:0;border-radius:12px;padding:11px 24px;font-size:15px;font-weight:500}
+#pmOut .pri{background:var(--accent);color:var(--accent-ink)}
+#pmOut .sec{background:rgba(255,255,255,.12);color:#fff}
+.inapp{margin-top:10px;font-size:13px;line-height:1.55;background:#fff3df;color:#7a4b12;border-radius:10px;padding:9px 12px;display:none}
+.inapp.show{display:block}
+
 @media (max-width:860px){
   #detail{grid-template-columns:1fr;grid-template-rows:54vh 1fr;grid-template-rows:54svh 1fr}
   .panel{border-left:0;border-radius:22px 22px 0 0;margin-top:-18px;position:relative;z-index:2;box-shadow:0 -8px 24px rgba(0,0,0,.08)}
@@ -203,6 +247,8 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
     </div><div class="cta">
       <button class="arbtn" id="arBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看</span></button>
       <div class="arnote" id="arNote">以實際大小出現在你家，可以走過去從各角度看</div>
+      <button class="arbtn2" id="photoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>用照片擺擺看</span></button>
+      <div class="inapp" id="inapp">在 LINE、FB、IG 裡面打開的網頁不能用 AR。請點右上角「⋯」選「用瀏覽器開啟」，或先用照片擺擺看。</div>
     </div>
   </aside>
 </section>
@@ -212,10 +258,40 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
   <p>AR 需要用手機的鏡頭。<br>用手機相機掃描下面的 QR Code，<br>就會直接打開這件家具。</p>
   <div id="qr"></div>
   <div><button class="close" id="qrClose">關閉</button></div>
+  <button class="arbtn2" id="qrPhoto" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>或在電腦上用照片擺擺看</span></button>
 </div></div>
+<section id="photo" aria-hidden="true">
+  <div class="pm-stage" id="pmStage">
+    <img id="pmImg" alt="">
+    <model-viewer id="pv" shadow-intensity="1.2" shadow-softness="0.7" exposure="0.9" environment-image="neutral" tone-mapping="neutral" interaction-prompt="none" field-of-view="20deg" camera-orbit="-25deg 72deg auto" min-camera-orbit="auto 0deg auto" interpolation-decay="30"></model-viewer>
+    <div class="pm-empty">
+      <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <h4>拍一張要擺放的地方</h4>
+      <p>站遠一點，把地板和牆面一起拍進去，<br>擺起來最自然。也可以從相簿選照片。</p>
+      <button class="pm-pick" id="pmPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>拍照或選照片</button>
+    </div>
+    <div class="pm-tip" id="pmTip">拖曳移動・雙指縮放和旋轉</div>
+  </div>
+  <div class="pm-top"><button class="pbtn" id="pmBack" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="t" id="pmName"></div><button class="pbtn" id="pmRe">換照片</button></div>
+  <div class="pm-bar"><div class="in">
+    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="10" max="100" value="55"></label>
+    <label class="pm-sl"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"></label>
+    <label class="pm-sl"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"></label>
+    <button class="pm-save" id="pmSave">存成照片</button>
+  </div></div>
+  <input type="file" id="pmFile" accept="image/*" hidden>
+</section>
+<div id="pmOut">
+  <img id="pmOutImg" alt="擺放示意照片">
+  <p id="pmOutTip">手機可以長按照片儲存或傳給家人</p>
+  <div class="row"><button class="pri" id="pmShare">分享</button><button class="pri" id="pmDl">下載</button><button class="sec" id="pmOutClose">繼續調整</button></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
+const UA = navigator.userAgent;
+const IN_LINE = /\bLine\//i.test(UA), IN_APP = IN_LINE || /FBAN|FBAV|FB_IAB|Instagram|Messenger|MicroMessenger/i.test(UA);
+if (IN_LINE && !/openExternalBrowser=1/.test(location.search)) { try { const u = new URL(location.href); u.searchParams.set('openExternalBrowser', '1'); location.replace(u.toString()); } catch (e) {} }
 const P = [{"k":"ownRecliner","n":"131型沙發","cat":"沙發","w":276,"d":105,"h":105,"cs":[["c1","布料顏色","#b9bcc2"],["c2","抱枕顏色","#86aecb"]]},{"k":"ownDanSofa","n":"丹麥沙發","cat":"沙發","w":210,"d":90,"h":90,"cs":[["c1","布料顏色","#cfc8b8"],["c2","木腳顏色","#d9b382"]]},{"k":"ownLetItBe","n":"Let it be沙發","cat":"沙發","w":368,"d":267,"h":80,"cs":[["c1","布料顏色","#e3e1dc"],["c2","底框皮革顏色","#9a6038"]]},{"k":"ownRoundChaise","n":"雷內沙發","cat":"沙發","w":300,"d":138,"h":73,"cs":[["c1","主座布料","#dedad4"],["c2","貴妃布料","#6d6f73"],["c3","圓抱枕顏色","#d49a2e"]]},{"k":"own171","n":"171型沙發","cat":"沙發","w":285,"d":185,"h":90,"cs":[["c1","牛皮顏色","#8f9291"],["c2","腰枕顏色","#b5b1b2"],["c3","鐵腳顏色","#232325"]]},{"k":"own120","n":"120型沙發","cat":"沙發","w":250,"d":90,"h":102,"cs":[["c1","布料顏色","#d3d2cf"],["c2","合成皮顏色","#67666a"],["c3","金屬腳顏色","#55524f"]]},{"k":"own120Ott","n":"120型腳椅","cat":"沙發","w":85,"d":90,"h":58,"cs":[["c1","布料顏色","#d3d2cf"],["c2","合成皮顏色","#67666a"],["c3","金屬腳顏色","#55524f"]]},{"k":"ownAthena","n":"雅典娜沙發","cat":"沙發","w":392,"d":271,"h":87,"cs":[["c1","牛皮顏色","#969896"],["c2","扶手實木顏色","#7a4a2b"],["c3","金屬腳顏色","#4d4a48"]]},{"k":"ownFloatL","n":"103型沙發","cat":"沙發","w":306,"d":180,"h":95,"cs":[["c1","坐墊布料","#dcd6cf"],["c2","底座布料","#8e7472"],["c3","邊几木色","#d9bd94"]]},{"k":"ownAmis","n":"阿美族床台","cat":"床台","w":170,"d":206,"h":100,"cs":[["c1","床架布料","#8d8c8a"],["c2","床頭靠墊布料","#e6e1d4"],["c3","金屬腳顏色","#c9ccd0"]]},{"k":"ownMila","n":"米拉床台","cat":"床台","w":163,"d":210,"h":110,"cs":[["c1","床頭皮革顏色","#c5cad2"],["c2","床架皮革顏色","#565a60"],["c3","不鏽鋼腳顏色","#b9b6b0"]]},{"k":"ownEmma","n":"Emma床台","cat":"床台","w":154,"d":200,"h":107,"cs":[["c1","布料顏色","#8f9394"],["c2","木腳顏色","#1f1c1b"]]},{"k":"ownDanish","n":"丹麥餐桌","cat":"餐桌","w":180,"d":90,"h":75,"cs":[["c1","桌面顏色","#f2f0ec"],["c2","木腳顏色","#dcc39c"]]},{"k":"ownPencil","n":"鉛筆腳餐桌","cat":"餐桌","w":150,"d":85,"h":75,"cs":[["c1","桌面顏色","#f2f0ec"],["c2","鐵件顏色","#1f1f1f"]]},{"k":"ownHeart","n":"愛心腳餐桌","cat":"餐桌","w":240,"d":105,"h":75,"cs":[["c1","陶板顏色","#6f6862"],["c2","金屬顏色","#3d322d"],["c3","底板顏色","#1b1b1c"]]},{"k":"ownVChair","n":"V型餐椅","cat":"餐椅","w":46,"d":62,"h":84,"cs":[["c1","皮面顏色","#b8aa9e"],["c2","木腳顏色","#dcc39c"]]},{"k":"ownMiyazaki","n":"宮崎餐椅","cat":"餐椅","w":50,"d":56,"h":74,"cs":[["c1","皮面顏色","#a9a39c"],["c2","木腳顏色","#e6cfa6"]]},{"k":"ownDoll","n":"娃娃餐椅","cat":"餐椅","w":50,"d":49.5,"h":84,"cs":[["c1","內側皮革（坐面與椅背正面）","#8a7868"],["c2","外側皮革（椅背背面與椅底）","#8a7868"],["c3","金屬腳顏色","#1e1e20"]]},{"k":"ownCY127","n":"CY127餐椅","cat":"餐椅","w":45,"d":57,"h":84.5,"cs":[["c1","內側皮革（坐墊與椅背正面）","#9c8a68"],["c2","外側皮革（椅背背面）","#4f4944"],["c3","金屬腳顏色","#1c1c1e"]]},{"k":"ownDanishBench","n":"丹麥長凳","cat":"餐椅","w":150,"d":38,"h":45,"cs":[["c1","皮面顏色","#a9a39c"],["c2","木腳顏色","#dcb98c"]]},{"k":"ownOvalSide","n":"橢圓陶板邊几","cat":"茶几","w":34,"d":56,"h":52,"cs":[["c1","桌面顏色","#1f1f21"],["c2","金屬顏色","#1f1f1f"]]},{"k":"ownDali","n":"大理書桌","cat":"書桌","w":150,"d":70,"h":75,"cs":[["c1","桌面木頭顏色","#2f2b2a"],["c2","抽屜烤漆顏色","#c9c8cc"],["c3","金屬顏色（把手與腳座）","#1d1e21"]]},{"k":"ownEgger","n":"艾格書桌","cat":"書桌","w":150,"d":70,"h":75,"cs":[["c1","桌面木頭顏色","#2a2625"],["c2","抽屜木頭顏色","#6b4a38"],["c3","金屬顏色（把手與腳座）","#1d1e21"]]},{"k":"ownHemingway","n":"海明威化妝台","cat":"化妝台","w":140,"d":55,"h":126,"cs":[["c1","烤漆顏色","#77726f"],["c2","金屬顏色（把手、腳座、鏡框）","#c9a659"]]},{"k":"ownPuff","n":"泡芙化妝椅","cat":"化妝台","w":47,"d":52,"h":65,"cs":[["c1","椅身布料","#ecd2c0"],["c2","坐墊與椅背布料","#b98289"],["c3","底座顏色","#4a3f3a"]]},{"k":"ownTawu","n":"塔烏床頭櫃","cat":"床頭櫃","w":50,"d":50,"h":51,"cs":[["c1","陶板顏色","#f2f0ec"],["c2","木頭顏色","#1c1b1a"],["c3","底板顏色","#1b1b1c"]]},{"k":"ownTawuBox","n":"哈克床頭櫃","cat":"床頭櫃","w":52,"d":46,"h":50,"cs":[["c1","陶板顏色","#f2f0ec"],["c2","烤漆顏色","#c9c5bf"],["c3","木腳顏色","#3b302b"]]},{"k":"ownDorn","n":"多恩茶几","cat":"茶几","w":100,"d":96,"h":35,"cs":[["c1","陶板顏色","#cbc2b6"],["c2","金屬顏色","#2f2b28"]]},{"k":"ownAshBig","n":"Ash陶板大茶几","cat":"茶几","w":90,"d":90,"h":36,"cs":[["c1","木頭顏色（桌框與桌腳）","#d6b98a"],["c2","陶板顏色","#eeece8"]]},{"k":"ownAshSmall","n":"Ash陶板小茶几","cat":"茶几","w":52,"d":52,"h":52,"cs":[["c1","木頭顏色（桌框與桌腳）","#2e2724"],["c2","陶板顏色","#3b3b3d"]]}];
 const CATS = ['沙發', '床台', '餐桌', '餐椅', '書桌', '茶几', '床頭櫃', '化妝台'];
 const PAL = {
@@ -277,6 +353,7 @@ function openP(k) {
   mv.alt = p.n + ' 3D 模型';
 }
 function closeP() {
+  closePhoto();
   cur = null;
   $('detail').classList.remove('show'); $('detail').setAttribute('aria-hidden', 'true');
   $('list').style.display = '';
@@ -296,10 +373,11 @@ $('dColors').onclick = e => {
   const r = b.dataset.r; sel[r] = b.classList.contains('reset') ? cur.cs.find(c => c[0] === r)[2] : b.dataset.c;
   paint(r); renderColors();
 };
-function paint(r) {
-  if (!mv.model) return;
+function paint(r) { paintOn(mv, r); paintOn($('pv'), r); }
+function paintOn(v, r) {
+  if (!v.model || !v.src || !cur || !v.src.includes(cur.k)) return;
   const [R, G, B] = hexLin(sel[r]);
-  for (const m of mv.model.materials) if (m.name === r) m.pbrMetallicRoughness.setBaseColorFactor([R, G, B, 1]);
+  for (const m of v.model.materials) if (m.name === r) m.pbrMetallicRoughness.setBaseColorFactor([R, G, B, 1]);
 }
 function hexLin(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => { v /= 255; return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); }
 
@@ -328,13 +406,17 @@ mv.addEventListener('pointerdown', () => { $('hint').style.opacity = 0; });
 /* AR 按鈕：手機直接開；電腦顯示 QR Code */
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function updateArBtn() {
-  const can = mv.canActivateAR;
-  $('arBtn').querySelector('span').textContent = can || isMobile ? '在我家擺擺看' : '用手機開啟 AR';
-  $('arNote').textContent = can ? '以實際大小出現在你家，可以走過去從各角度看' : isMobile ? '這支手機可能不支援 AR，可以先轉動 3D 模型看看' : 'AR 要用手機的鏡頭，掃 QR Code 就能在手機打開';
+  const can = mv.canActivateAR, photoOnly = !can && isMobile;
+  $('arBtn').querySelector('span').textContent = can ? '在我家擺擺看' : photoOnly ? '用照片擺擺看' : '用手機開啟 AR';
+  $('arNote').textContent = can ? '以實際大小出現在你家，可以走過去從各角度看' : photoOnly ? '拍一張家裡的照片，把家具放上去看看' : 'AR 要用手機的鏡頭，掃 QR Code 就能在手機打開';
+  $('photoBtn').style.display = photoOnly ? 'none' : '';
+  $('inapp').classList.toggle('show', !can && IN_APP);
 }
+$('photoBtn').onclick = () => openPhoto();
+$('qrPhoto').onclick = () => { $('qrModal').classList.remove('show'); openPhoto(); };
 $('arBtn').onclick = () => {
   if (mv.canActivateAR) { mv.activateAR(); return; }
-  if (isMobile) { toast('這支手機不支援 AR'); return; }
+  if (isMobile) { openPhoto(); return; }
   $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.M });
   $('qrModal').classList.add('show');
 };
@@ -347,7 +429,108 @@ $('shareBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(url); toast('已複製這件家具的連結'); } catch (e) { toast(url); }
 };
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2200); }
-addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pmOut').classList.contains('show')) $('pmOut').classList.remove('show'); else if ($('photo').classList.contains('show')) closePhoto(); else if ($('qrModal').classList.contains('show')) $('qrModal').classList.remove('show'); else if (cur) location.hash = ''; } });
+
+
+/* ---------- 照片試擺：拍一張家裡的照片，把 3D 家具疊上去 ---------- */
+const pv = $('pv'), pm = { fx: .5, fy: .62, fw: .55, rot: -25, tilt: 72, r: null };
+function openPhoto() {
+  if (!cur) return;
+  $('photo').classList.add('show'); $('photo').setAttribute('aria-hidden', 'false');
+  $('pmName').textContent = cur.n;
+  if (!pv.src || !pv.src.includes(cur.k)) pv.src = mv.src;
+  else for (const r in sel) paintOn(pv, r);
+  pm.rot = -25; pm.tilt = 72; $('pmRot').value = pm.rot; $('pmTilt').value = pm.tilt; setOrbit();
+  pmLayout();
+}
+function closePhoto() { $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); }
+pv.addEventListener('load', () => { for (const r in sel) paintOn(pv, r); });
+function setOrbit() { pv.cameraOrbit = `${pm.rot}deg ${pm.tilt}deg auto`; }
+function pmLayout() {
+  const img = $('pmImg'); if (!img.naturalWidth) return;
+  const st = $('pmStage').getBoundingClientRect(), k = Math.min(st.width / img.naturalWidth, st.height / img.naturalHeight);
+  const w = img.naturalWidth * k, h = img.naturalHeight * k, x = (st.width - w) / 2, y = (st.height - h) / 2;
+  pm.r = { x, y, w, h };
+  Object.assign(img.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+  pmPlace();
+}
+function pmPlace() {
+  const r = pm.r; if (!r) return;
+  const size = Math.max(r.w, r.h) * pm.fw;
+  const L = r.x + pm.fx * r.w - size / 2, T = r.y + pm.fy * r.h - size / 2;
+  Object.assign(pv.style, { width: size + 'px', height: size + 'px', left: L + 'px', top: T + 'px',
+    clipPath: `inset(${Math.max(0, r.y - T)}px ${Math.max(0, L + size - r.x - r.w)}px ${Math.max(0, T + size - r.y - r.h)}px ${Math.max(0, r.x - L)}px)` });
+  $('pmSize').value = Math.round(pm.fw * 100);
+}
+$('pmPick').onclick = $('pmRe').onclick = () => $('pmFile').click();
+$('pmFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = $('pmImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  img.onload = () => { $('photo').classList.add('has'); pm.fx = .5; pm.fy = .62; pm.fw = .55; pmLayout(); $('pmTip').style.opacity = 1; };
+  img.src = URL.createObjectURL(f); e.target.value = '';
+};
+$('pmBack').onclick = closePhoto;
+addEventListener('resize', () => { if ($('photo').classList.contains('show')) pmLayout(); });
+$('pmSize').oninput = e => { pm.fw = e.target.value / 100; pmPlace(); };
+$('pmRot').oninput = e => { pm.rot = +e.target.value; setOrbit(); };
+$('pmTilt').oninput = e => { pm.tilt = +e.target.value; setOrbit(); };
+/* 手勢：一指拖曳、兩指縮放＋旋轉、滑鼠滾輪縮放 */
+const ptrs = new Map(); let g0 = null;
+const two = () => { const [a, b] = [...ptrs.values()]; return { d: Math.hypot(b.x - a.x, b.y - a.y), a: Math.atan2(b.y - a.y, b.x - a.x) }; };
+function gStart() {
+  if (ptrs.size === 1) { const p = [...ptrs.values()][0]; g0 = { m: 1, x: p.x, y: p.y, fx: pm.fx, fy: pm.fy }; }
+  else if (ptrs.size >= 2) { const t = two(); g0 = { m: 2, d: t.d || 1, a: t.a, fw: pm.fw, rot: pm.rot }; }
+  else g0 = null;
+}
+$('pmStage').addEventListener('pointerdown', e => {
+  if (!pm.r || e.target.closest('.pm-empty')) return;
+  $('pmStage').setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); gStart();
+  pv.classList.add('busy'); $('pmTip').style.opacity = 0;
+});
+$('pmStage').addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId) || !g0) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (g0.m === 1) { const p = ptrs.get(e.pointerId); pm.fx = Math.min(1.1, Math.max(-.1, g0.fx + (p.x - g0.x) / pm.r.w)); pm.fy = Math.min(1.1, Math.max(-.1, g0.fy + (p.y - g0.y) / pm.r.h)); }
+  else if (ptrs.size >= 2) { const t = two(); pm.fw = Math.min(1, Math.max(.1, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; rot = ((rot + 540) % 360) - 180; pm.rot = rot; $('pmRot').value = Math.round(rot); setOrbit(); }
+  pmPlace();
+});
+const pEnd = e => { ptrs.delete(e.pointerId); gStart(); if (!ptrs.size) pv.classList.remove('busy'); };
+$('pmStage').addEventListener('pointerup', pEnd); $('pmStage').addEventListener('pointercancel', pEnd);
+$('pmStage').addEventListener('wheel', e => { if (!pm.r) return; e.preventDefault(); pm.fw = Math.min(1, Math.max(.1, pm.fw * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); pmPlace(); }, { passive: false });
+/* 存成照片：照片＋家具合成一張 */
+let outBlob = null, outName = '';
+$('pmSave').onclick = async () => {
+  const img = $('pmImg'), r = pm.r; if (!r) return;
+  $('pmSave').disabled = true; $('pmSave').textContent = '處理中⋯';
+  try {
+    const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0, c.width, c.height);
+    const s = c.width / r.w, size = Math.max(r.w, r.h) * pm.fw;
+    const dx = (pm.fx * r.w - size / 2) * s, dy = (pm.fy * r.h - size / 2) * s;
+    // 直接取畫面上已畫好的家具（model-viewer 的 toBlob 在高解析度螢幕會截錯範圍）
+    await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const cv = [...pv.shadowRoot.querySelectorAll('canvas')].find(x => x.width > 0 && getComputedStyle(x).display !== 'none' && !x.getContext('webgl2') && !x.getContext('webgl'));
+    if (cv) {
+      const cw = cv.getBoundingClientRect().width || cv.clientWidth, ch = cv.getBoundingClientRect().height || cv.clientHeight, el = pv.getBoundingClientRect();
+      g.drawImage(cv, 0, 0, el.width * cv.width / cw, el.height * cv.height / ch, dx, dy, size * s, size * s);
+    } else {
+      const blob = await pv.toBlob({ idealAspect: false });
+      const bm = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(blob); });
+      g.drawImage(bm, dx, dy, size * s, size * s);
+    }
+    outBlob = await new Promise(res => c.toBlob(res, 'image/jpeg', .9)); outName = cur.n + '-擺放示意.jpg';
+    const o = $('pmOutImg'); if (o.src.startsWith('blob:')) URL.revokeObjectURL(o.src); o.src = URL.createObjectURL(outBlob);
+    let canShare = false; try { canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([outBlob], outName, { type: 'image/jpeg' })] })); } catch (e) {}
+    $('pmShare').style.display = canShare ? '' : 'none';
+    $('pmOutTip').style.display = isMobile ? '' : 'none';
+    $('pmOut').classList.add('show');
+  } catch (e) { toast('存檔失敗，請再試一次'); }
+  $('pmSave').disabled = false; $('pmSave').textContent = '存成照片';
+};
+$('pmShare').onclick = async () => { try { await navigator.share({ files: [new File([outBlob], outName, { type: 'image/jpeg' })], title: cur.n }); } catch (e) {} };
+$('pmDl').onclick = () => { const a = document.createElement('a'); a.href = $('pmOutImg').src; a.download = outName; document.body.appendChild(a); a.click(); a.remove(); };
+$('pmOutClose').onclick = () => $('pmOut').classList.remove('show');
 
 function route() { const k = decodeURIComponent(location.hash.slice(1)); if (k) openP(k); else if (cur) closeP(); }
 addEventListener('hashchange', route);
