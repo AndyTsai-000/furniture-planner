@@ -340,7 +340,18 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 #cbSvg .it.hit rect{stroke:#d33;stroke-width:2.5px;fill-opacity:.55}
 #cbSvg .room{fill:none;stroke:var(--ink);stroke-width:4px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 #cbSvg .roomL{fill:var(--ink2)}
+/* 方向：進 AR 前先轉好哪一面朝向自己 */
+.orient{position:absolute;left:16px;bottom:18px;z-index:3;display:flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--card) 90%,transparent);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.orient button{width:34px;height:34px;border-radius:50%;border:0;background:var(--bg2);display:grid;place-items:center;font-size:17px;line-height:1}
+.orient button:active{background:var(--line)}
+.orient span{font-size:12px;color:var(--ink2);min-width:64px;text-align:center;white-space:nowrap}
+/* Android AR 畫面裡的旋轉鈕（WebXR） */
+.xr-rot{display:none}
+model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);gap:12px;z-index:10}
+.xr-rot button{border:0;border-radius:999px;background:rgba(20,18,16,.72);color:#fff;font-size:15px;padding:12px 18px;font-weight:700}
 @media (max-width:860px){
+  .orient{bottom:30px;left:12px}
+  .cb-3d .orient{bottom:10px}
   .cb-top .cbtn{padding:6px 9px;font-size:13px}
   .cb-foot .frow .tx small{display:none}
 }
@@ -392,6 +403,7 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
       interaction-prompt="none" auto-rotate auto-rotate-delay="2500" rotation-per-second="14deg"
       camera-orbit="-28deg 72deg 108%" min-camera-orbit="auto 15deg auto" max-camera-orbit="auto 92deg 300%" interpolation-decay="120">
       <button slot="ar-button" style="display:none"></button>
+      <div class="xr-rot"><button data-xr="-45">↺ 45°</button><button data-xr="45">↻ 45°</button></div>
       <div id="arPrompt" slot="ar-prompt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>慢慢左右移動手機，讓它找到地板</div>
       <div class="dot" slot="hotspot-w1"></div><div class="dot" slot="hotspot-w2"></div>
       <div class="dot" slot="hotspot-d1"></div><div class="dot" slot="hotspot-d2"></div>
@@ -408,6 +420,7 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
         <button class="ibtn" id="shareBtn" aria-label="分享" title="分享這件家具"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></button>
       </div>
     </div>
+    <div class="orient" id="orient"><button data-o="-90" aria-label="向左轉 90 度">↺</button><span>正面朝你</span><button data-o="90" aria-label="向右轉 90 度">↻</button></div>
     <div class="building" id="building"><div><span class="spin"></span>依新尺寸重新做模型⋯</div></div>
     <div class="hint" id="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 12a8 8 0 0 1 15-4M20 12a8 8 0 0 1-15 4"/><path d="M19 3v5h-5M5 21v-5h5"/></svg>拖曳旋轉・雙指縮放</div>
   </div>
@@ -426,7 +439,8 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
     <details class="tips"><summary>AR 擺放小技巧</summary>
       <ol>
         <li>站在要擺放的位置前面，鏡頭對著地板。</li>
-        <li>慢慢左右移動手機，畫面出現家具後，用手指拖曳就能移動位置，雙指可以旋轉方向。</li>
+        <li>慢慢左右移動手機，畫面出現家具後，<b>一根手指按住家具</b>拖曳就能移動；<b>兩根手指像轉瓶蓋一樣</b>轉動就能旋轉（手指不用放在家具上）。</li>
+        <li>家具太大、整個畫面都是家具時不好拖，<b>先往後退幾步</b>再移動。也可以進 AR 前用 3D 畫面左下角的 ↺ ↻ 先轉好方向。</li>
         <li>光線充足、地板有紋路的地方比較容易對準。</li>
         <li>AR 畫面裡按白色快門鍵（iPhone）或手機截圖，就能存下照片。</li>
       </ol>
@@ -494,8 +508,10 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
         shadow-intensity="1.1" shadow-softness="0.9" exposure="0.88" environment-image="neutral" tone-mapping="neutral" interaction-prompt="none"
         camera-orbit="-20deg 60deg 105%" max-camera-orbit="auto 92deg 300%" interpolation-decay="120">
         <button slot="ar-button" style="display:none"></button>
+        <div class="xr-rot"><button data-xr="-45">↺ 45°</button><button data-xr="45">↻ 45°</button></div>
         <div id="arPrompt2" slot="ar-prompt" class="arPromptX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>慢慢左右移動手機，讓它找到地板</div>
       </model-viewer>
+      <div class="orient" id="cbOrient"><button data-o="-90" aria-label="向左轉 90 度">↺</button><span>正面朝你</span><button data-o="90" aria-label="向右轉 90 度">↻</button></div>
       <div class="cb-busy" id="cbBusy"><span class="spin"></span>更新 3D⋯</div>
     </div>
   </div>
@@ -596,7 +612,7 @@ function openP(k, size) {
   $('detail').classList.add('show'); $('detail').setAttribute('aria-hidden', 'false');
   $('list').style.display = 'none';
   $('hint').style.opacity = 1;
-  mv.cameraOrbit = '-28deg 72deg 108%'; mv.fieldOfView = 'auto'; setDims(false); mv.jumpCameraToGoal();
+  mv.cameraOrbit = '-28deg 72deg 108%'; mv.fieldOfView = 'auto'; setDims(false); mv.jumpCameraToGoal(); if (!same) setOri('mv', 0);
   mv.alt = p.n + ' 3D 模型';
   if (same && mv.dataset.size === modelKey()) return;
   if (isDefSize(p, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`, `models/${p.k}-f.glb`); mv.poster = `thumbs/${p.k}.webp`; }
@@ -838,7 +854,9 @@ function hexLin(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, 
 
 /* 尺寸線：用模型實際外框放端點 */
 function placeDims() {
-  const c = { x: 0, y: curSize.h / 200, z: 0 }, s = { x: curSize.w / 100, y: curSize.h / 100, z: curSize.d / 100 };
+  const sw = ((ORI.mv % 180) + 180) % 180 === 90, W = sw ? curSize.d : curSize.w, D = sw ? curSize.w : curSize.d;
+  $('lw').textContent = W + ' cm'; $('ld').textContent = D + ' cm';
+  const c = { x: 0, y: curSize.h / 200, z: 0 }, s = { x: W / 100, y: curSize.h / 100, z: D / 100 };
   const x0 = c.x - s.x / 2, x1 = c.x + s.x / 2, y0 = c.y - s.y / 2, y1 = c.y + s.y / 2, z0 = c.z - s.z / 2, z1 = c.z + s.z / 2, o = 0.06;
   const set = (n, x, y, z) => mv.updateHotspot({ name: 'hotspot-' + n, position: `${x}m ${y}m ${z}m` });
   set('w1', x0, y0, z1 + o); set('w2', x1, y0, z1 + o); set('wl', c.x, y0, z1 + o + 0.07);
@@ -852,7 +870,7 @@ function drawDims() {
 }
 let showDims = false;
 function dimLoop() { if (!showDims) return; drawDims(); requestAnimationFrame(dimLoop); }
-function setDims(on) { showDims = on; $('stage').classList.toggle('hidedims', !on); $('dimBtn').classList.toggle('on', on); mv.autoRotate = !on; if (on) { mv.cameraOrbit = '34deg 66deg ' + (innerWidth < 600 ? '138%' : '125%'); dimLoop(); } }
+function setDims(on) { showDims = on; $('stage').classList.toggle('hidedims', !on); $('dimBtn').classList.toggle('on', on); mv.autoRotate = !on; if (on) { mv.cameraOrbit = '34deg 66deg ' + (innerWidth < 600 ? '138%' : '125%'); if (mv.loaded) placeDims(); dimLoop(); } }
 $('dimBtn').onclick = () => setDims(!showDims);
 setDims(false);
 mv.addEventListener('load', () => { for (const r in sel) paint(r); placeDims(); updateArBtn(); });
@@ -1322,6 +1340,23 @@ $('cbAR').onclick = () => {
   $('qr').innerHTML = ''; new QRCode($('qr'), { text: link, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.L });
   $('qrPhoto').style.display = 'none'; $('qrModal').classList.add('show');
 };
+
+
+/* ---------- 方向：model-viewer 的 orientation 會一起帶進 AR（iPhone 每次進 AR 都依目前方向重新產生模型） ---------- */
+const ORI = { mv: 0, cv: 0 };
+const ORI_TXT = a => { a = ((a % 360) + 360) % 360; return a === 0 ? '正面朝你' : a === 180 ? '背面朝你' : a === 90 ? '正面朝右' : a === 270 ? '正面朝左' : `轉了 ${a}°`; };
+function setOri(which, a) {
+  ORI[which] = ((a % 360) + 360) % 360;
+  const v = which === 'mv' ? mv : $('cv'); v.orientation = `0deg 0deg ${ORI[which]}deg`;
+  const box = $(which === 'mv' ? 'orient' : 'cbOrient'); if (box) box.querySelector('span').textContent = ORI_TXT(ORI[which]);
+  if (which === 'mv' && showDims) placeDims();
+}
+$('orient').onclick = e => { const b = e.target.closest('[data-o]'); if (b) setOri('mv', ORI.mv + +b.dataset.o); };
+$('cbOrient').onclick = e => { const b = e.target.closest('[data-o]'); if (b) setOri('cv', ORI.cv + +b.dataset.o); };
+document.querySelectorAll('.xr-rot').forEach(el => {
+  el.addEventListener('beforexrselect', e => e.preventDefault());   // 按鈕不要被當成在地上點選
+  el.onclick = e => { const b = e.target.closest('[data-xr]'); if (!b) return; const which = el.closest('#cv') ? 'cv' : 'mv'; setOri(which, ORI[which] + +b.dataset.xr); };
+});
 
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
