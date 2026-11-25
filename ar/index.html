@@ -337,9 +337,20 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 /* 間距標示 */
 #cbSvg .gap line{stroke:#2a7de1;stroke-width:1.6px;vector-effect:non-scaling-stroke}
 #cbSvg .gap text{fill:#1d64c2;font-weight:700}
+#cbSvg .it.up rect{stroke-dasharray:6 4}
 #cbSvg .it.hit rect{stroke:#d33;stroke-width:2.5px;fill-opacity:.55}
 #cbSvg .room{fill:none;stroke:var(--ink);stroke-width:4px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 #cbSvg .roomL{fill:var(--ink2)}
+/* 組合：房間尺寸、微調、靠牆 */
+.cb-room{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13.5px;background:var(--bg2)}
+.cb-room.show{display:flex}
+.cb-room input{width:76px;font:inherit;font-size:15px;text-align:center;border:1px solid var(--line);border-radius:8px;padding:5px 0;background:var(--card);color:var(--ink)}
+.cb-room small{color:var(--ink3);flex-basis:100%}
+.r3{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--ink2)}
+.r3 select{font:inherit;font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:var(--card);color:var(--ink)}
+.r3 .mv{min-width:40px;padding:6px 8px}
+.r3 .sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+.r3 .wall{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
 /* 方向：進 AR 前先轉好哪一面朝向自己 */
 .orient{position:absolute;left:16px;bottom:18px;z-index:3;display:flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--card) 90%,transparent);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .orient button{width:34px;height:34px;border-radius:50%;border:0;background:var(--bg2);display:grid;place-items:center;font-size:17px;line-height:1}
@@ -441,7 +452,8 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
         <li>站在要擺放的位置前面，鏡頭對著地板。</li>
         <li>慢慢左右移動手機，畫面出現家具後，<b>一根手指按住家具</b>拖曳就能移動；<b>兩根手指像轉瓶蓋一樣</b>轉動就能旋轉（手指不用放在家具上）。</li>
         <li>家具太大、整個畫面都是家具時不好拖，<b>先往後退幾步</b>再移動。也可以進 AR 前用 3D 畫面左下角的 ↺ ↻ 先轉好方向。</li>
-        <li>光線充足、地板有紋路的地方比較容易對準。</li>
+        <li>光線充足、地板有紋路的地方比較容易對準。<b>地上東西多的話，先對準一塊空地板</b>讓家具出現，再拖到想放的位置，家具會沿著地板移動。</li>
+        <li>家具看起來<b>懸空</b>，通常是手機把桌面、床面或地毯當成地板。把家具拖到空地板上停一下再拖回來；不行就切到上方「物件」再切回「AR」重新放。</li>
         <li>AR 畫面裡按白色快門鍵（iPhone）或手機截圖，就能存下照片。</li>
       </ol>
     </details>
@@ -494,8 +506,11 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
   <div class="cb-top">
     <button class="ibtn" id="cbBack" aria-label="返回" style="box-shadow:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2>組合擺放<small id="cbCount"></small></h2>
-    <button class="cbtn pri" id="cbAdd">＋ 加家具</button><button class="cbtn" id="cbShare">分享</button><button class="cbtn" id="cbClear">清空</button>
+    <button class="cbtn pri" id="cbAdd">＋ 加家具</button><button class="cbtn" id="cbShare">分享</button><button class="cbtn" id="cbRoomBtn">房間</button><button class="cbtn" id="cbClear">清空</button>
   </div>
+  <div class="cb-room" id="cbRoom"><b>房間尺寸</b>寬 <input type="number" inputmode="numeric" id="cbRW" placeholder="400"> × 深 <input type="number" inputmode="numeric" id="cbRD" placeholder="350"> cm
+    <button class="cbtn pri" id="cbRoomOk">套用</button><button class="cbtn" id="cbRoomDel">移除房間</button>
+    <small>量好牆到牆的距離輸入。進 AR 後把地上的藍色房間框對準真實牆角，家具就會在正確位置。</small></div>
   <div class="cb-main">
     <div class="cb-plan" id="cbPlan">
       <svg id="cbSvg" preserveAspectRatio="xMidYMid meet"><g id="cbGrid"></g><g id="cbItems"></g></svg>
@@ -519,6 +534,9 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
     <div class="r1"><div class="nm" id="cbSelName"></div>
       <button class="cbtn" data-rot="-90">↺ 90°</button><button class="cbtn" data-rot="90">↻ 90°</button><button class="cbtn" id="cbDup">複製</button><button class="cbtn" id="cbDel" style="color:#c0462b">刪除</button></div>
     <label class="r2"><span>角度</span><input type="range" id="cbRot" min="-180" max="180" step="5"><output id="cbRotO"></output></label>
+    <div class="r3"><span>移動</span><select id="cbStep" aria-label="每次移動距離"><option value="1">1 cm</option><option value="5" selected>5 cm</option><option value="10">10 cm</option><option value="50">50 cm</option></select>
+      <button class="cbtn mv" data-mv="0,-1,0">後</button><button class="cbtn mv" data-mv="0,1,0">前</button><button class="cbtn mv" data-mv="-1,0,0">左</button><button class="cbtn mv" data-mv="1,0,0">右</button><button class="cbtn mv" data-mv="0,0,1">上</button><button class="cbtn mv" data-mv="0,0,-1">下</button>
+      <span class="sep"></span><button class="cbtn wall" id="cbWall" title="背靠最近的牆、貼牆、落地">靠牆</button></div>
   </div>
   <div class="cb-foot">
     <label class="frow"><input type="checkbox" id="cbFrame"><span class="sw2"></span><span class="tx">地面輪廓<small>每件佔地與總寬深</small></span></label>
@@ -712,6 +730,19 @@ function boxUV(T3, mesh, tile) {
   }
   geo.setAttribute('uv', new T3.BufferAttribute(uv, 2)); return geo;
 }
+/* iPhone 的 USDZ 不支援負縮放（鏡像的零件會轉錯方向）：把鏡像零件的變形直接寫進頂點，並翻轉三角形方向 */
+function fixNeg(T3, root) {
+  root.updateMatrixWorld(true);
+  const inv = new T3.Matrix4().copy(root.matrixWorld).invert(), list = [];
+  root.traverse(o => { if (o.isMesh && o.matrixWorld.determinant() < 0) list.push(o); });
+  for (const o of list) {
+    const M = new T3.Matrix4().multiplyMatrices(inv, o.matrixWorld), g = o.geometry.clone().applyMatrix4(M);
+    if (g.index) { const a = g.index.array; for (let i = 0; i + 2 < a.length; i += 3) { const t = a[i + 1]; a[i + 1] = a[i + 2]; a[i + 2] = t; } }
+    else { const n = g.attributes.position.count; for (const key in g.attributes) { const at = g.attributes[key], s = at.itemSize, A = at.array; for (let i = 0; i + 2 < n; i += 3) for (let k = 0; k < s; k++) { const x = A[(i + 1) * s + k]; A[(i + 1) * s + k] = A[(i + 2) * s + k]; A[(i + 2) * s + k] = x; } } }
+    o.geometry = g; o.parent.remove(o); o.position.set(0, 0, 0); o.quaternion.identity(); o.scale.set(1, 1, 1); root.add(o);
+  }
+  root.updateMatrixWorld(true); return list.length;
+}
 const SENT = ['#ff0080', '#00ff80', '#8000ff'];
 /* 建一件家具（公分）：材質依部位命名 c1／c2／c3，有選型錄材質的部位貼上紋理 */
 async function makeGroup(E, k, size, cols, mats, o) {
@@ -749,7 +780,7 @@ async function rebuild() {
     const E = await eng(), T3 = E.THREE;
     const g = await makeGroup(E, p.k, z, colsOf(p, sel), M);
     const bb = new T3.Box3().setFromObject(g);   // 公分（要在縮成公尺之前量）
-    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(g); root.updateMatrixWorld(true);
+    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(g); root.updateMatrixWorld(true); fixNeg(T3, root);
     const X = new E.GLTFExporter(), opt = { binary: true, onlyVisible: true, maxTextureSize: 1024 };
     const buf = await X.parseAsync(root, opt);
     // 再加上地面輪廓匯出一份（AR／3D 用）
@@ -887,7 +918,25 @@ function updateArBtn() {
 }
 $('photoBtn').onclick = () => openPhoto();
 $('qrPhoto').onclick = () => { $('qrModal').classList.remove('show'); openPhoto(); };
+/* iPhone：只有「網站上的 .usdz 檔」才會遵守不能縮放（當場產生的暫存檔會被 iPhone 忽略這個設定） */
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+try { if (IS_IOS && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+async function iosAR(v, staticUrl) {
+  if (staticUrl) { v.iosSrc = staticUrl; await new Promise(r => setTimeout(r, 30)); return v.activateAR(); }
+  if (navigator.serviceWorker && navigator.serviceWorker.controller && window.caches) {
+    try {
+      const u = await v.prepareUSDZ(), blob = await (await fetch(u)).blob(); URL.revokeObjectURL(u);
+      const c = await caches.open('ar-usdz'); for (const k of await c.keys()) await c.delete(k);
+      const url = new URL(`usdz-gen/${Date.now()}.usdz`, location.href).href;
+      await c.put(url, new Response(blob, { headers: { 'Content-Type': 'model/vnd.usdz+zip' } }));
+      v.iosSrc = url; await new Promise(r => setTimeout(r, 30)); return v.activateAR();
+    } catch (e) { console.error(e); }
+  }
+  v.removeAttribute('ios-src'); return v.activateAR();   // 退回原本做法（可能可以縮放）
+}
+const allDefault = () => isDefSize(cur, curSize) && !hasMats() && ORI.mv === 0 && cur.cs.every(c => (sel[c[0]] || '').toLowerCase() === c[2].toLowerCase());
 $('arBtn').onclick = () => {
+  if (mv.canActivateAR && IS_IOS) { iosAR(mv, allDefault() ? `models/${cur.k}${frameOn ? '-f' : ''}.usdz` : null); return; }
   if (mv.canActivateAR) { mv.activateAR(); return; }
   if (isMobile) { openPhoto(); return; }
   $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.M }); $('qrPhoto').style.display = '';
@@ -1241,7 +1290,7 @@ function cbRender() {
     const p = { n: i.n || (P.find(x => x.k === i.k) || {}).n || i.k }, fill = i.c[0] || '#ccc';
     const t = i.r * Math.PI / 180, ew = Math.abs(i.w * Math.cos(t)) + Math.abs(i.d * Math.sin(t)), eh = Math.abs(i.w * Math.sin(t)) + Math.abs(i.d * Math.cos(t));
     const dimT = `${i.w}×${i.d}`, showN = p.n.length * fs * 1.05 < ew * 0.92 && eh > fs * 2.6, showD = dimT.length * fs * 0.5 < ew * 0.92 && eh > fs * 1.3;
-    return `<g class="it${i.id === CB.sel ? ' sel' : ''}${hits.has(i.id) ? ' hit' : ''}" data-id="${i.id}">
+    return `<g class="it${i.id === CB.sel ? ' sel' : ''}${hits.has(i.id) ? ' hit' : ''}${i.e > 0 ? ' up' : ''}" data-id="${i.id}">
       <g transform="translate(${i.x} ${i.z}) rotate(${i.r})"><rect x="${-i.w / 2}" y="${-i.d / 2}" width="${i.w}" height="${i.d}" rx="3" fill="${fill}" fill-opacity=".75"/>
       <line class="front" x1="${-i.w / 2 + 4}" y1="${i.d / 2}" x2="${i.w / 2 - 4}" y2="${i.d / 2}"/></g>
       ${showN ? `<text x="${i.x}" y="${i.z - fs * 0.2}" text-anchor="middle" font-size="${fs * 1.05}" font-weight="700">${p.n}</text>` : ''}
@@ -1309,6 +1358,38 @@ $('cbRot').onchange = () => cbEdit(() => {});
 $('cbDup').onclick = () => cbEdit(i => { const n = JSON.parse(JSON.stringify(i)); n.id = ++CB.nid; n.x = i.x + Math.round((i.w / 2 + 40) / 5) * 5; CB.items.push(n); CB.sel = n.id; });
 $('cbDel').onclick = () => { const i = CB.items.find(x => x.id === CB.sel); if (!i) return; CB.items = CB.items.filter(x => x !== i); CB.sel = null; cbSave(); cbRender(); cbBuildSoon(); };
 $('cbFrame').onchange = e => { frameOn = e.target.checked; $('frameOn').checked = frameOn; try { localStorage.setItem('ar-frame', frameOn ? '1' : '0'); } catch (err) {} cbBuildSoon(0); };
+
+/* 房間尺寸、微調移動、靠牆 */
+$('cbRoomBtn').onclick = () => { const b = $('cbRoom'); b.classList.toggle('show'); if (CB.room) { $('cbRW').value = CB.room.w; $('cbRD').value = CB.room.d; } if (b.classList.contains('show')) $('cbRW').focus(); };
+$('cbRoomOk').onclick = () => {
+  const w = Math.round(+$('cbRW').value), d = Math.round(+$('cbRD').value);
+  if (!(w >= 100 && w <= 3000 && d >= 100 && d <= 3000)) { toast('請輸入 100～3000 公分'); return; }
+  CB.room = { w, d }; $('cbRoom').classList.remove('show'); cbSave(); CB.view = null; cbRender(); cbBuildSoon(); toast(`房間 ${w}×${d} cm`);
+};
+$('cbRoomDel').onclick = () => { CB.room = null; $('cbRoom').classList.remove('show'); cbSave(); CB.view = null; cbRender(); cbBuildSoon(); };
+[$('cbRW'), $('cbRD')].forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') $('cbRoomOk').click(); }));
+document.querySelectorAll('#cbSel [data-mv]').forEach(b => b.onclick = () => {
+  const [dx, dz, de] = b.dataset.mv.split(',').map(Number), st = +$('cbStep').value;
+  cbEdit(i => { i.x += dx * st; i.z += dz * st; i.e = Math.max(0, (i.e || 0) + de * st); });
+});
+/* 靠牆：轉成背靠最近的牆，往牆貼齊並落地 */
+$('cbWall').onclick = () => {
+  if (!CB.room) { toast('先按上方「房間」輸入房間尺寸'); $('cbRoom').classList.add('show'); $('cbRW').focus(); return; }
+  cbEdit(i => {
+    const W = CB.room.w / 2, D = CB.room.d / 2;
+    const walls = [{ d: i.z + D, r: 0, side: 'b' }, { d: D - i.z, r: 180, side: 'f' }, { d: i.x + W, r: -90, side: 'l' }, { d: W - i.x, r: 90, side: 'r' }];
+    const w = walls.sort((a, b) => a.d - b.d)[0];
+    i.r = w.r; i.e = 0; const b = aabb(i);
+    if (w.side === 'b') i.z += -D - b.z0; else if (w.side === 'f') i.z += D - b.z1; else if (w.side === 'l') i.x += -W - b.x0; else i.x += W - b.x1;
+    i.x = Math.round(i.x); i.z = Math.round(i.z);
+  });
+  toast('已靠牆');
+};
+addEventListener('keydown', e => {
+  if (!$('combo').classList.contains('show') || !CB.sel || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const k = { ArrowLeft: '-1,0,0', ArrowRight: '1,0,0', ArrowUp: '0,-1,0', ArrowDown: '0,1,0' }[e.key]; if (!k) return;
+  e.preventDefault(); const b = document.querySelector(`#cbSel [data-mv="${k}"]`); if (b) b.click();
+});
 /* 合成一個模型（用家具配置網站同一套建模程式），給 3D 預覽和 AR */
 function cbBuildSoon(ms = 500) { clearTimeout(CB.timer); CB.timer = setTimeout(cbBuild, ms); $('cbBusy').classList.toggle('show', CB.items.length > 0); }
 async function cbBuild() {
@@ -1321,7 +1402,7 @@ async function cbBuild() {
     for (const i of CB.items) { const g = await makeGroup(E, i.k, { w: i.w, d: i.d, h: i.h }, i.c, i.m, i.o); if (!g) continue; g.position.set(i.x - cx, i.e || 0, i.z - cz); g.rotation.y = -i.r * Math.PI / 180; content.add(g); }
     if (seq !== CB.seq) return;
     if (frameOn) content.add(F.makeComboFrame(T3, CB.items.filter(i => !(i.e > 0)).map(i => corners({ ...i, x: i.x - cx, z: i.z - cz })), { x0: b.x0 - cx, x1: b.x1 - cx, z0: b.z0 - cz, z1: b.z1 - cz }, CB.room));
-    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(content); root.updateMatrixWorld(true);
+    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(content); root.updateMatrixWorld(true); fixNeg(T3, root);
     const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
     if (seq !== CB.seq) return;
     const old = CB.url; CB.url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
@@ -1333,7 +1414,7 @@ $('cbAR').onclick = () => {
   const cv = $('cv');
   if (!CB.items.length) { toast('先加入家具'); return; }
   if ($('cbBusy').classList.contains('show') || !cv.loaded) { toast('3D 還在更新，請稍等一下'); return; }
-  if (cv.canActivateAR) { cv.activateAR(); return; }
+  if (cv.canActivateAR) { if (IS_IOS) iosAR(cv, null); else cv.activateAR(); return; }
   if (isMobile) { toast(IN_APP ? '請用 Safari 或 Chrome 開啟才能用 AR' : '這支手機不支援 AR'); return; }
   const link = CB.link || location.href.split('#')[0] + '#combo=';
   if (link.length > 2300) { toast('組合太大，QR Code 放不下，請用「分享」把連結傳到手機'); return; }
