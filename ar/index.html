@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/model-viewer.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -88,12 +89,28 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
 .panel .cat{font-size:12px;letter-spacing:.2em;color:var(--accent);font-weight:500}
 .panel h2{font-family:"Noto Serif TC",serif;font-size:30px;margin:4px 0 4px;letter-spacing:.04em;line-height:1.25}
 .panel .sz{color:var(--ink2);font-size:14px;font-variant-numeric:tabular-nums}
-.specs{display:grid;grid-template-columns:repeat(3,1fr);margin:18px 0 6px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.specs{display:grid;grid-template-columns:repeat(3,1fr);margin:0 0 6px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .specs div{padding:10px 0;text-align:center;border-left:1px solid var(--line)}
 .specs div:first-child{border-left:0}
 .specs small{display:block;font-size:11px;color:var(--ink3);letter-spacing:.1em}
 .specs b{font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
 .specs b em{font-style:normal;font-size:12px;color:var(--ink3);margin-left:2px}
+.szhead{display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;gap:8px}
+.szhead h3{font-size:14px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
+.custom-tag{font-size:11px;font-weight:500;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:0 6px;letter-spacing:.05em}
+.linkbtn{border:0;background:none;color:var(--accent);font-size:13px;font-weight:500;padding:4px 0}
+.specs input{width:72px;font:inherit;font-size:18px;font-weight:500;text-align:center;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:4px 0;margin-top:2px;font-variant-numeric:tabular-nums}
+.specs input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.szrange{font-size:10.5px;color:var(--ink3);margin-top:3px;font-variant-numeric:tabular-nums}
+.szact{display:flex;gap:8px;margin:10px 0 2px}
+.szact button{flex:1;border-radius:10px;padding:9px 0;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--card)}
+.szact .go{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sznote{font-size:12px;color:var(--ink3);margin:6px 0 0}
+.building{position:absolute;inset:0;display:none;place-items:center;z-index:4;background:color-mix(in srgb,var(--stage) 55%,transparent);backdrop-filter:blur(2px)}
+.building.show{display:grid}
+.building div{background:var(--card);border-radius:12px;padding:10px 18px;font-size:14px;box-shadow:var(--shadow);display:flex;gap:10px;align-items:center}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
 .grp{margin-top:22px}
 .grp h3{font-size:14px;font-weight:500;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .grp h3 small{color:var(--ink3);font-weight:400;font-size:12px}
@@ -157,8 +174,13 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 .pm-bar{flex:none;background:#1c1a18;padding:12px 16px calc(14px + env(safe-area-inset-bottom));display:none}
 #photo.has .pm-bar{display:block}
 .pm-bar .in{max-width:560px;margin:0 auto}
-.pm-sl{display:grid;grid-template-columns:40px 1fr;align-items:center;gap:10px;font-size:13px;color:#c9c2b8;margin:0 0 6px}
+.pm-sl{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:10px;font-size:13px;color:#c9c2b8;margin:0 0 6px}
 .pm-sl input{width:100%;accent-color:var(--accent);height:26px}
+.pm-sl output{min-width:52px;text-align:right;font-variant-numeric:tabular-nums;color:#e8e1d7}
+.pm-rots{display:flex;gap:8px;margin:2px 0 10px 50px}
+.pm-rots button{flex:1;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:7px 0;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:5px}
+.pm-rots button svg{width:16px;height:16px}
+.pm-rots button:active{background:rgba(255,255,255,.16)}
 .pm-save{width:100%;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px;padding:12px 0;margin-top:6px;letter-spacing:.04em}
 .pm-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 14px;border-radius:10px;font-size:12.5px;white-space:nowrap;transition:opacity .5s;pointer-events:none;display:none}
 #photo.has .pm-tip{display:block}
@@ -230,12 +252,18 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
         <button class="ibtn" id="shareBtn" aria-label="分享" title="分享這件家具"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></button>
       </div>
     </div>
+    <div class="building" id="building"><div><span class="spin"></span>依新尺寸重新做模型⋯</div></div>
     <div class="hint" id="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 12a8 8 0 0 1 15-4M20 12a8 8 0 0 1-15 4"/><path d="M19 3v5h-5M5 21v-5h5"/></svg>拖曳旋轉・雙指縮放</div>
   </div>
   <aside class="panel"><div class="pscroll">
     <div class="cat" id="dCat"></div>
     <h2 id="dName"></h2>
+    <div class="szhead"><h3>尺寸<span class="custom-tag" id="customTag" hidden>訂製尺寸</span></h3><button class="linkbtn" id="szEdit">修改尺寸</button></div>
     <div class="specs" id="dSpecs"></div>
+    <div id="szBox" hidden>
+      <div class="szact"><button id="szCancel">取消</button><button id="szReset">原尺寸</button><button class="go" id="szApply">套用</button></div>
+      <p class="sznote">輸入公分，按「套用」後會依新尺寸重新做模型，AR 和照片試擺也會用新尺寸。</p>
+    </div>
     <div id="dColors"></div>
     <div class="tips"><b>擺放小技巧</b>
       <ol>
@@ -263,7 +291,7 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
 <section id="photo" aria-hidden="true">
   <div class="pm-stage" id="pmStage">
     <img id="pmImg" alt="">
-    <model-viewer id="pv" shadow-intensity="1.2" shadow-softness="0.7" exposure="0.9" environment-image="neutral" tone-mapping="neutral" interaction-prompt="none" field-of-view="20deg" camera-orbit="-25deg 72deg auto" min-camera-orbit="auto 0deg auto" interpolation-decay="30"></model-viewer>
+    <model-viewer id="pv" shadow-intensity="1.2" shadow-softness="0.7" exposure="0.9" environment-image="neutral" tone-mapping="neutral" interaction-prompt="none" field-of-view="20deg" camera-orbit="-25deg 72deg auto" min-camera-orbit="auto 0deg 0.1m" max-camera-orbit="auto 180deg 200m" interpolation-decay="30"></model-viewer>
     <div class="pm-empty">
       <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
       <h4>拍一張要擺放的地方</h4>
@@ -274,9 +302,11 @@ model-viewer[ar-status="session-started"] #arPrompt{display:flex}
   </div>
   <div class="pm-top"><button class="pbtn" id="pmBack" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="t" id="pmName"></div><button class="pbtn" id="pmRe">換照片</button></div>
   <div class="pm-bar"><div class="in">
-    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="10" max="100" value="55"></label>
-    <label class="pm-sl"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"></label>
-    <label class="pm-sl"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"></label>
+    <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="10" max="100" value="55"><output></output></label>
+    <label class="pm-sl"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"><output id="oRot"></output></label>
+    <div class="pm-rots"><button data-r="-90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 3v5h5"/></svg>90°</button><button data-r="90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 3v5h-5"/></svg>90°</button><button data-r="180">180°</button></div>
+    <label class="pm-sl"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"><output id="oTilt"></output></label>
+    <label class="pm-sl"><span>離地</span><input type="range" id="pmElev" min="0" max="200" value="0"><output id="oElev"></output></label>
     <button class="pm-save" id="pmSave">存成照片</button>
   </div></div>
   <input type="file" id="pmFile" accept="image/*" hidden>
@@ -334,23 +364,91 @@ $('grid').onclick = e => { const b = e.target.closest('.card'); if (b) { fromLis
 /* ---------- 商品頁 ---------- */
 const mv = $('mv');
 let cur = null, sel = {}, listScroll = 0;
-function openP(k) {
+let curSize = null, editing = false, buildSeq = 0;
+const isDefSize = (p, z) => z.w === p.w && z.d === p.d && z.h === p.h;
+function openP(k, size) {
   const p = P.find(x => x.k === k); if (!p) return closeP();
   if (!cur) listScroll = scrollY;
-  cur = p; sel = Object.fromEntries(p.cs.map(c => [c[0], c[2]]));
+  const same = cur && cur.k === k;
+  cur = p; if (!same) sel = Object.fromEntries(p.cs.map(c => [c[0], c[2]]));
+  curSize = size ? clampSize(p, size).z : { w: p.w, d: p.d, h: p.h }; editing = false;
   $('dCat').textContent = p.cat;
   $('dName').textContent = p.n;
   document.title = p.n + '｜AR 試擺間';
-  $('dSpecs').innerHTML = [['寬', p.w], ['深', p.d], ['高', p.h]].map(([a, v]) => `<div><small>${a}</small><b>${v}<em>cm</em></b></div>`).join('');
-  renderColors();
-  $('lw').textContent = p.w + ' cm'; $('ld').textContent = p.d + ' cm'; $('lh').textContent = p.h + ' cm';
+  renderSpecs(); renderColors();
   $('detail').classList.add('show'); $('detail').setAttribute('aria-hidden', 'false');
   $('list').style.display = 'none';
   $('hint').style.opacity = 1;
   mv.cameraOrbit = '-28deg 72deg 108%'; mv.fieldOfView = 'auto'; setDims(false); mv.jumpCameraToGoal();
-  mv.poster = `thumbs/${p.k}.webp`;
-  mv.src = `models/${p.k}.glb`;
   mv.alt = p.n + ' 3D 模型';
+  if (same && mv.dataset.size === sizeKey(curSize)) return;
+  if (isDefSize(p, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`); mv.poster = `thumbs/${p.k}.webp`; }
+  else { mv.poster = ''; rebuild(); }
+}
+const sizeKey = z => `${z.w}x${z.d}x${z.h}`;
+function setSrc(url) {
+  if (mv.src && mv.src.startsWith('blob:') && mv.src !== url) { const old = mv.src; setTimeout(() => URL.revokeObjectURL(old), 4000); }
+  mv.dataset.k = cur.k; mv.dataset.size = sizeKey(curSize); mv.src = url;
+}
+/* 尺寸：顯示／修改 */
+const LIM = v => ({ lo: Math.max(20, Math.round(v * 0.5)), hi: Math.round(v * 2) });
+function clampSize(p, z) {
+  const out = {}, bad = [];
+  for (const [k, nm] of [['w', '寬'], ['d', '深'], ['h', '高']]) { const L = LIM(p[k]); let v = Math.round(+z[k] || p[k]); if (v < L.lo || v > L.hi) { bad.push(`${nm} ${L.lo}～${L.hi}`); v = Math.min(L.hi, Math.max(L.lo, v)); } out[k] = v; }
+  return { z: out, bad };
+}
+function renderSpecs() {
+  const p = cur, z = curSize, custom = !isDefSize(p, z);
+  $('customTag').hidden = !custom;
+  $('szEdit').hidden = editing; $('szBox').hidden = !editing;
+  $('dSpecs').innerHTML = [['w', '寬'], ['d', '深'], ['h', '高']].map(([k, a]) => editing
+    ? `<div><small>${a}</small><input type="number" inputmode="numeric" id="in_${k}" value="${z[k]}" min="${LIM(p[k]).lo}" max="${LIM(p[k]).hi}" aria-label="${a}（公分）"><div class="szrange">${LIM(p[k]).lo}～${LIM(p[k]).hi}</div></div>`
+    : `<div><small>${a}</small><b>${z[k]}<em>cm</em></b></div>`).join('');
+  $('lw').textContent = z.w + ' cm'; $('ld').textContent = z.d + ' cm'; $('lh').textContent = z.h + ' cm';
+}
+$('szEdit').onclick = () => { editing = true; renderSpecs(); const i = $('in_w'); i.focus(); i.select(); };
+$('szCancel').onclick = () => { editing = false; renderSpecs(); };
+$('szReset').onclick = () => { applySize({ w: cur.w, d: cur.d, h: cur.h }); };
+$('szApply').onclick = () => applySize({ w: $('in_w').value, d: $('in_d').value, h: $('in_h').value });
+$('dSpecs').addEventListener('keydown', e => { if (e.key === 'Enter') $('szApply').click(); });
+function applySize(z) {
+  const r = clampSize(cur, z);
+  if (r.bad.length) toast('可調整範圍：' + r.bad.join('、') + ' 公分');
+  editing = false; curSize = r.z; renderSpecs();
+  history.replaceState(null, '', '#' + cur.k + (isDefSize(cur, curSize) ? '' : '@' + sizeKey(curSize)));
+  if (mv.dataset.size === sizeKey(curSize) && mv.dataset.k === cur.k) return;
+  if (isDefSize(cur, curSize)) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`); }
+  else rebuild();
+}
+/* 依尺寸重建：用家具配置網站同一套建模程式（engine.js） */
+let ENG = null;
+async function eng() {
+  if (!ENG) ENG = Promise.all([import('./engine.js'), import('three/addons/exporters/GLTFExporter.js')]).then(([e, x]) => ({ ...e, GLTFExporter: x.GLTFExporter }));
+  return ENG;
+}
+async function rebuild() {
+  const seq = ++buildSeq, p = cur, z = { ...curSize };
+  $('building').classList.add('show');
+  try {
+    const E = await eng(), T3 = E.THREE, SENT = ['#ff0080', '#00ff80', '#8000ff'];
+    const sh = SENT.map(c => new T3.Color(c).getHexString());
+    const g = E.buildOwn(p.k, z), s = E.buildOwn(p.k, z, SENT);
+    const A = [], B = []; g.traverse(o => { if (o.isMesh) A.push(o); }); s.traverse(o => { if (o.isMesh) B.push(o); });
+    const cache = new Map();
+    A.forEach((o, i) => {
+      const so = B[i], ma = [].concat(o.material), mb = so ? [].concat(so.material) : [];
+      const out = ma.map((m, j) => { const ix = mb[j] && mb[j].color ? sh.indexOf(mb[j].color.getHexString()) : -1, role = ix >= 0 ? 'c' + (ix + 1) : null, key = m.uuid + '|' + role;
+        if (!cache.has(key)) { const c = m.clone(); c.name = role || ('m' + cache.size); cache.set(key, c); } return cache.get(key); });
+      o.material = Array.isArray(o.material) ? out : out[0];
+    });
+    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(g); root.updateMatrixWorld(true);
+    const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
+    if (seq !== buildSeq || cur !== p) return;
+    setSrc(URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' })));
+    mv.addEventListener('load', () => { if (seq === buildSeq) $('building').classList.remove('show'); }, { once: true });
+  } catch (e) {
+    console.error(e); if (seq === buildSeq) { $('building').classList.remove('show'); toast('重建失敗，請再試一次'); }
+  }
 }
 function closeP() {
   closePhoto();
@@ -375,7 +473,7 @@ $('dColors').onclick = e => {
 };
 function paint(r) { paintOn(mv, r); paintOn($('pv'), r); }
 function paintOn(v, r) {
-  if (!v.model || !v.src || !cur || !v.src.includes(cur.k)) return;
+  if (!v.model || !cur || v.dataset.k !== cur.k) return;
   const [R, G, B] = hexLin(sel[r]);
   for (const m of v.model.materials) if (m.name === r) m.pbrMetallicRoughness.setBaseColorFactor([R, G, B, 1]);
 }
@@ -433,19 +531,26 @@ addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pmOut').clas
 
 
 /* ---------- 照片試擺：拍一張家裡的照片，把 3D 家具疊上去 ---------- */
-const pv = $('pv'), pm = { fx: .5, fy: .62, fw: .55, rot: -25, tilt: 72, r: null };
+const pv = $('pv'), pm = { fx: .5, fy: .72, fw: .55, rot: -25, tilt: 72, elev: 0, rad: 6, r: null };
 function openPhoto() {
   if (!cur) return;
   $('photo').classList.add('show'); $('photo').setAttribute('aria-hidden', 'false');
   $('pmName').textContent = cur.n;
-  if (!pv.src || !pv.src.includes(cur.k)) pv.src = mv.src;
+  if (pv.src !== mv.src) { pv.dataset.k = cur.k; pv.src = mv.src; }
   else for (const r in sel) paintOn(pv, r);
-  pm.rot = -25; pm.tilt = 72; $('pmRot').value = pm.rot; $('pmTilt').value = pm.tilt; setOrbit();
+  pm.rot = -25; pm.tilt = 72; pm.elev = 0; $('pmTilt').value = pm.tilt; $('pmElev').value = 0; pmRadius(); setOrbit();
   pmLayout();
 }
 function closePhoto() { $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); }
-pv.addEventListener('load', () => { for (const r in sel) paintOn(pv, r); });
-function setOrbit() { pv.cameraOrbit = `${pm.rot}deg ${pm.tilt}deg auto`; }
+pv.addEventListener('load', () => { for (const r in sel) paintOn(pv, r); pmRadius(); setOrbit(); pv.jumpCameraToGoal(); });
+function setOrbit() {
+  pv.cameraTarget = `auto ${(-pm.elev / 100).toFixed(3)}m auto`;
+  pv.cameraOrbit = `${pm.rot}deg ${pm.tilt}deg ${pm.rad}m`;
+  $('pmRot').value = Math.round(pm.rot); $('oRot').textContent = Math.round(pm.rot) + '°';
+  $('oTilt').textContent = Math.round(90 - pm.tilt) + '°'; $('oElev').textContent = pm.elev + ' cm';
+}
+/* 鏡頭距離：以家具最大邊長＋離地高度估算，讓整件家具都在框內 */
+function pmRadius() { const d = pv.getDimensions ? pv.getDimensions() : null; const L = d && d.x ? Math.max(d.x, d.y, d.z) : 2; pm.rad = +(L * 3.4 + pm.elev / 100 * 2.6).toFixed(3); }
 function pmLayout() {
   const img = $('pmImg'); if (!img.naturalWidth) return;
   const st = $('pmStage').getBoundingClientRect(), k = Math.min(st.width / img.naturalWidth, st.height / img.naturalHeight);
@@ -460,19 +565,21 @@ function pmPlace() {
   const L = r.x + pm.fx * r.w - size / 2, T = r.y + pm.fy * r.h - size / 2;
   Object.assign(pv.style, { width: size + 'px', height: size + 'px', left: L + 'px', top: T + 'px',
     clipPath: `inset(${Math.max(0, r.y - T)}px ${Math.max(0, L + size - r.x - r.w)}px ${Math.max(0, T + size - r.y - r.h)}px ${Math.max(0, r.x - L)}px)` });
-  $('pmSize').value = Math.round(pm.fw * 100);
+  $('pmSize').value = Math.round(pm.fw * 100); $('pmSize').nextElementSibling.textContent = Math.round(pm.fw * 100) + '%';
 }
 $('pmPick').onclick = $('pmRe').onclick = () => $('pmFile').click();
 $('pmFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const img = $('pmImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-  img.onload = () => { $('photo').classList.add('has'); pm.fx = .5; pm.fy = .62; pm.fw = .55; pmLayout(); $('pmTip').style.opacity = 1; };
+  img.onload = () => { $('photo').classList.add('has'); pm.fx = .5; pm.fy = .72; pm.fw = .55; pmLayout(); $('pmTip').style.opacity = 1; };
   img.src = URL.createObjectURL(f); e.target.value = '';
 };
 $('pmBack').onclick = closePhoto;
 addEventListener('resize', () => { if ($('photo').classList.contains('show')) pmLayout(); });
 $('pmSize').oninput = e => { pm.fw = e.target.value / 100; pmPlace(); };
 $('pmRot').oninput = e => { pm.rot = +e.target.value; setOrbit(); };
+document.querySelector('.pm-rots').onclick = e => { const b = e.target.closest('button'); if (!b) return; let r = Math.round(pm.rot + +b.dataset.r); r = ((r + 540) % 360) - 180; pm.rot = r; setOrbit(); };
+$('pmElev').oninput = e => { pm.elev = +e.target.value; pmRadius(); setOrbit(); };
 $('pmTilt').oninput = e => { pm.tilt = +e.target.value; setOrbit(); };
 /* 手勢：一指拖曳、兩指縮放＋旋轉、滑鼠滾輪縮放 */
 const ptrs = new Map(); let g0 = null;
@@ -491,7 +598,7 @@ $('pmStage').addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId) || !g0) return;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (g0.m === 1) { const p = ptrs.get(e.pointerId); pm.fx = Math.min(1.1, Math.max(-.1, g0.fx + (p.x - g0.x) / pm.r.w)); pm.fy = Math.min(1.1, Math.max(-.1, g0.fy + (p.y - g0.y) / pm.r.h)); }
-  else if (ptrs.size >= 2) { const t = two(); pm.fw = Math.min(1, Math.max(.1, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; rot = ((rot + 540) % 360) - 180; pm.rot = rot; $('pmRot').value = Math.round(rot); setOrbit(); }
+  else if (ptrs.size >= 2) { const t = two(); pm.fw = Math.min(1, Math.max(.1, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; rot = ((rot + 540) % 360) - 180; pm.rot = rot; setOrbit(); }
   pmPlace();
 });
 const pEnd = e => { ptrs.delete(e.pointerId); gStart(); if (!ptrs.size) pv.classList.remove('busy'); };
@@ -532,7 +639,10 @@ $('pmShare').onclick = async () => { try { await navigator.share({ files: [new F
 $('pmDl').onclick = () => { const a = document.createElement('a'); a.href = $('pmOutImg').src; a.download = outName; document.body.appendChild(a); a.click(); a.remove(); };
 $('pmOutClose').onclick = () => $('pmOut').classList.remove('show');
 
-function route() { const k = decodeURIComponent(location.hash.slice(1)); if (k) openP(k); else if (cur) closeP(); }
+function route() {
+  const [k, sz] = decodeURIComponent(location.hash.slice(1)).split('@'), m = (sz || '').match(/^(\d+)x(\d+)x(\d+)$/);
+  if (k) openP(k, m ? { w: +m[1], d: +m[2], h: +m[3] } : null); else if (cur) closeP();
+}
 addEventListener('hashchange', route);
 renderChips(); renderGrid();
 customElements.whenDefined('model-viewer').then(route);
