@@ -925,13 +925,16 @@ try { if (IS_IOS && 'serviceWorker' in navigator) navigator.serviceWorker.regist
    （之前用 model-viewer 轉檔，3D 預覽不在畫面上時鏡頭設定不會生效 → 原點跑到家具中間 → 沒落地） */
 const USDZ = { key: '', p: null };
 function usdzOf(v, yaw) {
-  const key = v.src + '|' + yaw;
+  // 畫面上換過的顏色（model-viewer 材質）也要帶進去
+  const col = {}; try { for (const m of (v.model ? v.model.materials : [])) if (/^c[123]$/.test(m.name)) col[m.name] = m.pbrMetallicRoughness.baseColorFactor.slice(0, 3); } catch (e) {}
+  const key = v.src + '|' + yaw + '|' + JSON.stringify(col);
   if (USDZ.key !== key || !USDZ.p) {
     USDZ.key = key;
     USDZ.p = (async () => {
       const E = await eng(), T3 = E.THREE;
       const [{ GLTFLoader }, { USDZExporter }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/exporters/USDZExporter.js')]);
       const g = await new GLTFLoader().loadAsync(v.src);
+      g.scene.traverse(o => { for (const m of [].concat(o.material || [])) { const c = col[m.name]; if (c && m.color) m.color.setRGB(c[0], c[1], c[2], T3.LinearSRGBColorSpace); } });
       const root = new T3.Group(); root.add(g.scene); root.rotation.y = yaw * Math.PI / 180; root.updateMatrixWorld(true);
       const buf = await new USDZExporter().parseAsync(root, { maxTextureSize: 1024 });
       return new Blob([buf], { type: 'model/vnd.usdz+zip' });
