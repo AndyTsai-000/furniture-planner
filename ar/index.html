@@ -310,10 +310,24 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 .cb-sel output{text-align:right;font-variant-numeric:tabular-nums}
 .cb-foot{border-top:1px solid var(--line);padding:10px 14px calc(12px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px}
 .cb-foot .frow{margin:0;flex:none}
+.cb-foot .cbsave{flex:none;width:auto;margin:0;padding:0 16px;align-self:stretch;font-size:14.5px}
+#saveDlg{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px}
+#saveDlg.show{display:flex}
+#saveDlg .dlg{width:100%;max-width:380px;background:var(--card);color:var(--ink);border-radius:18px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+#saveDlg h4{margin:0 0 6px;font-family:"Noto Serif TC",serif;font-size:19px}
+#saveDlg p{margin:0 0 14px;color:var(--ink2);font-size:13.5px;line-height:1.6}
+#saveDlg input{width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+#saveDlg .btns{display:flex;gap:10px;margin-top:16px}
+#saveDlg .btns button{flex:1;padding:11px 0;border-radius:12px;font-size:15px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+#saveDlg .btns .yes{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.card.set .ph img{width:100%;height:100%;object-fit:cover}
+.card.set .noimg{color:var(--ink3);font-size:13px}
+.card .del{position:absolute;right:10px;top:10px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink2);display:grid;place-items:center;font-size:16px;line-height:1}
 .cb-foot .arbtn{flex:1;padding:12px 0;font-size:16px}
 .cb-foot{flex-wrap:wrap}
 .cb-tip{flex-basis:100%;margin:0;font-size:12px;line-height:1.45;color:var(--ink3)}
 @media (max-height:700px){.cb-tip{display:none}}
+@media (max-width:600px){.cb-foot{gap:8px 12px}.cb-foot .cbsave{margin-left:auto;align-self:center;padding:8px 14px;font-size:14px;border-radius:10px}.cb-foot .arbtn{flex-basis:100%;order:5}.cb-tip{order:6}}
 @media (min-width:861px){
   .cb-main{grid-template-rows:none;grid-template-columns:minmax(0,1fr) 440px}
   .cb-3d{border-top:0;border-left:1px solid var(--line)}
@@ -560,10 +574,17 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
   </div>
   <div class="cb-foot">
     <label class="frow"><input type="checkbox" id="cbFrame"><span class="sw2"></span><span class="tx">地面輪廓<small>每件佔地與總寬深</small></span></label>
+    <button class="arbtn2 cbsave" id="cbSaveSet">儲存成組合</button>
     <button class="arbtn" id="cbAR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看（整組）</span></button>
     <p class="cb-tip">整組較大時，AR 會放得比較遠、像浮在牆後：<b>一根手指把整組往自己拖近</b>就會落地。</p>
   </div>
 </section>
+<div id="saveDlg" role="dialog" aria-modal="true" aria-labelledby="saveDlgT"><div class="dlg">
+  <h4 id="saveDlgT">要儲存成新的組合嗎？</h4>
+  <p id="saveDlgP">存好後會放在首頁的「家具組合」分類，之後點一下就能叫出這組繼續擺。</p>
+  <input id="saveName" maxlength="30" placeholder="幫這組取個名字">
+  <div class="btns"><button id="saveNo">不用</button><button class="yes" id="saveYes">儲存</button></div>
+</div></div>
 <div id="matSheet"><div class="ms">
   <div class="msh"><h4 id="msTitle">選擇材質</h4><button id="msClose">關閉</button></div>
   <div class="msv" id="msVendors"></div>
@@ -619,28 +640,45 @@ const sizeTxt = p => `寬 ${p.w} × 深 ${p.d} × 高 ${p.h} cm`;
 /* ---------- 型錄 ---------- */
 let curCat = '全部';
 function renderChips() {
-  const used = CATS.filter(c => P.some(p => p.cat === c));
+  const used = [...(SETS.length ? [SET_CAT] : []), ...CATS.filter(c => P.some(p => p.cat === c))];
+  if (!used.includes(curCat)) curCat = '全部';
   $('chips').innerHTML = ['全部', ...used].map(c => `<button class="chip${c === curCat ? ' on' : ''}" data-c="${c}">${c}</button>`).join('');
 }
 /* 分類收合：按分類標題的箭頭收起／展開，記在這台手機 */
 let FOLD = {}; try { FOLD = JSON.parse(localStorage.getItem('ar-fold') || '{}') || {}; } catch (e) {}
 const saveFold = () => { try { localStorage.setItem('ar-fold', JSON.stringify(FOLD)); } catch (e) {} };
 const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+/* 儲存的家具組合（存在這台手機） */
+const SET_KEY = 'ar-sets', SET_CAT = '家具組合';
+let SETS = []; try { SETS = JSON.parse(localStorage.getItem(SET_KEY) || '[]') || []; } catch (e) {}
+function saveSets() { try { localStorage.setItem(SET_KEY, JSON.stringify(SETS)); return true; } catch (e) { return false; } }
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function setBox(d) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const i of d.items) for (const [x, z] of corners(i)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return d.items.length ? `${Math.round(x1 - x0)} × ${Math.round(z1 - z0)} cm` : ''; }
+function setCard(st) {
+  return `<div class="card set" role="button" tabindex="0" data-set="${st.id}">
+    <div class="ph">${st.img ? `<img loading="lazy" src="${st.img}" alt="${esc(st.name)}">` : '<span class="noimg">家具組合</span>'}<span class="ar-tag">組合</span><button class="del" data-del="${st.id}" aria-label="刪除這個組合">✕</button></div>
+    <div class="meta"><div class="nm">${esc(st.name)}</div><div class="sz">${st.data.items.length} 件・總寬深 ${setBox(st.data)}</div></div></div>`;
+}
 function renderGrid() {
   const card = p => `<button class="card" data-k="${p.k}">
     <div class="ph"><span class="ar-tag">AR</span><img loading="lazy" src="thumbs/${p.k}.webp" alt="${p.n}"></div>
     <div class="meta"><div class="nm">${p.n}</div><div class="sz">${p.w} × ${p.d} × ${p.h} cm</div>
     <div class="dots">${p.cs.map(c => `<i style="background:${c[2]}"></i>`).join('')}</div></div></button>`;
-  const cats = CATS.filter(c => (curCat === '全部' || c === curCat) && P.some(p => p.cat === c));
+  const cats = [SET_CAT, ...CATS].filter(c => (curCat === '全部' || c === curCat) && (c === SET_CAT ? SETS.length : P.some(p => p.cat === c)));
   const all = curCat === '全部', anyOpen = cats.some(c => !FOLD[c]);
-  $('grid').innerHTML = (all ? `<div class="allbar"><button class="allx" id="allx">${anyOpen ? '全部收起' : '全部展開'}</button></div>` : '') + cats.map(c => { const ps = P.filter(p => p.cat === c), off = curCat === '全部' && FOLD[c];
-    return `<section class="grp${off ? ' off' : ''}"><button class="grp-h" data-g="${c}" aria-expanded="${!off}"><b>${c}</b><span>${ps.length} 件</span>${ARROW}</button>
-    <div class="grid">${ps.map(card).join('')}</div></section>`; }).join('');
+  $('grid').innerHTML = (all ? `<div class="allbar"><button class="allx" id="allx">${anyOpen ? '全部收起' : '全部展開'}</button></div>` : '') + cats.map(c => { const isSet = c === SET_CAT, ps = isSet ? SETS : P.filter(p => p.cat === c), off = curCat === '全部' && FOLD[c];
+    return `<section class="grp${off ? ' off' : ''}"><button class="grp-h" data-g="${c}" aria-expanded="${!off}"><b>${c}</b><span>${ps.length} ${isSet ? '組' : '件'}</span>${ARROW}</button>
+    <div class="grid">${ps.map(isSet ? setCard : card).join('')}</div></section>`; }).join('');
 }
 $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; curCat = b.dataset.c; renderChips(); renderGrid(); };
 let fromList = false;
+$('grid').addEventListener('keydown', e => { const sc = e.target.closest('[data-set]'); if (sc && (e.key === 'Enter' || e.key === ' ') && e.target === sc) { e.preventDefault(); openSet(sc.dataset.set); } });
 $('grid').onclick = e => {
-  if (e.target.closest('#allx')) { const open = CATS.some(c => !FOLD[c] && P.some(p => p.cat === c)); CATS.forEach(c => { if (open) FOLD[c] = 1; else delete FOLD[c]; }); saveFold(); renderGrid(); return; }
+  const CS = [SET_CAT, ...CATS];
+  if (e.target.closest('#allx')) { const open = CS.some(c => !FOLD[c] && (c === SET_CAT ? SETS.length : P.some(p => p.cat === c))); CS.forEach(c => { if (open) FOLD[c] = 1; else delete FOLD[c]; }); saveFold(); renderGrid(); return; }
+  const del = e.target.closest('[data-del]');
+  if (del) { const st = SETS.find(x => x.id === del.dataset.del); if (st && confirm(`要刪除「${st.name}」這個組合嗎？`)) { SETS = SETS.filter(x => x !== st); saveSets(); renderChips(); renderGrid(); toast('已刪除組合'); } return; }
+  const sc = e.target.closest('[data-set]'); if (sc) { openSet(sc.dataset.set); return; }
   const g = e.target.closest('.grp-h');
   if (g) { const c = g.dataset.g; if (curCat !== '全部') return; if (FOLD[c]) delete FOLD[c]; else FOLD[c] = 1; saveFold(); renderChips(); renderGrid(); return; }
   const b = e.target.closest('.card'); if (b) { fromList = true; location.hash = b.dataset.k; }
@@ -1387,6 +1425,41 @@ $('cbAdd').onclick = () => openPicker(p => {
   CB.view = null; cbRender(); cbBuildSoon();
   toast(`${p.n}${n > 1 ? ' ×' + n : ''}${txt ? '：' + txt : ''}`);
 }, true);
+/* 儲存成新的組合 → 首頁「家具組合」 */
+async function setThumb() {
+  try {
+    const cv = $('cv'); if (!cv.loaded || $('cbBusy').classList.contains('show')) return '';
+    const blob = await cv.toBlob({ idealAspect: false }); const bmp = await createImageBitmap(blob);
+    const W = 480, H = 360, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    g.fillStyle = getComputedStyle(document.body).getPropertyValue('--stage2').trim() || '#f7f4ef'; g.fillRect(0, 0, W, H);
+    const k = Math.max(W / bmp.width, H / bmp.height); g.drawImage(bmp, (W - bmp.width * k) / 2, (H - bmp.height * k) / 2, bmp.width * k, bmp.height * k);
+    let u = c.toDataURL('image/webp', .78); if (!u.startsWith('data:image/webp')) u = c.toDataURL('image/jpeg', .8); return u;
+  } catch (e) { console.error(e); return ''; }
+}
+function setDefName() { const a = CB.items[0]; let n = a ? a.n.replace(/[（(].*$/, '') : '家具'; n += '組合'; let k = 1, t = n; while (SETS.some(x => x.name === t)) t = `${n} ${++k}`; return t; }
+$('cbSaveSet').onclick = () => {
+  if (!CB.items.length) { toast('先加入家具'); return; }
+  $('saveName').value = setDefName(); $('saveDlg').classList.add('show'); setTimeout(() => $('saveName').select(), 50);
+};
+const closeSaveDlg = () => $('saveDlg').classList.remove('show');
+$('saveNo').onclick = closeSaveDlg;
+$('saveDlg').onclick = e => { if (e.target === $('saveDlg')) closeSaveDlg(); };
+$('saveName').onkeydown = e => { if (e.key === 'Enter') $('saveYes').click(); };
+$('saveYes').onclick = async () => {
+  const name = $('saveName').value.trim() || setDefName(); $('saveYes').disabled = true;
+  const st = { id: 's' + Date.now().toString(36), name, t: Date.now(), data: cbData(), img: await setThumb() };
+  SETS.unshift(st);
+  if (!saveSets()) { st.img = ''; if (!saveSets()) { SETS.shift(); $('saveYes').disabled = false; toast('手機空間不足，存不下了，先刪掉一些舊組合'); return; } }
+  $('saveYes').disabled = false; closeSaveDlg(); renderChips(); renderGrid(); toast(`已儲存「${name}」，在首頁「家具組合」`);
+};
+function openSet(id) {
+  const st = SETS.find(x => x.id === id); if (!st) return;
+  const o = cbLoad(st.data);
+  const same = JSON.stringify(cbData().items) === JSON.stringify(o.items.map(({ id, ...i }) => i));
+  if (CB.items.length && !same && !confirm(`要用「${st.name}」（${o.items.length} 件），取代組合擺放裡目前的 ${CB.items.length} 件嗎？\n目前那組如果還要，先按「儲存成組合」存起來。`)) return;
+  CB.items = o.items; CB.room = o.room; CB.sel = null; cbSave();
+  if (location.hash === '#combo') { CB.view = null; cbRender(); cbBuildSoon(0); } else location.hash = 'combo';
+}
 $('cbClear').onclick = () => { if (!CB.items.length && !CB.room) return; if (!confirm('要清空組合裡的所有家具' + (CB.room ? '和房間' : '') + '嗎？')) return; CB.items = []; CB.room = null; CB.sel = null; cbSave(); CB.view = null; cbRender(); cbBuildSoon(0); };
 $('cbShare').onclick = async () => {
   if (!CB.items.length) { toast('先加入家具'); return; }
