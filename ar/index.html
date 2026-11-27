@@ -259,10 +259,10 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 .combo-btn svg{width:18px;height:18px}
 .hero-r{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
 .tocombo{display:block;text-align:center;margin-top:8px;font-size:13px;color:var(--accent);font-weight:500;text-decoration:none}
-#combo{position:fixed;inset:0;z-index:31;background:var(--bg);display:none;grid-template-rows:auto minmax(0,1fr) auto auto}
+#combo{position:fixed;inset:0;z-index:31;background:var(--bg);display:none;grid-template-rows:auto minmax(0,1fr) auto auto;grid-template-columns:minmax(0,1fr)}
 #combo.show{display:grid}
 .cb-top{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
-.cb-top h2{flex:1;margin:0;font-family:"Noto Serif TC",serif;font-size:19px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cb-top h2{flex:1;min-width:0;margin:0;font-family:"Noto Serif TC",serif;font-size:19px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cb-top h2 small{font-family:"Noto Sans TC",sans-serif;font-weight:400;font-size:13px;color:var(--ink3);margin-left:6px}
 .cbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;font-size:13.5px;white-space:nowrap}
 .cbtn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
@@ -296,6 +296,9 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 .cb-foot{border-top:1px solid var(--line);padding:10px 14px calc(12px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px}
 .cb-foot .frow{margin:0;flex:none}
 .cb-foot .arbtn{flex:1;padding:12px 0;font-size:16px}
+.cb-foot{flex-wrap:wrap}
+.cb-tip{flex-basis:100%;margin:0;font-size:12px;line-height:1.45;color:var(--ink3)}
+@media (max-height:700px){.cb-tip{display:none}}
 @media (min-width:861px){
   .cb-main{grid-template-rows:none;grid-template-columns:minmax(0,1fr) 440px}
   .cb-3d{border-top:0;border-left:1px solid var(--line)}
@@ -363,7 +366,8 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
 @media (max-width:860px){
   .orient{bottom:30px;left:12px}
   .cb-3d .orient{bottom:10px}
-  .cb-top .cbtn{padding:6px 9px;font-size:13px}
+  .cb-top{gap:6px;padding:10px 10px}
+  .cb-top .cbtn{padding:6px 8px;font-size:13px;flex:none}
   .cb-foot .frow .tx small{display:none}
 }
 @media (max-width:860px){
@@ -541,6 +545,7 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
   <div class="cb-foot">
     <label class="frow"><input type="checkbox" id="cbFrame"><span class="sw2"></span><span class="tx">地面輪廓<small>每件佔地與總寬深</small></span></label>
     <button class="arbtn" id="cbAR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看（整組）</span></button>
+    <p class="cb-tip">整組較大時，AR 會放得比較遠、像浮在牆後：<b>一根手指把整組往自己拖近</b>就會落地。</p>
   </div>
 </section>
 <div id="matSheet"><div class="ms">
