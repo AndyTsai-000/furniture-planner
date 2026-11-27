@@ -936,7 +936,11 @@ async function iosAR(v, staticUrl) {
       v.iosSrc = url; await new Promise(r => setTimeout(r, 30)); return v.activateAR();
     } catch (e) { console.error(e); }
   }
-  v.removeAttribute('ios-src'); return v.activateAR();   // 退回原本做法（可能可以縮放）
+  // 退回原本做法（可能可以縮放），但原點一樣要放在地面
+  v.removeAttribute('ios-src');
+  const prevT = v.getAttribute('camera-target');
+  v.cameraTarget = '0m 0m 0m'; v.jumpCameraToGoal(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  try { await v.activateAR(); } finally { if (prevT) v.setAttribute('camera-target', prevT); else v.removeAttribute('camera-target'); v.jumpCameraToGoal(); }
 }
 const allDefault = () => isDefSize(cur, curSize) && !hasMats() && ORI.mv === 0 && cur.cs.every(c => (sel[c[0]] || '').toLowerCase() === c[2].toLowerCase());
 $('arBtn').onclick = () => {
