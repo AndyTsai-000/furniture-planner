@@ -921,30 +921,46 @@ $('qrPhoto').onclick = () => { $('qrModal').classList.remove('show'); openPhoto(
 /* iPhone：只有「網站上的 .usdz 檔」才會遵守不能縮放（當場產生的暫存檔會被 iPhone 忽略這個設定） */
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 try { if (IS_IOS && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
-async function iosAR(v, staticUrl) {
+/* 自己把目前的 3D 模型轉成 iPhone 檔：原點固定在模型的地面（GLB 的 y=0），不依賴 3D 預覽的鏡頭狀態
+   （之前用 model-viewer 轉檔，3D 預覽不在畫面上時鏡頭設定不會生效 → 原點跑到家具中間 → 沒落地） */
+const USDZ = { key: '', p: null };
+function usdzOf(v, yaw) {
+  const key = v.src + '|' + yaw;
+  if (USDZ.key !== key || !USDZ.p) {
+    USDZ.key = key;
+    USDZ.p = (async () => {
+      const E = await eng(), T3 = E.THREE;
+      const [{ GLTFLoader }, { USDZExporter }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/exporters/USDZExporter.js')]);
+      const g = await new GLTFLoader().loadAsync(v.src);
+      const root = new T3.Group(); root.add(g.scene); root.rotation.y = yaw * Math.PI / 180; root.updateMatrixWorld(true);
+      const buf = await new USDZExporter().parseAsync(root, { maxTextureSize: 1024 });
+      return new Blob([buf], { type: 'model/vnd.usdz+zip' });
+    })();
+    USDZ.p.catch(() => { if (USDZ.key === key) USDZ.p = null; });
+  }
+  return USDZ.p;
+}
+async function iosAR(v, staticUrl, yaw) {
   if (staticUrl) { v.iosSrc = staticUrl; await new Promise(r => setTimeout(r, 30)); return v.activateAR(); }
   if (navigator.serviceWorker && navigator.serviceWorker.controller && window.caches) {
     try {
-      // 原點要在家具底部正中央（地面）：model-viewer 會把「鏡頭對準點」當原點，預設是家具中心 → iPhone 會放成一半在地板下
-      const prevT = v.getAttribute('camera-target');
-      v.cameraTarget = '0m 0m 0m'; v.jumpCameraToGoal(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      let u; try { u = await v.prepareUSDZ(); } finally { if (prevT) v.setAttribute('camera-target', prevT); else v.removeAttribute('camera-target'); v.jumpCameraToGoal(); }
-      const blob = await (await fetch(u)).blob(); URL.revokeObjectURL(u);
+      const blob = await usdzOf(v, yaw || 0);
       const c = await caches.open('ar-usdz'); for (const k of await c.keys()) await c.delete(k);
       const url = new URL(`usdz-gen/${Date.now()}.usdz`, location.href).href;
       await c.put(url, new Response(blob, { headers: { 'Content-Type': 'model/vnd.usdz+zip' } }));
       v.iosSrc = url; await new Promise(r => setTimeout(r, 30)); return v.activateAR();
     } catch (e) { console.error(e); }
   }
-  // 退回原本做法（可能可以縮放），但原點一樣要放在地面
+  // 退回 model-viewer 自己轉檔（可能可以縮放）；先把 3D 預覽捲進畫面、鏡頭對準地面原點
   v.removeAttribute('ios-src');
+  try { v.scrollIntoView({ block: 'nearest' }); } catch (e) {}
   const prevT = v.getAttribute('camera-target');
-  v.cameraTarget = '0m 0m 0m'; v.jumpCameraToGoal(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  v.cameraTarget = '0m 0m 0m'; v.jumpCameraToGoal(); await new Promise(r => setTimeout(r, 120));
   try { await v.activateAR(); } finally { if (prevT) v.setAttribute('camera-target', prevT); else v.removeAttribute('camera-target'); v.jumpCameraToGoal(); }
 }
 const allDefault = () => isDefSize(cur, curSize) && !hasMats() && ORI.mv === 0 && cur.cs.every(c => (sel[c[0]] || '').toLowerCase() === c[2].toLowerCase());
 $('arBtn').onclick = () => {
-  if (mv.canActivateAR && IS_IOS) { iosAR(mv, allDefault() ? `models/${cur.k}${frameOn ? '-f' : ''}.usdz` : null); return; }
+  if (mv.canActivateAR && IS_IOS) { iosAR(mv, allDefault() ? `models/${cur.k}${frameOn ? '-f' : ''}.usdz` : null, ORI.mv); return; }
   if (mv.canActivateAR) { mv.activateAR(); return; }
   if (isMobile) { openPhoto(); return; }
   $('qr').innerHTML = ''; new QRCode($('qr'), { text: location.href, width: 380, height: 380, correctLevel: QRCode.CorrectLevel.M }); $('qrPhoto').style.display = '';
@@ -1417,7 +1433,7 @@ async function cbBuild() {
     const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
     if (seq !== CB.seq) return;
     const old = CB.url; CB.url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
-    $('cv').addEventListener('load', () => { if (seq === CB.seq) $('cbBusy').classList.remove('show'); if (old) setTimeout(() => URL.revokeObjectURL(old), 3000); }, { once: true });
+    $('cv').addEventListener('load', () => { if (IS_IOS) setTimeout(() => usdzOf($('cv'), ORI.cv).catch(() => {}), 300); if (seq === CB.seq) $('cbBusy').classList.remove('show'); if (old) setTimeout(() => URL.revokeObjectURL(old), 3000); }, { once: true });
     $('cv').src = CB.url;
   } catch (e) { console.error(e); if (seq === CB.seq) { $('cbBusy').classList.remove('show'); toast('3D 更新失敗'); } }
 }
@@ -1425,7 +1441,7 @@ $('cbAR').onclick = () => {
   const cv = $('cv');
   if (!CB.items.length) { toast('先加入家具'); return; }
   if ($('cbBusy').classList.contains('show') || !cv.loaded) { toast('3D 還在更新，請稍等一下'); return; }
-  if (cv.canActivateAR) { if (IS_IOS) iosAR(cv, null); else cv.activateAR(); return; }
+  if (cv.canActivateAR) { if (IS_IOS) iosAR(cv, null, ORI.cv); else cv.activateAR(); return; }
   if (isMobile) { toast(IN_APP ? '請用 Safari 或 Chrome 開啟才能用 AR' : '這支手機不支援 AR'); return; }
   const link = CB.link || location.href.split('#')[0] + '#combo=';
   if (link.length > 2300) { toast('組合太大，QR Code 放不下，請用「分享」把連結傳到手機'); return; }
