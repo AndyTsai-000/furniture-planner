@@ -50,6 +50,17 @@ button{font:inherit;color:inherit;cursor:pointer}
 .chip:hover{border-color:var(--ink3)}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+#grid{display:block}
+.grp{margin-bottom:14px}
+.grp-h{width:100%;display:flex;align-items:center;gap:10px;border:0;border-bottom:1px solid var(--line);background:none;padding:12px 2px;margin-bottom:16px;color:var(--ink);text-align:left;cursor:pointer}
+.grp-h b{font-family:"Noto Serif TC",serif;font-size:20px;font-weight:700;letter-spacing:.06em}
+.grp-h span{color:var(--ink3);font-size:13px}
+.grp-h svg{margin-left:auto;width:22px;height:22px;transition:transform .2s;color:var(--ink2)}
+.grp.off .grp-h{margin-bottom:0}
+.grp.off .grp-h svg{transform:rotate(-90deg)}
+.grp.off .grid{display:none}
+.allbar{display:flex;justify-content:flex-end;margin:-10px 0 -4px}
+.allx{border:0;background:none;color:var(--ink2);font-size:13px;padding:6px 2px;text-decoration:underline;text-underline-offset:3px}
 .card{background:var(--card);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);border:0;padding:0;text-align:left;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s}
 .card:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(60,40,20,.06),0 16px 36px rgba(60,40,20,.12)}
 .card .ph{aspect-ratio:4/3;background:radial-gradient(ellipse at 50% 70%,var(--stage2),var(--stage));display:grid;place-items:center;position:relative}
@@ -611,16 +622,29 @@ function renderChips() {
   const used = CATS.filter(c => P.some(p => p.cat === c));
   $('chips').innerHTML = ['全部', ...used].map(c => `<button class="chip${c === curCat ? ' on' : ''}" data-c="${c}">${c}</button>`).join('');
 }
+/* 分類收合：按分類標題的箭頭收起／展開，記在這台手機 */
+let FOLD = {}; try { FOLD = JSON.parse(localStorage.getItem('ar-fold') || '{}') || {}; } catch (e) {}
+const saveFold = () => { try { localStorage.setItem('ar-fold', JSON.stringify(FOLD)); } catch (e) {} };
+const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
 function renderGrid() {
-  const list = P.filter(p => curCat === '全部' || p.cat === curCat);
-  $('grid').innerHTML = list.map(p => `<button class="card" data-k="${p.k}">
+  const card = p => `<button class="card" data-k="${p.k}">
     <div class="ph"><span class="ar-tag">AR</span><img loading="lazy" src="thumbs/${p.k}.webp" alt="${p.n}"></div>
     <div class="meta"><div class="nm">${p.n}</div><div class="sz">${p.w} × ${p.d} × ${p.h} cm</div>
-    <div class="dots">${p.cs.map(c => `<i style="background:${c[2]}"></i>`).join('')}</div></div></button>`).join('');
+    <div class="dots">${p.cs.map(c => `<i style="background:${c[2]}"></i>`).join('')}</div></div></button>`;
+  const cats = CATS.filter(c => (curCat === '全部' || c === curCat) && P.some(p => p.cat === c));
+  const all = curCat === '全部', anyOpen = cats.some(c => !FOLD[c]);
+  $('grid').innerHTML = (all ? `<div class="allbar"><button class="allx" id="allx">${anyOpen ? '全部收起' : '全部展開'}</button></div>` : '') + cats.map(c => { const ps = P.filter(p => p.cat === c), off = curCat === '全部' && FOLD[c];
+    return `<section class="grp${off ? ' off' : ''}"><button class="grp-h" data-g="${c}" aria-expanded="${!off}"><b>${c}</b><span>${ps.length} 件</span>${ARROW}</button>
+    <div class="grid">${ps.map(card).join('')}</div></section>`; }).join('');
 }
 $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; curCat = b.dataset.c; renderChips(); renderGrid(); };
 let fromList = false;
-$('grid').onclick = e => { const b = e.target.closest('.card'); if (b) { fromList = true; location.hash = b.dataset.k; } };
+$('grid').onclick = e => {
+  if (e.target.closest('#allx')) { const open = CATS.some(c => !FOLD[c] && P.some(p => p.cat === c)); CATS.forEach(c => { if (open) FOLD[c] = 1; else delete FOLD[c]; }); saveFold(); renderGrid(); return; }
+  const g = e.target.closest('.grp-h');
+  if (g) { const c = g.dataset.g; if (curCat !== '全部') return; if (FOLD[c]) delete FOLD[c]; else FOLD[c] = 1; saveFold(); renderChips(); renderGrid(); return; }
+  const b = e.target.closest('.card'); if (b) { fromList = true; location.hash = b.dataset.k; }
+};
 
 /* ---------- 商品頁 ---------- */
 const mv = $('mv');
