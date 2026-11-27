@@ -210,6 +210,10 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 #pmSheet .shh{flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 18px 6px}
 #pmSheet .shh h4{margin:0;font-family:"Noto Serif TC",serif;font-size:19px}
 #pmSheet .shh button{border:0;background:rgba(255,255,255,.1);color:#fff;border-radius:16px;padding:6px 14px}
+#pmSheet .qty{margin-left:auto;margin-right:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#ccc}
+#pmSheet .qty[hidden]{display:none}
+#pmSheet .qty button{width:34px;height:34px;padding:0;border-radius:50%;font-size:18px;line-height:1}
+#pmSheet .qty b{min-width:20px;text-align:center;font-size:17px;color:#fff}
 #pmSheet .shc{flex:none;display:flex;gap:6px;overflow-x:auto;padding:6px 18px 10px;scrollbar-width:none}
 #pmSheet .shc button{flex:none;border:1px solid rgba(255,255,255,.18);background:none;color:#ccc;border-radius:999px;padding:5px 13px;font-size:13px}
 #pmSheet .shc button.on{background:#fff;color:#1c1a18;border-color:#fff}
@@ -563,7 +567,7 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
   <div class="acts"><button id="calRedo">重畫</button><button class="go" id="calApply">套用</button></div>
 </div></div>
 <div id="pmSheet"><div class="sh">
-  <div class="shh"><h4>加一件家具</h4><button id="pmSheetClose">關閉</button></div>
+  <div class="shh"><h4 id="pmSheetT">加一件家具</h4><span class="qty" id="pmQty" hidden>數量<button data-q="-1" aria-label="減少">−</button><b id="pmQtyN">1</b><button data-q="1" aria-label="增加">＋</button></span><button id="pmSheetClose">關閉</button></div>
   <div class="shc" id="pmSheetCats"></div>
   <div class="shg" id="pmSheetGrid"></div>
 </div></div>
@@ -1099,7 +1103,11 @@ function renderSheet() {
   $('pmSheetGrid').innerHTML = P.filter(p => sheetCat === '全部' || p.cat === sheetCat).map(p => `<button data-k="${p.k}"><img src="thumbs/${p.k}.webp" alt="" loading="lazy">${p.n}</button>`).join('');
 }
 let pickCb = null;
-function openPicker(cb) { pickCb = cb; renderSheet(); $('pmSheet').classList.add('show'); }
+function openPicker(cb, qty) {
+  pickCb = cb; renderSheet(); $('pmQty').hidden = !qty; $('pmQtyN').textContent = '1'; $('pmSheetT').textContent = qty ? '加家具' : '加一件家具';
+  $('pmSheet').classList.add('show');
+}
+$('pmQty').onclick = e => { const b = e.target.closest('[data-q]'); if (b) $('pmQtyN').textContent = Math.max(1, Math.min(12, +$('pmQtyN').textContent + +b.dataset.q)); };
 $('pmAdd').onclick = () => openPicker(p => addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` }));
 $('pmSheetClose').onclick = () => $('pmSheet').classList.remove('show');
 $('pmSheet').onclick = e => { if (e.target === $('pmSheet')) $('pmSheet').classList.remove('show'); };
@@ -1269,10 +1277,68 @@ function cbAddProduct(p, size, selMap, matMap) {
   const z = size || { w: p.w, d: p.d, h: p.h }, b = cbBox();
   const it = { id: ++CB.nid, k: p.k, n: p.n, w: z.w, d: z.d, h: z.h, x: b ? Math.round((b.x1 + 30 + z.w / 2) / 5) * 5 : 0, z: b ? Math.round(((b.z0 + b.z1) / 2) / 5) * 5 : 0, r: 0, e: 0, c: colsArr(p, selMap) };
   if (matMap && Object.keys(matMap).length) it.m = JSON.parse(JSON.stringify(matMap));
-  CB.items.push(it); CB.sel = it.id; cbSave(); return it;
+  CB.items.push(it);
+  let txt = ''; try { txt = cbAuto(it); } catch (e) { console.error(e); }
+  CB.sel = it.id; cbSave(); return { it, auto: txt };
+}
+/* 自動擺放：依分類找搭配的家具（茶几→沙發、餐椅→餐桌、床頭櫃→床…），算出位置和方向 */
+function cbRole(i) {
+  const p = P.find(x => x.k === i.k), c = p ? p.cat : '', n = i.n || '';
+  if (c === '沙發') return /腳椅/.test(n) ? 'ottoman' : 'sofa';
+  if (c === '茶几') return i.w <= 60 ? 'side' : 'coffee';
+  if (c === '餐桌') return 'dtable';
+  if (c === '餐椅') return /凳/.test(n) ? 'bench' : 'chair';
+  if (c === '床台') return 'bed';
+  if (c === '床頭櫃') return 'ns';
+  if (c === '書桌') return 'desk';
+  if (c === '化妝台') return /椅/.test(n) ? 'vchair' : 'vanity';
+  return '';
+}
+function cbAnchor(roles, not) {
+  const s = CB.items.find(i => i.id === CB.sel && i !== not); if (s && roles.includes(cbRole(s))) return s;
+  for (let j = CB.items.length - 1; j >= 0; j--) { const i = CB.items[j]; if (i !== not && roles.includes(cbRole(i))) return i; }
+  return null;
+}
+const angN = a => ((a + 180) % 360 + 360) % 360 - 180;
+function cbPlace(A, lx, lz, rr, it) {   // 搭配家具的「自己座標」（右＝+x、正面＝+z）→ 平面圖座標
+  const t = A.r * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+  it.x = Math.round(A.x + lx * c - lz * s); it.z = Math.round(A.z + lx * s + lz * c); it.r = angN(A.r + rr);
+}
+function cbOverlap(a, b) { const A = aabb(a), B = aabb(b); return A.x0 < B.x1 - 1 && B.x0 < A.x1 - 1 && A.z0 < B.z1 - 1 && B.z0 < A.z1 - 1; }
+function cbFree(it) { return CB.items.every(o => o === it || (o.e || 0) > 0 || !cbOverlap(it, o)); }
+function cbAuto(it) {
+  const role = cbRole(it), W = it.w, D = it.d;
+  if (role === 'chair' || role === 'bench') { const T = cbAnchor(['dtable'], it); if (T) return cbSeat(T, it); }
+  let A = null, slots = [], txt = '';
+  if (role === 'coffee' || role === 'ottoman') { A = cbAnchor(['sofa'], it); if (A) { slots = [[0, A.d / 2 + 40 + D / 2, 0]]; txt = `放在${A.n}前面 40 cm`; } }
+  else if (role === 'side') { A = cbAnchor(['sofa', 'bed'], it); if (A) { const x = A.w / 2 + 5 + W / 2, z = -A.d / 2 + D / 2 + (cbRole(A) === 'sofa' ? 10 : 0); slots = [[x, z, 0], [-x, z, 0]]; txt = `放在${A.n}旁邊`; } }
+  else if (role === 'ns') { A = cbAnchor(['bed'], it); if (A) { const x = A.w / 2 + 5 + W / 2, z = -A.d / 2 + D / 2; slots = [[x, z, 0], [-x, z, 0]]; txt = `放在${A.n}床頭旁`; } }
+  else if (role === 'vchair' || role === 'chair' || role === 'bench') { A = cbAnchor(['vanity', 'desk'], it); if (A) { slots = [[0, A.d / 2 + 5 + D / 2, 180]]; txt = `放在${A.n}前面`; } }
+  for (const [lx, lz, rr] of slots) { const t = { ...it }; cbPlace(A, lx, lz, rr, t); if (cbFree(t)) { it.x = t.x; it.z = t.z; it.r = t.r; return txt; } }
+  return '';
+}
+/* 餐椅：餐桌周圍的椅子全部重新平均排（兩側面對面、坐不下放兩端） */
+function cbSeat(T, nw) {
+  const t = T.r * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+  const near = i => { const dx = i.x - T.x, dz = i.z - T.z, lx = dx * c + dz * s, lz = -dx * s + dz * c; return Math.abs(lx) < T.w / 2 + 90 && Math.abs(lz) < T.d / 2 + 90; };
+  const all = CB.items.filter(i => i === nw || (['chair', 'bench'].includes(cbRole(i)) && !(i.e > 0) && near(i)));
+  const benches = all.filter(i => cbRole(i) === 'bench'), chairs = all.filter(i => cbRole(i) === 'chair');
+  const sides = [-1, 1], used = new Set(), left = [];
+  benches.forEach((b, j) => { if (j < 2) { cbPlace(T, 0, sides[j] * (T.d / 2 + 5 + b.d / 2), sides[j] < 0 ? 0 : 180, b); used.add(sides[j]); } else left.push(b); });
+  const freeSides = sides.filter(v => !used.has(v)), cap = Math.max(1, Math.floor(T.w / 55));
+  const per = freeSides.map(() => 0); let rest = chairs.length;
+  for (let k = 0; rest > 0 && k < cap * freeSides.length; k++) { per[k % freeSides.length]++; rest--; }
+  let ci = 0;
+  freeSides.forEach((side, si) => {
+    const m = per[si], sp = Math.min(65, T.w / Math.max(1, m));
+    for (let q = 0; q < m; q++, ci++) { const ch = chairs[ci]; cbPlace(T, (q - (m - 1) / 2) * sp, side * (T.d / 2 + 5 + ch.d / 2), side < 0 ? 0 : 180, ch); }
+  });
+  for (const end of [-1, 1]) { if (ci >= chairs.length) break; const ch = chairs[ci++]; cbPlace(T, end * (T.w / 2 + 5 + ch.d / 2), 0, end < 0 ? -90 : 90, ch); }
+  for (; ci < chairs.length; ci++) left.push(chairs[ci]);
+  return left.includes(nw) ? `${T.n}周圍坐滿了，先放在旁邊` : `排在${T.n}周圍`;
 }
 /* 商品頁 → 加入組合 */
-$('addCombo').onclick = () => { if (!cur) return; cbAddProduct(cur, { ...curSize }, sel, mats); toast(`已加入組合擺放（共 ${CB.items.length} 件）`); syncToCombo(); };
+$('addCombo').onclick = () => { if (!cur) return; const r = cbAddProduct(cur, { ...curSize }, sel, mats); toast(`已加入組合擺放（共 ${CB.items.length} 件）${r.auto ? '，' + r.auto : ''}`); syncToCombo(); };
 function syncToCombo() { const n = CB.items.length; $('toCombo').hidden = !n; $('toCombo').textContent = `前往組合擺放（${n} 件）→`; }
 $('comboBtn').onclick = () => { location.hash = 'combo'; };
 async function openCombo(data) {
@@ -1290,7 +1356,12 @@ async function openCombo(data) {
 }
 function closeCombo() { if (!$('combo').classList.contains('show')) return; $('combo').classList.remove('show'); $('combo').setAttribute('aria-hidden', 'true'); if (!cur) $('list').style.display = ''; }
 $('cbBack').onclick = () => { if (history.length > 1) history.back(); else location.hash = ''; };
-$('cbAdd').onclick = () => openPicker(p => { cbAddProduct(p); CB.view = null; cbRender(); cbBuildSoon(); });
+$('cbAdd').onclick = () => openPicker(p => {
+  const n = +$('pmQtyN').textContent || 1; let txt = '';
+  for (let k = 0; k < n; k++) txt = cbAddProduct(p).auto || txt;
+  CB.view = null; cbRender(); cbBuildSoon();
+  toast(`${p.n}${n > 1 ? ' ×' + n : ''}${txt ? '：' + txt : ''}`);
+}, true);
 $('cbClear').onclick = () => { if (!CB.items.length && !CB.room) return; if (!confirm('要清空組合裡的所有家具' + (CB.room ? '和房間' : '') + '嗎？')) return; CB.items = []; CB.room = null; CB.sel = null; cbSave(); CB.view = null; cbRender(); cbBuildSoon(0); };
 $('cbShare').onclick = async () => {
   if (!CB.items.length) { toast('先加入家具'); return; }
