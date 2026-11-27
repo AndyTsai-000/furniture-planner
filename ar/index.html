@@ -948,7 +948,10 @@ $('arBtn').onclick = () => {
 };
 $('qrClose').onclick = () => $('qrModal').classList.remove('show');
 $('qrModal').onclick = e => { if (e.target === $('qrModal')) $('qrModal').classList.remove('show'); };
-$('back').onclick = () => { if (fromList) { fromList = false; history.back(); } else location.hash = ''; };
+$('back').onclick = () => {
+  if (fromList) { fromList = false; const k = cur && cur.k; history.back(); setTimeout(() => { if (cur && cur.k === k) location.hash = ''; }, 450); }   // 上一頁沒回到列表（例如 AR 多留了一筆紀錄）就直接回列表
+  else location.hash = '';
+};
 $('shareBtn').onclick = async () => {
   const url = location.href;
   if (navigator.share && isMobile) { try { await navigator.share({ title: cur.n, text: cur.n + '｜用手機 AR 擺進你家看看', url }); } catch (e) {} return; }
@@ -1451,6 +1454,13 @@ function route() {
   if (k) openP(k, m ? { w: +m[1], d: +m[2], h: +m[3] } : null); else if (cur) closeP();
 }
 addEventListener('hashchange', route);
+/* 按上一頁回來時，iPhone 會把舊畫面直接拿出來用，但 3D 畫面已經失效（卡住、家具不出來）→ 重新載入一次 */
+addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
+/* 從 AR 回來：3D 畫面失效（model-viewer 回報 webglcontextlost）就重新載入 */
+let glLost = false;
+const reloadIfLost = () => { if (glLost && document.visibilityState === 'visible') location.reload(); };
+for (const v of [mv, $('cv')]) v.addEventListener('error', e => { if (e.detail && e.detail.type === 'webglcontextlost') { glLost = true; reloadIfLost(); } });
+document.addEventListener('visibilitychange', reloadIfLost);
 renderChips(); renderGrid();
 customElements.whenDefined('model-viewer').then(route);
 </script>
