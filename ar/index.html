@@ -153,6 +153,10 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
 .grp h3{font-size:14px;font-weight:500;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .grp h3 small{color:var(--ink3);font-weight:400;font-size:12px}
 .sws{display:flex;flex-wrap:wrap;gap:10px}
+.segs{display:flex;flex-wrap:wrap;gap:8px}
+.segs button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font-size:14px;line-height:1.2}
+.segs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:500}
+#dOpts .grp{margin-bottom:18px}
 .sw{width:34px;height:34px;border-radius:50%;border:0;padding:0;box-shadow:inset 0 0 0 1px var(--ring);position:relative;transition:transform .12s}
 .sw:hover{transform:scale(1.08)}
 .sw.on::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--ink)}
@@ -508,6 +512,7 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
       <div class="szact"><button id="szCancel">取消</button><button id="szReset">原尺寸</button><button class="go" id="szApply">套用</button></div>
       <p class="sznote">輸入公分，按「套用」後會依新尺寸重新做模型，AR 和照片試擺也會用新尺寸。</p>
     </div>
+    <div id="dOpts"></div>
     <div id="dColors"></div>
     <button class="arbtn2" id="addCombo" style="margin-top:22px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg><span>加入組合擺放</span></button>
     <a class="tocombo" id="toCombo" href="#combo" hidden></a>
@@ -650,7 +655,7 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
 const UA = navigator.userAgent;
 const IN_LINE = /\bLine\//i.test(UA), IN_APP = IN_LINE || /FBAN|FBAV|FB_IAB|Instagram|Messenger|MicroMessenger/i.test(UA);
 if (IN_LINE && !/openExternalBrowser=1/.test(location.search)) { try { const u = new URL(location.href); u.searchParams.set('openExternalBrowser', '1'); location.replace(u.toString()); } catch (e) {} }
-const P = [{"k":"ownRecliner","n":"131型沙發","cat":"沙發","w":276,"d":105,"h":105,"cs":[["c1","布料顏色","#b9bcc2"],["c2","抱枕顏色","#86aecb"]]},{"k":"ownDanSofa","n":"丹麥沙發","cat":"沙發","w":210,"d":90,"h":90,"cs":[["c1","布料顏色","#cfc8b8"],["c2","木腳顏色","#d9b382"]]},{"k":"ownLetItBe","n":"Let it be沙發","cat":"沙發","w":368,"d":267,"h":80,"cs":[["c1","布料顏色","#e3e1dc"],["c2","底框皮革顏色","#9a6038"]]},{"k":"ownRoundChaise","n":"雷內沙發","cat":"沙發","w":300,"d":138,"h":73,"cs":[["c1","主座布料","#dedad4"],["c2","貴妃布料","#6d6f73"],["c3","圓抱枕顏色","#d49a2e"]]},{"k":"own171","n":"171型沙發","cat":"沙發","w":285,"d":185,"h":90,"cs":[["c1","牛皮顏色","#8f9291"],["c2","腰枕顏色","#b5b1b2"],["c3","鐵腳顏色","#232325"]]},{"k":"own120","n":"120型沙發","cat":"沙發","w":250,"d":90,"h":102,"cs":[["c1","布料顏色","#d3d2cf"],["c2","合成皮顏色","#67666a"],["c3","金屬腳顏色","#55524f"]]},{"k":"own120Ott","n":"120型腳椅","cat":"沙發","w":85,"d":90,"h":58,"cs":[["c1","布料顏色","#d3d2cf"],["c2","合成皮顏色","#67666a"],["c3","金屬腳顏色","#55524f"]]},{"k":"ownAthena","n":"雅典娜沙發","cat":"沙發","w":392,"d":271,"h":87,"cs":[["c1","牛皮顏色","#969896"],["c2","扶手實木顏色","#7a4a2b"],["c3","金屬腳顏色","#4d4a48"]]},{"k":"ownFloatL","n":"103型沙發","cat":"沙發","w":306,"d":180,"h":95,"cs":[["c1","坐墊布料","#dcd6cf"],["c2","底座布料","#8e7472"],["c3","邊几木色","#d9bd94"]]},{"k":"ownAmis","n":"阿美族床台","cat":"床台","w":170,"d":206,"h":100,"cs":[["c1","床架布料","#8d8c8a"],["c2","床頭靠墊布料","#e6e1d4"],["c3","金屬腳顏色","#c9ccd0"]]},{"k":"ownMila","n":"米拉床台","cat":"床台","w":163,"d":210,"h":110,"cs":[["c1","床頭皮革顏色","#c5cad2"],["c2","床架皮革顏色","#565a60"],["c3","不鏽鋼腳顏色","#b9b6b0"]]},{"k":"ownEmma","n":"Emma床台","cat":"床台","w":154,"d":200,"h":107,"cs":[["c1","布料顏色","#8f9394"],["c2","木腳顏色","#1f1c1b"]]},{"k":"ownDanish","n":"丹麥餐桌","cat":"餐桌","w":180,"d":90,"h":75,"cs":[["c1","桌面顏色","#f2f0ec"],["c2","木腳顏色","#dcc39c"]]},{"k":"ownPencil","n":"鉛筆腳餐桌","cat":"餐桌","w":150,"d":85,"h":75,"cs":[["c1","桌面顏色","#f2f0ec"],["c2","鐵件顏色","#1f1f1f"]]},{"k":"ownHeart","n":"愛心腳餐桌","cat":"餐桌","w":240,"d":105,"h":75,"cs":[["c1","陶板顏色","#6f6862"],["c2","金屬顏色","#3d322d"],["c3","底板顏色","#1b1b1c"]]},{"k":"ownVChair","n":"V型餐椅","cat":"餐椅","w":46,"d":62,"h":84,"cs":[["c1","皮面顏色","#b8aa9e"],["c2","木腳顏色","#dcc39c"]]},{"k":"ownMiyazaki","n":"宮崎餐椅","cat":"餐椅","w":50,"d":56,"h":74,"cs":[["c1","皮面顏色","#a9a39c"],["c2","木腳顏色","#e6cfa6"]]},{"k":"ownDoll","n":"娃娃餐椅","cat":"餐椅","w":50,"d":49.5,"h":84,"cs":[["c1","內側皮革（坐面與椅背正面）","#8a7868"],["c2","外側皮革（椅背背面與椅底）","#8a7868"],["c3","金屬腳顏色","#1e1e20"]]},{"k":"ownCY127","n":"CY127餐椅","cat":"餐椅","w":45,"d":57,"h":84.5,"cs":[["c1","內側皮革（坐墊與椅背正面）","#9c8a68"],["c2","外側皮革（椅背背面）","#4f4944"],["c3","金屬腳顏色","#1c1c1e"]]},{"k":"ownDanishBench","n":"丹麥長凳","cat":"餐椅","w":150,"d":38,"h":45,"cs":[["c1","皮面顏色","#a9a39c"],["c2","木腳顏色","#dcb98c"]]},{"k":"ownOvalSide","n":"橢圓陶板邊几","cat":"茶几","w":34,"d":56,"h":52,"cs":[["c1","桌面顏色","#1f1f21"],["c2","金屬顏色","#1f1f1f"]]},{"k":"ownDali","n":"大理書桌","cat":"書桌","w":150,"d":70,"h":75,"cs":[["c1","桌面木頭顏色","#2f2b2a"],["c2","抽屜烤漆顏色","#c9c8cc"],["c3","金屬顏色（把手與腳座）","#1d1e21"]]},{"k":"ownEgger","n":"艾格書桌","cat":"書桌","w":150,"d":70,"h":75,"cs":[["c1","桌面木頭顏色","#2a2625"],["c2","抽屜木頭顏色","#6b4a38"],["c3","金屬顏色（把手與腳座）","#1d1e21"]]},{"k":"ownHemingway","n":"海明威化妝台","cat":"化妝台","w":140,"d":55,"h":126,"cs":[["c1","烤漆顏色","#77726f"],["c2","金屬顏色（把手、腳座、鏡框）","#c9a659"]]},{"k":"ownPuff","n":"泡芙化妝椅","cat":"化妝台","w":47,"d":52,"h":65,"cs":[["c1","椅身布料","#ecd2c0"],["c2","坐墊與椅背布料","#b98289"],["c3","底座顏色","#4a3f3a"]]},{"k":"ownTawu","n":"塔烏床頭櫃","cat":"床頭櫃","w":50,"d":50,"h":51,"cs":[["c1","陶板顏色","#f2f0ec"],["c2","木頭顏色","#1c1b1a"],["c3","底板顏色","#1b1b1c"]]},{"k":"ownTawuBox","n":"哈克床頭櫃","cat":"床頭櫃","w":52,"d":46,"h":50,"cs":[["c1","陶板顏色","#f2f0ec"],["c2","烤漆顏色","#c9c5bf"],["c3","木腳顏色","#3b302b"]]},{"k":"ownDorn","n":"多恩茶几","cat":"茶几","w":100,"d":96,"h":35,"cs":[["c1","陶板顏色","#cbc2b6"],["c2","金屬顏色","#2f2b28"]]},{"k":"ownAshBig","n":"Ash陶板大茶几","cat":"茶几","w":90,"d":90,"h":36,"cs":[["c1","木頭顏色（桌框與桌腳）","#d6b98a"],["c2","陶板顏色","#eeece8"]]},{"k":"ownAshSmall","n":"Ash陶板小茶几","cat":"茶几","w":52,"d":52,"h":52,"cs":[["c1","木頭顏色（桌框與桌腳）","#2e2724"],["c2","陶板顏色","#3b3b3d"]]}];
+const P = [{"k":"ownRecliner","n":"131型沙發","cat":"沙發","w":276,"d":105,"h":105,"cs":[["c1","布料顏色","#b9bcc2"],["c2","抱枕顏色","#86aecb"]],"os":[{"k":"seats","l":"座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"3"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownDanSofa","n":"丹麥沙發","cat":"沙發","w":210,"d":90,"h":90,"cs":[["c1","布料顏色","#cfc8b8"],["c2","木腳顏色","#d9b382"]],"os":[{"k":"seats","l":"座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"2"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownLetItBe","n":"Let it be沙發","cat":"沙發","w":368,"d":267,"h":80,"cs":[["c1","布料顏色","#e3e1dc"],["c2","底框皮革顏色","#9a6038"]],"os":[{"k":"seats","l":"主座座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"3"},{"k":"side","l":"貴妃位置","v":[["right","貴妃在右"],["left","貴妃在左"]],"d":"left"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownRoundChaise","n":"雷內沙發","cat":"沙發","w":300,"d":138,"h":73,"cs":[["c1","主座布料","#dedad4"],["c2","貴妃布料","#6d6f73"],["c3","圓抱枕顏色","#d49a2e"]],"os":[{"k":"side","l":"貴妃位置","v":[["right","貴妃在右"],["left","貴妃在左"]],"d":"left"},{"k":"rp","l":"圓抱枕","v":[["on","放圓抱枕"],["off","不放"]],"d":"on"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"own171","n":"171型沙發","cat":"沙發","w":285,"d":185,"h":90,"cs":[["c1","牛皮顏色","#8f9291"],["c2","腰枕顏色","#b5b1b2"],["c3","鐵腳顏色","#232325"]],"os":[{"k":"seats","l":"主座座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"2"},{"k":"side","l":"貴妃位置","v":[["right","貴妃在右"],["left","貴妃在左"]],"d":"right"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"own120","n":"120型沙發","cat":"沙發","w":250,"d":90,"h":102,"cs":[["c1","布料顏色","#d3d2cf"],["c2","合成皮顏色","#67666a"],["c3","金屬腳顏色","#55524f"]],"os":[{"k":"seats","l":"座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"3"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"own120Ott","n":"120型腳椅","cat":"沙發","w":85,"d":90,"h":58,"cs":[["c1","布料顏色","#d3d2cf"],["c2","合成皮顏色","#67666a"],["c3","金屬腳顏色","#55524f"]],"os":[{"k":"side","l":"扶手位置","v":[["right","扶手在右"],["left","扶手在左"]],"d":"right"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownAthena","n":"雅典娜沙發","cat":"沙發","w":392,"d":271,"h":87,"cs":[["c1","牛皮顏色","#969896"],["c2","扶手實木顏色","#7a4a2b"],["c3","金屬腳顏色","#4d4a48"]],"os":[{"k":"seats","l":"主座座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"3"},{"k":"side","l":"貴妃位置","v":[["right","貴妃在右"],["left","貴妃在左"]],"d":"left"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownFloatL","n":"103型沙發","cat":"沙發","w":306,"d":180,"h":95,"cs":[["c1","坐墊布料","#dcd6cf"],["c2","底座布料","#8e7472"],["c3","邊几木色","#d9bd94"]],"os":[{"k":"seats","l":"主座座位數","v":[["1","1 人座"],["2","2 人座"],["3","3 人座"],["4","4 人座"]],"d":"2"},{"k":"side","l":"貴妃位置","v":[["right","貴妃在右"],["left","貴妃在左"]],"d":"left"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownAmis","n":"阿美族床台","cat":"床台","w":170,"d":206,"h":100,"cs":[["c1","床架布料","#8d8c8a"],["c2","床頭靠墊布料","#e6e1d4"],["c3","金屬腳顏色","#c9ccd0"]],"os":[{"k":"matt","l":"床墊","v":[["on","放床墊"],["off","不放（只看床台）"]],"d":"on"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownMila","n":"米拉床台","cat":"床台","w":163,"d":210,"h":110,"cs":[["c1","床頭皮革顏色","#c5cad2"],["c2","床架皮革顏色","#565a60"],["c3","不鏽鋼腳顏色","#b9b6b0"]],"os":[{"k":"matt","l":"床墊","v":[["on","放床墊"],["off","不放（只看床台）"]],"d":"on"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownEmma","n":"Emma床台","cat":"床台","w":154,"d":200,"h":107,"cs":[["c1","布料顏色","#8f9394"],["c2","木腳顏色","#1f1c1b"]],"os":[{"k":"matt","l":"床墊","v":[["on","放床墊"],["off","不放（只看床台）"]],"d":"on"},{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownDanish","n":"丹麥餐桌","cat":"餐桌","w":180,"d":90,"h":75,"cs":[["c1","桌面顏色","#f2f0ec"],["c2","木腳顏色","#dcc39c"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownPencil","n":"鉛筆腳餐桌","cat":"餐桌","w":150,"d":85,"h":75,"cs":[["c1","桌面顏色","#f2f0ec"],["c2","鐵件顏色","#1f1f1f"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownHeart","n":"愛心腳餐桌","cat":"餐桌","w":240,"d":105,"h":75,"cs":[["c1","陶板顏色","#6f6862"],["c2","金屬顏色","#3d322d"],["c3","底板顏色","#1b1b1c"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownVChair","n":"V型餐椅","cat":"餐椅","w":46,"d":62,"h":84,"cs":[["c1","皮面顏色","#b8aa9e"],["c2","木腳顏色","#dcc39c"]],"os":[{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownMiyazaki","n":"宮崎餐椅","cat":"餐椅","w":50,"d":56,"h":74,"cs":[["c1","皮面顏色","#a9a39c"],["c2","木腳顏色","#e6cfa6"]],"os":[{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownDoll","n":"娃娃餐椅","cat":"餐椅","w":50,"d":49.5,"h":84,"cs":[["c1","內側皮革（坐面與椅背正面）","#8a7868"],["c2","外側皮革（椅背背面與椅底）","#8a7868"],["c3","金屬腳顏色","#1e1e20"]],"os":[{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownCY127","n":"CY127餐椅","cat":"餐椅","w":45,"d":57,"h":84.5,"cs":[["c1","內側皮革（坐墊與椅背正面）","#9c8a68"],["c2","外側皮革（椅背背面）","#4f4944"],["c3","金屬腳顏色","#1c1c1e"]],"os":[{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownDanishBench","n":"丹麥長凳","cat":"餐椅","w":150,"d":38,"h":45,"cs":[["c1","皮面顏色","#a9a39c"],["c2","木腳顏色","#dcb98c"]],"os":[{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"leather"}]},{"k":"ownOvalSide","n":"橢圓陶板邊几","cat":"茶几","w":34,"d":56,"h":52,"cs":[["c1","桌面顏色","#1f1f21"],["c2","金屬顏色","#1f1f1f"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownDali","n":"大理書桌","cat":"書桌","w":150,"d":70,"h":75,"cs":[["c1","桌面木頭顏色","#2f2b2a"],["c2","抽屜烤漆顏色","#c9c8cc"],["c3","金屬顏色（把手與腳座）","#1d1e21"]],"os":[{"k":"side","l":"抽屜位置","v":[["left","抽屜在左"],["right","抽屜在右"]],"d":"left"}]},{"k":"ownEgger","n":"艾格書桌","cat":"書桌","w":150,"d":70,"h":75,"cs":[["c1","桌面木頭顏色","#2a2625"],["c2","抽屜木頭顏色","#6b4a38"],["c3","金屬顏色（把手與腳座）","#1d1e21"]],"os":[{"k":"side","l":"抽屜位置","v":[["left","抽屜在左"],["right","抽屜在右"]],"d":"right"}]},{"k":"ownHemingway","n":"海明威化妝台","cat":"化妝台","w":140,"d":55,"h":126,"cs":[["c1","烤漆顏色","#77726f"],["c2","金屬顏色（把手、腳座、鏡框）","#c9a659"]],"os":[{"k":"side","l":"櫃子位置","v":[["left","櫃子在左"],["right","櫃子在右"]],"d":"left"},{"k":"mir","l":"鏡子","v":[["on","放鏡子"],["off","不放"]],"d":"on"}]},{"k":"ownPuff","n":"泡芙化妝椅","cat":"化妝台","w":47,"d":52,"h":65,"cs":[["c1","椅身布料","#ecd2c0"],["c2","坐墊與椅背布料","#b98289"],["c3","底座顏色","#4a3f3a"]],"os":[{"k":"fabric","l":"面料","v":[["fabric","布料"],["leather","皮革"],["velvet","絨布"]],"d":"fabric"}]},{"k":"ownTawu","n":"塔烏床頭櫃","cat":"床頭櫃","w":50,"d":50,"h":51,"cs":[["c1","陶板顏色","#f2f0ec"],["c2","木頭顏色","#1c1b1a"],["c3","底板顏色","#1b1b1c"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownTawuBox","n":"哈克床頭櫃","cat":"床頭櫃","w":52,"d":46,"h":50,"cs":[["c1","陶板顏色","#f2f0ec"],["c2","烤漆顏色","#c9c5bf"],["c3","木腳顏色","#3b302b"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownDorn","n":"多恩茶几","cat":"茶几","w":100,"d":96,"h":35,"cs":[["c1","陶板顏色","#cbc2b6"],["c2","金屬顏色","#2f2b28"]],"os":[{"k":"topmat","l":"桌面材質","v":[["wood","木頭"],["marble","大理石"],["slate","陶板(岩板)"],["glass","玻璃"]],"d":"slate"}]},{"k":"ownAshBig","n":"Ash陶板大茶几","cat":"茶几","w":90,"d":90,"h":36,"cs":[["c1","木頭顏色（桌框與桌腳）","#d6b98a"],["c2","陶板顏色","#eeece8"]]},{"k":"ownAshSmall","n":"Ash陶板小茶几","cat":"茶几","w":52,"d":52,"h":52,"cs":[["c1","木頭顏色（桌框與桌腳）","#2e2724"],["c2","陶板顏色","#3b3b3d"]]}];
 const CATS = ['沙發', '床台', '餐桌', '餐椅', '書桌', '茶几', '床頭櫃', '化妝台'];
 const PAL = {
   fabric: ['#ebe6dc', '#d6cfc2', '#c9b79c', '#b9b4ad', '#a48a6d', '#8e9099', '#7c8b78', '#6f7f93', '#b98b7f', '#5c5f66', '#2f3a4c', '#3a3b3f'],
@@ -738,23 +743,24 @@ const mv = $('mv');
 let cur = null, sel = {}, listScroll = 0;
 let curSize = null, editing = false, buildSeq = 0;
 const isDefSize = (p, z) => z.w === p.w && z.d === p.d && z.h === p.h;
-function openP(k, size) {
+function openP(k, size, o) {
   const p = P.find(x => x.k === k); if (!p) return closeP();
   if (!cur) listScroll = scrollY;
   const same = cur && cur.k === k;
-  cur = p; if (!same) { sel = Object.fromEntries(p.cs.map(c => [c[0], c[2]])); mats = {}; matInfo = {}; }
+  cur = p; if (!same) { sel = Object.fromEntries(p.cs.map(c => [c[0], c[2]])); mats = {}; matInfo = {}; opts = {}; }
+  if (o) opts = cleanOpts(p, o);
   curSize = size ? clampSize(p, size).z : { w: p.w, d: p.d, h: p.h }; editing = false;
   $('dCat').textContent = p.cat;
   $('dName').textContent = p.n;
   document.title = p.n + '｜AR 試擺間';
-  renderSpecs(); renderColors(); syncToCombo();
+  renderSpecs(); renderOpts(); renderColors(); syncToCombo();
   $('detail').classList.add('show'); $('detail').setAttribute('aria-hidden', 'false');
   $('list').style.display = 'none';
   $('hint').style.opacity = 1;
   mv.cameraOrbit = '-28deg 72deg 108%'; mv.fieldOfView = 'auto'; setDims(false); mv.jumpCameraToGoal(); if (!same) setOri('mv', 0);
   mv.alt = p.n + ' 3D 模型';
   if (same && mv.dataset.size === modelKey()) return;
-  if (isDefSize(p, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`, `models/${p.k}-f.glb`); mv.poster = `thumbs/${p.k}.webp`; }
+  if (isPlain()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${p.k}.glb`, `models/${p.k}-f.glb`); mv.poster = `thumbs/${p.k}.webp`; }
   else { mv.poster = ''; rebuild(); }
 }
 const sizeKey = z => `${z.w}x${z.d}x${z.h}`;
@@ -795,9 +801,9 @@ function applySize(z) {
   const r = clampSize(cur, z);
   if (r.bad.length) toast('可調整範圍：' + r.bad.join('、') + ' 公分');
   editing = false; curSize = r.z; renderSpecs();
-  history.replaceState(null, '', '#' + cur.k + (isDefSize(cur, curSize) ? '' : '@' + sizeKey(curSize)));
+  history.replaceState(null, '', curHash());
   if (mv.dataset.size === modelKey() && mv.dataset.k === cur.k) return;
-  if (isDefSize(cur, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); }
+  if (isPlain()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); }
   else rebuild();
 }
 /* 依尺寸、材質重建：用家具配置網站同一套建模程式（engine.js） */
@@ -892,14 +898,43 @@ async function makeGroup(E, k, size, cols, mats, o) {
 }
 let mats = {}, matInfo = {};
 const hasMats = () => Object.keys(mats).length > 0;
-const modelKey = () => sizeKey(curSize) + '|' + JSON.stringify(mats);
+const modelKey = () => sizeKey(curSize) + '|' + JSON.stringify(mats) + '|' + JSON.stringify(opts);
+/* 款式選項（座位數、貴妃位置、床墊、桌面材質…，跟家具配置網站同一套）；opts 只記跟預設不同的 */
+let opts = {};
+const hasOpts = () => Object.keys(opts).length > 0;
+const isPlain = () => isDefSize(cur, curSize) && !hasMats() && !hasOpts();
+function cleanOpts(p, o) { const out = {}; for (const g of p.os || []) { const v = o && o[g.k]; if (v != null && v !== g.d && g.v.some(x => x[0] === v)) out[g.k] = v; } return out; }
+function optTxt(p, o) { if (!p || !o) return ''; return (p.os || []).filter(g => o[g.k] != null && o[g.k] !== g.d).map(g => (g.v.find(x => x[0] === o[g.k]) || [])[1]).filter(Boolean).join('・'); }
+function curHash() { return '#' + cur.k + (isDefSize(cur, curSize) ? '' : '@' + sizeKey(curSize)) + (hasOpts() ? '!' + Object.entries(opts).map(([k, v]) => k + '-' + v).join('.') : ''); }
+function parseOs(t) { const o = {}; for (const kv of (t || '').split('.')) { const i = kv.indexOf('-'); if (i > 0) o[kv.slice(0, i)] = kv.slice(i + 1); } return o; }
+function renderOpts() {
+  const p = cur, gs = p.os || [];
+  $('dOpts').innerHTML = gs.map(g => { const v = opts[g.k] || g.d;
+    return `<div class="grp"><h3><span>${g.l}</span>${v !== g.d ? `<button class="reset" data-ok="${g.k}" data-ov="${g.d}">還原</button>` : ''}</h3>
+      <div class="segs">${g.v.map(([id, nm]) => `<button class="${id === v ? 'on' : ''}" data-ok="${g.k}" data-ov="${id}" aria-pressed="${id === v}">${nm}</button>`).join('')}</div></div>`; }).join('');
+}
+$('dOpts').onclick = e => {
+  const b = e.target.closest('[data-ok]'); if (!b || !cur) return;
+  const p = cur, g = (p.os || []).find(x => x.k === b.dataset.ok); if (!g) return;
+  const old = opts[g.k] || g.d, v = b.dataset.ov; if (v === old) return;
+  if (v === g.d) delete opts[g.k]; else opts[g.k] = v;
+  let note = '';
+  if (g.k === 'seats') {   // 座位數變了：寬度跟著加減（每座約原寬的 8 成 ÷ 原座位數）
+    const per = Math.min(95, Math.max(55, Math.round(p.w * .8 / (+g.d || 1)))), L = LIM(p.w);
+    const nw = Math.min(L.hi, Math.max(L.lo, Math.round((curSize.w + (+v - +old) * per) / 5) * 5));
+    curSize = { ...curSize, w: (+v === +g.d) ? p.w : nw };
+    note = `，寬度改成 ${curSize.w} cm（可再按「修改尺寸」調整）`;
+  }
+  renderOpts(); renderSpecs(); history.replaceState(null, '', curHash()); afterMatChange();
+  if (note) toast(((g.v.find(x => x[0] === v) || [])[1] || '') + note);
+};
 const colsOf = (p, selMap) => ['c1', 'c2', 'c3'].map(r => { const c = p.cs.find(x => x[0] === r); return c ? (selMap && selMap[r]) || c[2] : null; });
 async function rebuild() {
-  const seq = ++buildSeq, p = cur, z = { ...curSize }, M = JSON.parse(JSON.stringify(mats));
+  const seq = ++buildSeq, p = cur, z = { ...curSize }, M = JSON.parse(JSON.stringify(mats)), O = { ...opts };
   $('building').classList.add('show');
   try {
     const E = await eng(), T3 = E.THREE;
-    const g = await makeGroup(E, p.k, z, colsOf(p, sel), M);
+    const g = await makeGroup(E, p.k, z, colsOf(p, sel), M, O);
     const bb = new T3.Box3().setFromObject(g);   // 公分（要在縮成公尺之前量）
     const root = new T3.Group(); root.scale.setScalar(0.01); root.add(g); root.updateMatrixWorld(true); fixNeg(T3, root);
     const X = new E.GLTFExporter(), opt = { binary: true, onlyVisible: true, maxTextureSize: 1024 };
@@ -946,7 +981,7 @@ $('dColors').onclick = e => {
 };
 function afterMatChange() {
   if (mv.dataset.size === modelKey()) return;
-  if (isDefSize(cur, curSize) && !hasMats()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); mv.poster = `thumbs/${cur.k}.webp`; }
+  if (isPlain()) { buildSeq++; $('building').classList.remove('show'); setSrc(`models/${cur.k}.glb`, `models/${cur.k}-f.glb`); mv.poster = `thumbs/${cur.k}.webp`; }
   else { mv.poster = ''; rebuild(); }
 }
 /* 材質選單 */
@@ -1084,7 +1119,7 @@ async function iosAR(v, staticUrl, yaw, off) {
   v.cameraTarget = '0m 0m 0m'; v.jumpCameraToGoal(); await new Promise(r => setTimeout(r, 120));
   try { await v.activateAR(); } finally { if (prevT) v.setAttribute('camera-target', prevT); else v.removeAttribute('camera-target'); v.jumpCameraToGoal(); }
 }
-const allDefault = () => isDefSize(cur, curSize) && !hasMats() && ORI.mv === 0 && cur.cs.every(c => (sel[c[0]] || '').toLowerCase() === c[2].toLowerCase());
+const allDefault = () => isPlain() && ORI.mv === 0 && cur.cs.every(c => (sel[c[0]] || '').toLowerCase() === c[2].toLowerCase());
 $('arBtn').onclick = () => {
   if (mv.canActivateAR && IS_IOS) { iosAR(mv, allDefault() ? `models/${cur.k}${frameOn ? '-f' : ''}.usdz` : null, ORI.mv); return; }
   if (mv.canActivateAR) { mv.activateAR(); return; }
@@ -1116,9 +1151,9 @@ function openPhoto() {
   if (!cur) return;
   $('photo').classList.add('show'); $('photo').setAttribute('aria-hidden', 'false');
   // 從商品頁進來：照片裡還沒有這件（同尺寸）就加進去
-  const key = sizeKey(curSize), has = pm.items.find(x => x.k === cur.k && x.sizeK === key);
+  const key = modelKey(), has = pm.items.find(x => x.k === cur.k && x.sizeK === key);
   if (has) { Object.assign(has.cols, sel); paintItem(has); selectIt(has.id); }
-  else addItem({ k: cur.k, n: cur.n, size: { ...curSize }, cols: { ...sel }, src: urls.plain });
+  else { const it = addItem({ k: cur.k, n: cur.n + (hasOpts() ? `（${optTxt(cur, opts)}）` : ''), size: { ...curSize }, cols: { ...sel }, src: urls.plain }); if (it) it.sizeK = key; }
   $('pmTilt').value = pm.tilt; pmLayout();
 }
 function showPhoto() { $('photo').classList.add('show'); $('photo').setAttribute('aria-hidden', 'false'); $('pmTilt').value = pm.tilt; syncBar(); pmLayout(); }
@@ -1514,10 +1549,11 @@ cbSave();
 const corners = i => { const t = i.r * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const x = a * i.w / 2, z = b * i.d / 2; return [i.x + x * c - z * s, i.z + x * s + z * c]; }); };
 const aabb = i => { const cs = corners(i); return { x0: Math.min(...cs.map(p => p[0])), x1: Math.max(...cs.map(p => p[0])), z0: Math.min(...cs.map(p => p[1])), z1: Math.max(...cs.map(p => p[1])) }; };
 function cbBox() { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const i of CB.items) for (const [x, z] of corners(i)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return CB.items.length ? { x0, x1, z0, z1 } : null; }
-function cbAddProduct(p, size, selMap, matMap) {
+function cbAddProduct(p, size, selMap, matMap, optMap) {
   const z = size || { w: p.w, d: p.d, h: p.h }, b = cbBox();
   const it = { id: ++CB.nid, k: p.k, n: p.n, w: z.w, d: z.d, h: z.h, x: b ? Math.round((b.x1 + 30 + z.w / 2) / 5) * 5 : 0, z: b ? Math.round(((b.z0 + b.z1) / 2) / 5) * 5 : 0, r: 0, e: 0, c: colsArr(p, selMap) };
   if (matMap && Object.keys(matMap).length) it.m = JSON.parse(JSON.stringify(matMap));
+  if (optMap && Object.keys(optMap).length) it.o = { ...optMap };
   CB.items.push(it);
   let txt = ''; try { txt = cbAuto(it); } catch (e) { console.error(e); }
   CB.sel = it.id; cbSave(); return { it, auto: txt };
@@ -1579,7 +1615,7 @@ function cbSeat(T, nw) {
   return left.includes(nw) ? `${T.n}周圍坐滿了，先放在旁邊` : `排在${T.n}周圍`;
 }
 /* 商品頁 → 加入組合 */
-$('addCombo').onclick = () => { if (!cur) return; const r = cbAddProduct(cur, { ...curSize }, sel, mats); toast(`已加入組合擺放（共 ${CB.items.length} 件）${r.auto ? '，' + r.auto : ''}`); syncToCombo(); };
+$('addCombo').onclick = () => { if (!cur) return; const r = cbAddProduct(cur, { ...curSize }, sel, mats, opts); toast(`已加入組合擺放（共 ${CB.items.length} 件）${r.auto ? '，' + r.auto : ''}`); syncToCombo(); };
 function syncToCombo() { const n = CB.items.length; $('toCombo').hidden = !n; $('toCombo').textContent = `前往組合擺放（${n} 件）→`; }
 $('comboBtn').onclick = () => { location.hash = 'combo'; };
 $('homePhoto').onclick = openPhotoBlank;
@@ -1695,7 +1731,8 @@ function cbRender() {
 function cbSelUI() {
   cbTip();
   const i = CB.items.find(x => x.id === CB.sel); $('cbSel').classList.toggle('show', !!i); if (!i) return;
-  $('cbSelName').innerHTML = `${i.n || i.k}<small>${i.w}×${i.d}×${i.h} cm${i.e ? `・離地 ${i.e}` : ''}</small>`;
+  const ot = optTxt(P.find(x => x.k === i.k), i.o);
+  $('cbSelName').innerHTML = `${i.n || i.k}<small>${ot ? ot + '・' : ''}${i.w}×${i.d}×${i.h} cm${i.e ? `・離地 ${i.e}` : ''}</small>`;
   $('cbRot').value = i.r; $('cbRotO').textContent = i.r + '°';
 }
 
@@ -1856,8 +1893,8 @@ function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h === 'combo' || h.startsWith('combo=')) { openCombo(h.startsWith('combo=') ? location.hash.slice(7) : null); return; }
   closeCombo();
-  const [k, sz] = h.split('@'), m = (sz || '').match(/^(\d+)x(\d+)x(\d+)$/);
-  if (k) openP(k, m ? { w: +m[1], d: +m[2], h: +m[3] } : null); else if (cur) closeP();
+  const [h0, os] = h.split('!'), [k, sz] = h0.split('@'), m = (sz || '').match(/^(\d+)x(\d+)x(\d+)$/);
+  if (k) openP(k, m ? { w: +m[1], d: +m[2], h: +m[3] } : null, os != null ? parseOs(os) : (cur && cur.k === k ? null : {})); else if (cur) closeP();
 }
 addEventListener('hashchange', route);
 /* 按上一頁回來時，iPhone 會把舊畫面直接拿出來用，但 3D 畫面已經失效（卡住、家具不出來）→ 重新載入一次 */
