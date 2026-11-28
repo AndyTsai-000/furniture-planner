@@ -73,6 +73,33 @@ button{font:inherit;color:inherit;cursor:pointer}
 .card .dots{display:flex;gap:5px;margin-top:10px}
 .card .dots i{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--ring)}
 footer{color:var(--ink3);font-size:12px;text-align:center;margin-top:48px}
+.hero-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.photo-btn{background:var(--card);color:var(--ink)}
+.search{position:relative;margin:0 0 6px}
+.search input{width:100%;box-sizing:border-box;font-size:16px;padding:11px 40px 11px 40px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);-webkit-appearance:none;appearance:none}
+.search input::-webkit-search-cancel-button{display:none}
+.search svg{position:absolute;left:14px;top:50%;width:18px;height:18px;transform:translateY(-50%);color:var(--ink3);pointer-events:none}
+.search button{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;border-radius:50%;background:none;color:var(--ink3);font-size:16px;display:none}
+.search.on button{display:block}
+.nores{color:var(--ink3);text-align:center;padding:40px 0;font-size:14px}
+.offl{margin-top:14px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.offl button{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:999px;padding:7px 16px;font-size:13px}
+.offl small{color:var(--ink3);font-size:11.5px}
+#photo.noitem .pm-cur,#photo.noitem .pm-sl,#photo.noitem .pm-rots,#photo.noitem .pm-imgops{display:none}
+#photo.imgsel .pm-sl.d3,#photo.imgsel .pm-rots,#photo.imgsel #pmCal{display:none}
+.pm-imgops{display:none;gap:8px;margin:2px 0 10px}
+#photo.imgsel .pm-imgops{display:flex}
+.pm-imgops button{flex:1;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px 0;font-size:13.5px}
+.pm-imgops button.on{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4)}
+.pm-none{display:none;color:#b9b2a9;font-size:13.5px;text-align:center;margin:2px 0 8px}
+#photo.noitem .pm-none{display:block}
+#pmSheet .shc button.up{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+#pmSheet .shg button .ph0{width:100%;aspect-ratio:4/3;display:grid;place-items:center;background:#34302c;border-radius:8px;color:#b9b2a9;font-size:12px}
+#pmSheet .shg button img.cover{object-fit:cover;border-radius:8px}
+#pmSheet .shg button small{color:#a9a197;font-size:11px}
+.pm-busy{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);padding:12px 18px;border-radius:12px;font-size:14px;display:none;z-index:60;align-items:center;gap:10px}
+.pm-busy.show{display:flex}
+.cb-foot .cbphoto{flex:none;width:auto;margin:0;padding:0 14px;align-self:stretch;font-size:14.5px}
 
 /* ===== 商品頁 ===== */
 #detail{position:fixed;inset:0;background:var(--bg);z-index:20;display:none;grid-template-columns:minmax(0,1fr) 380px}
@@ -327,7 +354,7 @@ model-viewer[ar-status="session-started"] #arPrompt,model-viewer[ar-status="sess
 .cb-foot{flex-wrap:wrap}
 .cb-tip{flex-basis:100%;margin:0;font-size:12px;line-height:1.45;color:var(--ink3)}
 @media (max-height:700px){.cb-tip{display:none}}
-@media (max-width:600px){.cb-foot{gap:8px 12px}.cb-foot .cbsave{margin-left:auto;align-self:center;padding:8px 14px;font-size:14px;border-radius:10px}.cb-foot .arbtn{flex-basis:100%;order:5}.cb-tip{order:6}}
+@media (max-width:600px){.cb-foot{gap:8px 8px}.cb-foot .cbphoto{margin-left:auto;align-self:center;padding:8px 12px;font-size:14px;border-radius:10px}.cb-foot .cbsave{align-self:center;padding:8px 12px;font-size:14px;border-radius:10px}.cb-foot .arbtn{flex-basis:100%;order:5}.cb-tip{order:6}}
 @media (min-width:861px){
   .cb-main{grid-template-rows:none;grid-template-columns:minmax(0,1fr) 440px}
   .cb-3d{border-top:0;border-left:1px solid var(--line)}
@@ -434,11 +461,14 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
       <p>挑一件家具，用手機鏡頭<wbr>把它以實際大小放進你家看看。</p>
     </div>
     <div class="hero-r"><div class="howto"><span><b>1</b>挑家具、選顏色</span><span><b>2</b>按「在我家擺擺看」</span><span><b>3</b>鏡頭對著地板</span></div>
-    <button class="combo-btn" id="comboBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>組合擺放<b id="comboN">0</b></button></div>
+    <div class="hero-btns"><button class="combo-btn photo-btn" id="homePhoto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>照片試擺</button>
+    <button class="combo-btn" id="comboBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>組合擺放<b id="comboN">0</b></button></div></div>
   </header>
+  <div class="search" id="searchBox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="q" placeholder="搜尋家具，例如：沙發、餐椅、180" enterkeyhint="search" autocomplete="off"><button id="qx" aria-label="清除搜尋">✕</button></div>
   <nav class="chips" id="chips"></nav>
   <div class="grid" id="grid"></div>
-  <footer>尺寸為實品尺寸，顏色以實際布料、材質為準。</footer>
+  <footer>尺寸為實品尺寸，顏色以實際布料、材質為準。
+    <div class="offl"><button id="offBtn">先下載全部商品到這台手機</button><small id="offTxt">下載後網路不好時也能開（約 55 MB，建議用 Wi-Fi）</small></div></footer>
 </section>
 
 <section id="detail" aria-hidden="true">
@@ -518,7 +548,7 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
     <div class="cal-top"><span id="calMsg">在照片上沿著一個<b>知道長度</b>的東西拉一條線，例如門寬、窗戶、地磚，最好跟家具放在差不多遠的地方。</span><button id="calCancel">取消</button></div>
     <div class="pm-empty">
       <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-      <h4>拍一張要擺放的地方</h4>
+      <h4>拍一張要擺放的地方（例如客廳）</h4>
       <p>站遠一點，把地板和牆面一起拍進去，<br>擺起來最自然。也可以從相簿選照片。</p>
       <button class="pm-pick" id="pmPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>拍照或選照片</button>
     </div>
@@ -528,13 +558,17 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
   <div class="pm-bar"><div class="in">
     <div class="pm-cur"><b id="pmCurName"></b><button id="pmCal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;vertical-align:-3px;margin-right:3px"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg>對比例</button><button id="pmDup">複製</button><button class="del" id="pmDel">刪除</button></div>
     <label class="pm-sl"><span>大小</span><input type="range" id="pmSize" min="2" max="400" value="100"><output id="oSize"></output></label>
-    <label class="pm-sl"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"><output id="oRot"></output></label>
+    <p class="pm-none">按右上角「＋ 加家具」，放沙發、組合或自己的家具照片</p>
+    <div class="pm-imgops"><button id="pmFlip">左右翻轉</button><button id="pmCut" class="on">自動去背</button><button id="pmShadow" class="on">陰影</button></div>
+    <label class="pm-sl d3"><span>轉向</span><input type="range" id="pmRot" min="-180" max="180" value="-25"><output id="oRot"></output></label>
     <div class="pm-rots"><button data-r="-90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 3v5h5"/></svg>90°</button><button data-r="90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 3v5h-5"/></svg>90°</button><button data-r="180">180°</button></div>
-    <label class="pm-sl"><span>離地</span><input type="range" id="pmElev" min="0" max="200" value="0"><output id="oElev"></output></label>
-    <label class="pm-sl"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"><output id="oTilt"></output></label>
+    <label class="pm-sl d3"><span>離地</span><input type="range" id="pmElev" min="0" max="200" value="0"><output id="oElev"></output></label>
+    <label class="pm-sl d3"><span>視角</span><input type="range" id="pmTilt" min="35" max="90" value="72"><output id="oTilt"></output></label>
     <button class="pm-save" id="pmSave">存成照片</button>
   </div></div>
   <input type="file" id="pmFile" accept="image/*" hidden>
+  <input type="file" id="pmFurn" accept="image/*" hidden>
+  <div class="pm-busy" id="pmBusy"><span class="spin"></span><span id="pmBusyT">處理中⋯</span></div>
 </section>
 <section id="combo" aria-hidden="true">
   <div class="cb-top">
@@ -574,9 +608,10 @@ model-viewer[ar-status="session-started"] .xr-rot{display:flex;position:absolute
   </div>
   <div class="cb-foot">
     <label class="frow"><input type="checkbox" id="cbFrame"><span class="sw2"></span><span class="tx">地面輪廓<small>每件佔地與總寬深</small></span></label>
+    <button class="arbtn2 cbphoto" id="cbPhoto">照片試擺</button>
     <button class="arbtn2 cbsave" id="cbSaveSet">儲存成組合</button>
     <button class="arbtn" id="cbAR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M12 12l8-4.5M12 12v9.5M12 12L4 7.5"/></svg><span>在我家擺擺看（整組）</span></button>
-    <p class="cb-tip">整組較大時，AR 會放得比較遠、像浮在牆後：<b>一根手指把整組往自己拖近</b>就會落地。</p>
+    <p class="cb-tip" id="cbTip">整組較大時，AR 會放得比較遠、像浮在牆後：<b>一根手指把整組往自己拖近</b>就會落地。</p>
   </div>
 </section>
 <div id="saveDlg" role="dialog" aria-modal="true" aria-labelledby="saveDlgT"><div class="dlg">
@@ -659,17 +694,31 @@ function setCard(st) {
     <div class="ph">${st.img ? `<img loading="lazy" src="${st.img}" alt="${esc(st.name)}">` : '<span class="noimg">家具組合</span>'}<span class="ar-tag">組合</span><button class="del" data-del="${st.id}" aria-label="刪除這個組合">✕</button></div>
     <div class="meta"><div class="nm">${esc(st.name)}</div><div class="sz">${st.data.items.length} 件・總寬深 ${setBox(st.data)}</div></div></div>`;
 }
+/* 搜尋：品名、分類、型號；數字比對寬深高（差 5 cm 內） */
+let QS = '';
+const qTok = () => QS.trim().toLowerCase().split(/\s+/).filter(Boolean);
+function pMatch(p, toks) {
+  const t = `${p.n} ${p.cat} ${p.k}`.toLowerCase();
+  return toks.every(w => t.includes(w) || (/^\d{2,4}$/.test(w) && [p.w, p.d, p.h].some(v => Math.abs(v - +w) <= 5)));
+}
+function sMatch(st, toks) { const t = (st.name + ' ' + SET_CAT + ' ' + st.data.items.map(i => i.n || i.k).join(' ')).toLowerCase(); return toks.every(w => t.includes(w)); }
 function renderGrid() {
+  const toks = qTok();
   const card = p => `<button class="card" data-k="${p.k}">
     <div class="ph"><span class="ar-tag">AR</span><img loading="lazy" src="thumbs/${p.k}.webp" alt="${p.n}"></div>
     <div class="meta"><div class="nm">${p.n}</div><div class="sz">${p.w} × ${p.d} × ${p.h} cm</div>
     <div class="dots">${p.cs.map(c => `<i style="background:${c[2]}"></i>`).join('')}</div></div></button>`;
-  const cats = [SET_CAT, ...CATS].filter(c => (curCat === '全部' || c === curCat) && (c === SET_CAT ? SETS.length : P.some(p => p.cat === c)));
-  const all = curCat === '全部', anyOpen = cats.some(c => !FOLD[c]);
-  $('grid').innerHTML = (all ? `<div class="allbar"><button class="allx" id="allx">${anyOpen ? '全部收起' : '全部展開'}</button></div>` : '') + cats.map(c => { const isSet = c === SET_CAT, ps = isSet ? SETS : P.filter(p => p.cat === c), off = curCat === '全部' && FOLD[c];
+  const listOf = c => c === SET_CAT ? SETS.filter(st => !toks.length || sMatch(st, toks)) : P.filter(p => p.cat === c && (!toks.length || pMatch(p, toks)));
+  const cats = [SET_CAT, ...CATS].filter(c => (curCat === '全部' || c === curCat) && listOf(c).length);
+  const all = curCat === '全部' && !toks.length, anyOpen = cats.some(c => !FOLD[c]);
+  if (!cats.length) { $('grid').innerHTML = `<p class="nores">${toks.length ? `找不到「${esc(QS.trim())}」，換個關鍵字試試` : '沒有家具'}</p>`; return; }
+  $('grid').innerHTML = (all ? `<div class="allbar"><button class="allx" id="allx">${anyOpen ? '全部收起' : '全部展開'}</button></div>` : '') + cats.map(c => { const isSet = c === SET_CAT, ps = listOf(c), off = all && FOLD[c];
     return `<section class="grp${off ? ' off' : ''}"><button class="grp-h" data-g="${c}" aria-expanded="${!off}"><b>${c}</b><span>${ps.length} ${isSet ? '組' : '件'}</span>${ARROW}</button>
     <div class="grid">${ps.map(isSet ? setCard : card).join('')}</div></section>`; }).join('');
 }
+$('q').addEventListener('input', e => { QS = e.target.value; $('searchBox').classList.toggle('on', !!QS); renderGrid(); });
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('qx').onclick = () => { $('q').value = ''; QS = ''; $('searchBox').classList.remove('on'); renderGrid(); $('q').focus(); };
 $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; curCat = b.dataset.c; renderChips(); renderGrid(); };
 let fromList = false;
 $('grid').addEventListener('keydown', e => { const sc = e.target.closest('[data-set]'); if (sc && (e.key === 'Enter' || e.key === ' ') && e.target === sc) { e.preventDefault(); openSet(sc.dataset.set); } });
@@ -680,7 +729,7 @@ $('grid').onclick = e => {
   if (del) { const st = SETS.find(x => x.id === del.dataset.del); if (st && confirm(`要刪除「${st.name}」這個組合嗎？`)) { SETS = SETS.filter(x => x !== st); saveSets(); renderChips(); renderGrid(); toast('已刪除組合'); } return; }
   const sc = e.target.closest('[data-set]'); if (sc) { openSet(sc.dataset.set); return; }
   const g = e.target.closest('.grp-h');
-  if (g) { const c = g.dataset.g; if (curCat !== '全部') return; if (FOLD[c]) delete FOLD[c]; else FOLD[c] = 1; saveFold(); renderChips(); renderGrid(); return; }
+  if (g) { const c = g.dataset.g; if (curCat !== '全部' || QS.trim()) return; if (FOLD[c]) delete FOLD[c]; else FOLD[c] = 1; saveFold(); renderChips(); renderGrid(); return; }
   const b = e.target.closest('.card'); if (b) { fromList = true; location.hash = b.dataset.k; }
 };
 
@@ -992,14 +1041,14 @@ $('photoBtn').onclick = () => openPhoto();
 $('qrPhoto').onclick = () => { $('qrModal').classList.remove('show'); openPhoto(); };
 /* iPhone：只有「網站上的 .usdz 檔」才會遵守不能縮放（當場產生的暫存檔會被 iPhone 忽略這個設定） */
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-try { if (IS_IOS && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
 /* 自己把目前的 3D 模型轉成 iPhone 檔：原點固定在模型的地面（GLB 的 y=0），不依賴 3D 預覽的鏡頭狀態
    （之前用 model-viewer 轉檔，3D 預覽不在畫面上時鏡頭設定不會生效 → 原點跑到家具中間 → 沒落地） */
 const USDZ = { key: '', p: null };
-function usdzOf(v, yaw) {
+function usdzOf(v, yaw, off) {
   // 畫面上換過的顏色（model-viewer 材質）也要帶進去
   const col = {}; try { for (const m of (v.model ? v.model.materials : [])) if (/^c[123]$/.test(m.name)) col[m.name] = m.pbrMetallicRoughness.baseColorFactor.slice(0, 3); } catch (e) {}
-  const key = v.src + '|' + yaw + '|' + JSON.stringify(col);
+  const key = v.src + '|' + yaw + '|' + JSON.stringify(col) + '|' + JSON.stringify(off || null);
   if (USDZ.key !== key || !USDZ.p) {
     USDZ.key = key;
     USDZ.p = (async () => {
@@ -1007,6 +1056,7 @@ function usdzOf(v, yaw) {
       const [{ GLTFLoader }, { USDZExporter }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/exporters/USDZExporter.js')]);
       const g = await new GLTFLoader().loadAsync(v.src);
       g.scene.traverse(o => { for (const m of [].concat(o.material || [])) { const c = col[m.name]; if (c && m.color) m.color.setRGB(c[0], c[1], c[2], T3.LinearSRGBColorSpace); } });
+      if (off) g.scene.position.set(-off.x, 0, -off.z);   // 以中心那件家具當原點
       const root = new T3.Group(); root.add(g.scene); root.rotation.y = yaw * Math.PI / 180; root.updateMatrixWorld(true);
       const buf = await new USDZExporter().parseAsync(root, { maxTextureSize: 1024 });
       return new Blob([buf], { type: 'model/vnd.usdz+zip' });
@@ -1015,11 +1065,12 @@ function usdzOf(v, yaw) {
   }
   return USDZ.p;
 }
-async function iosAR(v, staticUrl, yaw) {
+async function iosAR(v, staticUrl, yaw, off) {
+  if (staticUrl && navigator.onLine === false) staticUrl = null;   // 沒網路：用快取裡的模型當場轉檔
   if (staticUrl) { v.iosSrc = staticUrl; await new Promise(r => setTimeout(r, 30)); return v.activateAR(); }
   if (navigator.serviceWorker && navigator.serviceWorker.controller && window.caches) {
     try {
-      const blob = await usdzOf(v, yaw || 0);
+      const blob = await usdzOf(v, yaw || 0, off);
       const c = await caches.open('ar-usdz'); for (const k of await c.keys()) await c.delete(k);
       const url = new URL(`usdz-gen/${Date.now()}.usdz`, location.href).href;
       await c.put(url, new Response(blob, { headers: { 'Content-Type': 'model/vnd.usdz+zip' } }));
@@ -1070,6 +1121,120 @@ function openPhoto() {
   else addItem({ k: cur.k, n: cur.n, size: { ...curSize }, cols: { ...sel }, src: urls.plain });
   $('pmTilt').value = pm.tilt; pmLayout();
 }
+function showPhoto() { $('photo').classList.add('show'); $('photo').setAttribute('aria-hidden', 'false'); $('pmTilt').value = pm.tilt; syncBar(); pmLayout(); }
+function openPhotoBlank() { showPhoto(); if (pm.r && !pm.items.length) openPhotoPicker(); }
+function busy(t) { $('pmBusyT').textContent = t || ''; $('pmBusy').classList.toggle('show', !!t); }
+/* 整組家具放進照片（不含地面輪廓、房間框） */
+async function addComboItem(items, name) {
+  if (!items.length) return;
+  busy('產生組合 3D⋯');
+  try {
+    const src = await comboGLB(items), b = itemsBox(items);
+    addItem({ k: 'set', n: name, size: { w: Math.round(b.x1 - b.x0), d: Math.round(b.z1 - b.z0), h: Math.max(...items.map(i => i.h + (i.e || 0))) }, cols: {}, src });
+  } catch (e) { console.error(e); toast('組合 3D 產生失敗'); }
+  busy('');
+}
+function openPhotoPicker() {
+  openPicker(p => addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` }), false, {
+    upload: () => $('pmFurn').click(),
+    combo: () => addComboItem(CB.items, '組合擺放'),
+    set: id => { const st = SETS.find(x => x.id === id); if (st) addComboItem(cbLoad(st.data).items, st.name); }
+  });
+}
+/* 家具照片：從邊緣把相近的背景色連起來去掉（白底、單色牆前拍的效果最好） */
+async function fileCanvas(file, max) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+function cropAlpha(c, pad) {
+  const W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
+  let x0 = W, x1 = -1, y0 = H, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return c;
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+  const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1; o.getContext('2d').drawImage(c, -x0, -y0); return o;
+}
+function cutBg(src) {
+  const W = src.width, H = src.height, N = W * H, g0 = src.getContext('2d'), id = g0.getImageData(0, 0, W, H), d = id.data;
+  const border = []; for (let x = 0; x < W; x++) border.push(x, (H - 1) * W + x); for (let y = 1; y < H - 1; y++) border.push(y * W, y * W + W - 1);
+  if (border.filter(p => d[p * 4 + 3] < 20).length > border.length * .3) return { cv: cropAlpha(src, 2), ok: true };   // 本來就是去背圖
+  const bg = new Uint8Array(N), seed = new Int32Array(N), q = new Int32Array(N); let qh = 0, qt = 0;
+  const dist = (a, b) => { const i = a * 4, j = b * 4, r = d[i] - d[j], gg = d[i + 1] - d[j + 1], bb = d[i + 2] - d[j + 2]; return r * r + gg * gg + bb * bb; };
+  for (const p of border) if (!bg[p]) { bg[p] = 1; seed[p] = p; q[qt++] = p; }
+  while (qh < qt) {
+    const p = q[qh++], x = p % W, sp = seed[p];
+    for (const n of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, p - W, p + W]) {
+      if (n < 0 || n >= N || bg[n]) continue;
+      if (dist(n, p) <= 600 && dist(n, sp) <= 3600) { bg[n] = 1; seed[n] = sp; q[qt++] = n; }
+    }
+  }
+  if (qt < N * .03) return { cv: src, ok: false };   // 背景太複雜，抓不到
+  // 家具中間被包住的背景（例如椅腳之間）：顏色接近背景、而且面積夠大的區塊也去掉
+  let mr = 0, mg = 0, mb = 0; for (const p of border) { mr += d[p * 4]; mg += d[p * 4 + 1]; mb += d[p * 4 + 2]; } mr /= border.length; mg /= border.length; mb /= border.length;
+  const near = p => { const r = d[p * 4] - mr, gg = d[p * 4 + 1] - mg, bb = d[p * 4 + 2] - mb; return r * r + gg * gg + bb * bb <= 900; };
+  const seen = new Uint8Array(N);
+  for (let s0 = 0; s0 < N; s0++) {
+    if (bg[s0] || seen[s0] || !near(s0)) continue;
+    qh = qt = 0; q[qt++] = s0; seen[s0] = 1;
+    while (qh < qt) { const p = q[qh++], x = p % W; for (const n of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, p - W, p + W]) { if (n < 0 || n >= N || bg[n] || seen[n] || !near(n)) continue; seen[n] = 1; q[qt++] = n; } }
+    if (qt > N * .002) for (let k = 0; k < qt; k++) bg[q[k]] = 1;
+  }
+  // 邊緣柔化：alpha 取 3×3 平均
+  const a = new Uint8Array(N); for (let p = 0; p < N; p++) a[p] = bg[p] ? 0 : 255;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const p = y * W + x; let sum = 0, cnt = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; sum += a[Y * W + X]; cnt++; }
+    d[p * 4 + 3] = Math.min(d[p * 4 + 3], Math.round(sum / cnt));
+  }
+  const o = document.createElement('canvas'); o.width = W; o.height = H; o.getContext('2d').putImageData(id, 0, 0);
+  return { cv: cropAlpha(o, 2), ok: true };
+}
+/* 照片裡的家具圖（含地面陰影）；foot＝落地線在畫布高度的比例 */
+function imgCanvas(it) {
+  const src = it.cut && it.cutCv ? it.cutCv : it.raw, sh = it.shadow && it.cut && it.cutCv;
+  const pad = sh ? Math.round(src.width * .05) + 4 : 0, c = it.el || document.createElement('canvas');
+  c.width = src.width; c.height = src.height + pad;
+  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+  if (sh) {
+    const rx = src.width * .47, ry = Math.max(5, src.width * .045), cy = src.height - ry * .35;
+    g.save(); g.translate(c.width / 2, cy); g.scale(1, ry / rx);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, 'rgba(0,0,0,.38)'); gr.addColorStop(.6, 'rgba(0,0,0,.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  g.drawImage(src, 0, 0);
+  it.foot = src.height / c.height; it.ar = c.height / c.width;
+  return c;
+}
+function addImgItem(raw, cutCv, from) {
+  if (pm.items.length >= PM_MAX) { toast(`最多放 ${PM_MAX} 件家具`); return; }
+  const n = pm.items.length;
+  const it = { id: ++pm.nid, t: 'img', k: 'img', n: '家具照片', raw, cutCv, cut: !!cutCv, shadow: true, flip: from ? from.flip : false,
+    fx: from ? Math.min(.95, from.fx + .1) : .5, fy: from ? from.fy : Math.min(.92, .8 + Math.floor(n / 3) * .05), fw: from ? from.fw : .45, rot: 0, elev: 0, el: null };
+  if (from) { it.cut = from.cut; it.shadow = from.shadow; }
+  it.el = imgCanvas(it); it.el.className = 'pvi img ready';
+  $('pmStage').insertBefore(it.el, $('pmPin'));
+  pm.items.push(it); selectIt(it.id); placeIt(it);
+  return it;
+}
+$('pmFurn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  busy('家具去背中⋯'); await new Promise(r => setTimeout(r, 30));
+  try {
+    const raw = await fileCanvas(f, 1200), r = cutBg(raw);
+    addImgItem(raw, r.ok ? r.cv : null);
+    toast(r.ok ? '已去背，拖曳放到想要的位置；兩指可以縮放' : '背景太複雜，沒辦法自動去背；建議用白牆或素色背景前拍的照片');
+  } catch (err) { console.error(err); toast('讀不到這張照片'); }
+  busy('');
+};
+const imgOp = fn => { const it = selIt(); if (!it || it.t !== 'img') return; fn(it); imgCanvas(it); placeIt(it); syncBar(); };
+$('pmFlip').onclick = () => imgOp(it => { it.flip = !it.flip; });
+$('pmCut').onclick = () => imgOp(it => { if (!it.cutCv) { toast('這張照片沒辦法自動去背'); return; } it.cut = !it.cut; });
+$('pmShadow').onclick = () => imgOp(it => { it.shadow = !it.shadow; });
 function closePhoto() { calEnd(); $('photo').classList.remove('show'); $('photo').setAttribute('aria-hidden', 'true'); $('pmSheet').classList.remove('show'); }
 function addItem(o, from) {
   if (pm.items.length >= PM_MAX) { toast(`最多放 ${PM_MAX} 件家具`); return; }
@@ -1094,16 +1259,18 @@ function addItem(o, from) {
   return it;
 }
 function paintItem(it) {
-  if (!it.el.model) return;
+  if (it.t === 'img' || !it.el.model) return;
   for (const r in it.cols) { const [R, G, B] = hexLin(it.cols[r]); for (const m of it.el.model.materials) if (m.name === r) m.pbrMetallicRoughness.setBaseColorFactor([R, G, B, 1]); }
 }
 function orbitIt(it) {
+  if (it.t === 'img') return;
   it.el.cameraOrbit = `${it.rot}deg ${pm.tilt}deg ${(it.L * KR).toFixed(3)}m`;
   it.el.shadowIntensity = it.elev > 0 ? 0 : 1.2;
 }
 function selectIt(id) { pm.sel = id; syncBar(); placePin(); }
 function syncBar() {
-  const it = selIt(); if (!it) return;
+  const it = selIt(); $('photo').classList.toggle('noitem', !it); $('photo').classList.toggle('imgsel', !!it && it.t === 'img'); if (!it) return;
+  if (it.t === 'img') { $('pmFlip').classList.toggle('on', it.flip); $('pmCut').classList.toggle('on', it.cut); $('pmShadow').classList.toggle('on', it.shadow && it.cut); $('pmCurName').innerHTML = it.cutCv ? '家具照片' : '家具照片<small>沒有去背</small>'; $('pmSize').value = Math.round(it.fw * 100); $('oSize').textContent = Math.round(it.fw * 100) + '%'; return; }
   $('pmCurName').innerHTML = `${it.n}<small>${it.size.w}×${it.size.d}×${it.size.h}</small>`;
   $('pmSize').value = Math.round(it.fw * 100); $('oSize').textContent = Math.round(it.fw * 100) + '%';
   $('pmRot').value = Math.round(it.rot); $('oRot').textContent = Math.round(it.rot) + '°';
@@ -1120,15 +1287,17 @@ function pmLayout() {
 }
 /* 元件中心＝家具落地點；離地時整個往上移（依每公尺像素換算） */
 function boxOf(it) {
-  const r = pm.r, size = Math.max(r.w, r.h) * it.fw;
+  const r = pm.r;
+  if (it.t === 'img') { const w = r.w * it.fw, h = w * it.ar; return { w, h, size: w, L: r.x + it.fx * r.w - w / 2, T: r.y + it.fy * r.h - h * it.foot }; }
+  const size = Math.max(r.w, r.h) * it.fw;
   const ppm = it.L ? size / (2 * it.L * KR * TANH) : 0, lift = it.elev / 100 * ppm * Math.sin(pm.tilt * Math.PI / 180);
-  return { size, L: r.x + it.fx * r.w - size / 2, T: r.y + it.fy * r.h - size / 2 - lift };
+  return { w: size, h: size, size, L: r.x + it.fx * r.w - size / 2, T: r.y + it.fy * r.h - size / 2 - lift };
 }
 function placeIt(it) {
   const r = pm.r; if (!r || !it.el) return;
-  const { size, L, T } = boxOf(it);
-  Object.assign(it.el.style, { width: size + 'px', height: size + 'px', left: L + 'px', top: T + 'px',
-    clipPath: `inset(${Math.max(0, r.y - T)}px ${Math.max(0, L + size - r.x - r.w)}px ${Math.max(0, T + size - r.y - r.h)}px ${Math.max(0, r.x - L)}px)` });
+  const { w, h, L, T } = boxOf(it), fl = it.t === 'img' && it.flip;
+  Object.assign(it.el.style, { width: w + 'px', height: h + 'px', left: L + 'px', top: T + 'px', transform: fl ? 'scaleX(-1)' : '',
+    clipPath: `inset(${Math.max(0, r.y - T)}px ${Math.max(0, fl ? r.x - L : L + w - r.x - r.w)}px ${Math.max(0, T + h - r.y - r.h)}px ${Math.max(0, fl ? L + w - r.x - r.w : r.x - L)}px)` });
   // 越下面（越靠近鏡頭）的家具排在越前面
   [...pm.items].sort((a, b) => a.fy - b.fy).forEach((x, i) => { x.el.style.zIndex = 10 + i; });
   if (it.id === pm.sel) placePin();
@@ -1141,7 +1310,7 @@ $('pmPick').onclick = $('pmRe').onclick = () => $('pmFile').click();
 $('pmFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const img = $('pmImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-  img.onload = () => { $('photo').classList.add('has'); pm.ppm = 0; pmLayout(); $('pmTip').style.opacity = 1; };
+  img.onload = () => { $('photo').classList.add('has'); pm.ppm = 0; pmLayout(); $('pmTip').style.opacity = 1; if (!pm.items.length) openPhotoPicker(); };
   img.src = URL.createObjectURL(f); e.target.value = '';
 };
 $('pmBack').onclick = closePhoto;
@@ -1152,31 +1321,39 @@ $('pmRot').oninput = e => upd(it => { it.rot = +e.target.value; });
 $('pmElev').oninput = e => upd(it => { it.elev = +e.target.value; });
 document.querySelector('.pm-rots').onclick = e => { const b = e.target.closest('button'); if (b) upd(it => { let r = Math.round(it.rot + +b.dataset.r); it.rot = ((r + 540) % 360) - 180; }); };
 $('pmTilt').oninput = e => { pm.tilt = +e.target.value; pm.items.forEach(it => { orbitIt(it); placeIt(it); }); syncBar(); };
-$('pmDup').onclick = () => { const it = selIt(); if (it) addItem(it, it); };
+$('pmDup').onclick = () => { const it = selIt(); if (!it) return; if (it.t === 'img') addImgItem(it.raw, it.cutCv, it); else addItem(it, it); };
 $('pmDel').onclick = () => {
   const it = selIt(); if (!it) return;
-  if (pm.items.length === 1) { toast('照片裡至少要有一件家具'); return; }
-  it.el.remove(); pm.items = pm.items.filter(x => x !== it); selectIt(pm.items[pm.items.length - 1].id);
+  it.el.remove(); pm.items = pm.items.filter(x => x !== it); const last = pm.items[pm.items.length - 1]; selectIt(last ? last.id : null);
 };
 /* 加家具：從型錄挑 */
-let sheetCat = '全部';
+let sheetCat = '全部', pickExt = null;
 function renderSheet() {
-  const cats = ['全部', ...CATS.filter(c => P.some(p => p.cat === c))];
-  $('pmSheetCats').innerHTML = cats.map(c => `<button class="${c === sheetCat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
-  $('pmSheetGrid').innerHTML = P.filter(p => sheetCat === '全部' || p.cat === sheetCat).map(p => `<button data-k="${p.k}"><img src="thumbs/${p.k}.webp" alt="" loading="lazy">${p.n}</button>`).join('');
+  const hasSet = pickExt && (SETS.length || CB.items.length);
+  const cats = ['全部', ...(hasSet ? [SET_CAT] : []), ...CATS.filter(c => P.some(p => p.cat === c))];
+  if (!cats.includes(sheetCat)) sheetCat = '全部';
+  $('pmSheetCats').innerHTML = (pickExt ? '<button class="up" data-up="1">＋ 自己的家具照片</button>' : '') + cats.map(c => `<button class="${c === sheetCat ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
+  const sets = hasSet && (sheetCat === '全部' || sheetCat === SET_CAT) ? (CB.items.length ? `<button data-cur="1"><span class="ph0">${CB.items.length} 件</span>目前的組合擺放</button>` : '') + SETS.map(st => `<button data-set="${st.id}">${st.img ? `<img class="cover" src="${st.img}" alt="">` : '<span class="ph0">組合</span>'}${esc(st.name)}<small>${st.data.items.length} 件</small></button>`).join('') : '';
+  $('pmSheetGrid').innerHTML = sets + (sheetCat === SET_CAT ? '' : P.filter(p => sheetCat === '全部' || p.cat === sheetCat).map(p => `<button data-k="${p.k}"><img src="thumbs/${p.k}.webp" alt="" loading="lazy">${p.n}</button>`).join(''));
 }
 let pickCb = null;
-function openPicker(cb, qty) {
-  pickCb = cb; renderSheet(); $('pmQty').hidden = !qty; $('pmQtyN').textContent = '1'; $('pmSheetT').textContent = qty ? '加家具' : '加一件家具';
+function openPicker(cb, qty, ext) {
+  pickCb = cb; pickExt = ext || null; renderSheet(); $('pmQty').hidden = !qty; $('pmQtyN').textContent = '1'; $('pmSheetT').textContent = qty ? '加家具' : '加一件家具';
   $('pmSheet').classList.add('show');
 }
 $('pmQty').onclick = e => { const b = e.target.closest('[data-q]'); if (b) $('pmQtyN').textContent = Math.max(1, Math.min(12, +$('pmQtyN').textContent + +b.dataset.q)); };
-$('pmAdd').onclick = () => openPicker(p => addItem({ k: p.k, n: p.n, size: { w: p.w, d: p.d, h: p.h }, cols: Object.fromEntries(p.cs.map(c => [c[0], c[2]])), src: `models/${p.k}.glb` }));
+$('pmAdd').onclick = openPhotoPicker;
 $('pmSheetClose').onclick = () => $('pmSheet').classList.remove('show');
 $('pmSheet').onclick = e => { if (e.target === $('pmSheet')) $('pmSheet').classList.remove('show'); };
-$('pmSheetCats').onclick = e => { const b = e.target.closest('button'); if (b) { sheetCat = b.dataset.c; renderSheet(); } };
+$('pmSheetCats').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.up) { $('pmSheet').classList.remove('show'); if (pickExt) pickExt.upload(); return; }
+  sheetCat = b.dataset.c; renderSheet();
+};
 $('pmSheetGrid').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return; const p = P.find(x => x.k === b.dataset.k);
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.cur || b.dataset.set) { $('pmSheet').classList.remove('show'); if (b.dataset.cur) pickExt.combo(); else pickExt.set(b.dataset.set); return; }
+  const p = P.find(x => x.k === b.dataset.k);
   $('pmSheet').classList.remove('show'); if (pickCb) pickCb(p);
 };
 /* 對比例：在照片上拉一條已知長度的線 → 換算每公尺幾像素 → 所有家具照實際尺寸縮放 */
@@ -1214,8 +1391,8 @@ function hitTest(x, y) {
   const list = [...pm.items].filter(it => it.el.classList.contains('ready')).sort((a, b) => (+b.el.style.zIndex) - (+a.el.style.zIndex));
   for (const it of list) {
     const rc = it.el.getBoundingClientRect(); if (x < rc.left || x > rc.right || y < rc.top || y > rc.bottom) continue;
-    const cv = canvasOf(it); if (!cv) continue;
-    const cr = cv.getBoundingClientRect(), px = Math.floor((x - cr.left) * cv.width / cr.width), py = Math.floor((y - cr.top) * cv.height / cr.height);
+    const cv = it.t === 'img' ? it.el : canvasOf(it); if (!cv) continue;
+    const cr = cv.getBoundingClientRect(), py = Math.floor((y - cr.top) * cv.height / cr.height); let px = Math.floor((x - cr.left) * cv.width / cr.width); if (it.t === 'img' && it.flip) px = cv.width - 1 - px;
     try { if (cv.getContext('2d').getImageData(px, py, 1, 1).data[3] > 90) return it; } catch (e) { return it; }
   }
   return null;
@@ -1246,7 +1423,7 @@ $('pmStage').addEventListener('pointermove', e => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   const it = selIt(); if (!it) return;
   if (g0.m === 1) { if (!g0.drag) return; const p = ptrs.get(e.pointerId); it.fx = Math.min(1.1, Math.max(-.1, g0.fx + (p.x - g0.x) / pm.r.w)); it.fy = Math.min(1.1, Math.max(-.1, g0.fy + (p.y - g0.y) / pm.r.h)); }
-  else if (ptrs.size >= 2) { const t = two(); it.fw = Math.min(4, Math.max(.02, g0.fw * t.d / g0.d)); let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; it.rot = ((rot + 540) % 360) - 180; orbitIt(it); }
+  else if (ptrs.size >= 2) { const t = two(); it.fw = Math.min(4, Math.max(.02, g0.fw * t.d / g0.d)); if (it.t !== 'img') { let rot = g0.rot - (t.a - g0.a) * 180 / Math.PI; it.rot = ((rot + 540) % 360) - 180; orbitIt(it); } }
   placeIt(it); syncBar();
 });
 const pEnd = e => { if (cal.on) { calUp(); return; } ptrs.delete(e.pointerId); const keep = g0 && g0.drag; g0 = null; gStart(); if (g0 && g0.m === 1) g0.drag = keep; };
@@ -1264,7 +1441,8 @@ $('pmSave').onclick = async () => {
     const s = c.width / r.w;
     await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
     for (const it of [...pm.items].filter(x => x.el.classList.contains('ready')).sort((a, b) => (+a.el.style.zIndex) - (+b.el.style.zIndex))) {
-      const { size, L, T } = boxOf(it), dx = (L - r.x) * s, dy = (T - r.y) * s;
+      const { size, w, h, L, T } = boxOf(it), dx = (L - r.x) * s, dy = (T - r.y) * s;
+      if (it.t === 'img') { g.save(); if (it.flip) { g.translate(dx + w * s, dy); g.scale(-1, 1); g.drawImage(it.el, 0, 0, w * s, h * s); } else g.drawImage(it.el, dx, dy, w * s, h * s); g.restore(); continue; }
       // 直接取畫面上已畫好的家具（model-viewer 的 toBlob 在高解析度螢幕會截錯範圍）
       const cv = canvasOf(it);
       if (cv) { const cr = cv.getBoundingClientRect(), el = it.el.getBoundingClientRect(); g.drawImage(cv, 0, 0, el.width * cv.width / cr.width, el.height * cv.height / cr.height, dx, dy, size * s, size * s); }
@@ -1404,6 +1582,12 @@ function cbSeat(T, nw) {
 $('addCombo').onclick = () => { if (!cur) return; const r = cbAddProduct(cur, { ...curSize }, sel, mats); toast(`已加入組合擺放（共 ${CB.items.length} 件）${r.auto ? '，' + r.auto : ''}`); syncToCombo(); };
 function syncToCombo() { const n = CB.items.length; $('toCombo').hidden = !n; $('toCombo').textContent = `前往組合擺放（${n} 件）→`; }
 $('comboBtn').onclick = () => { location.hash = 'combo'; };
+$('homePhoto').onclick = openPhotoBlank;
+$('cbPhoto').onclick = () => {
+  if (!CB.items.length) { toast('先加入家具'); return; }
+  const had = pm.items.find(x => x.k === 'set' && x.n === '組合擺放'); if (had) { had.el.remove(); pm.items = pm.items.filter(x => x !== had); }
+  showPhoto(); addComboItem(CB.items, '組合擺放');
+};
 async function openCombo(data) {
   $('combo').classList.add('show'); $('combo').setAttribute('aria-hidden', 'false');
   $('list').style.display = 'none'; $('cbFrame').checked = frameOn;
@@ -1509,6 +1693,7 @@ function cbRender() {
   cbSelUI();
 }
 function cbSelUI() {
+  cbTip();
   const i = CB.items.find(x => x.id === CB.sel); $('cbSel').classList.toggle('show', !!i); if (!i) return;
   $('cbSelName').innerHTML = `${i.n || i.k}<small>${i.w}×${i.d}×${i.h} cm${i.e ? `・離地 ${i.e}` : ''}</small>`;
   $('cbRot').value = i.r; $('cbRotO').textContent = i.r + '°';
@@ -1597,22 +1782,44 @@ addEventListener('keydown', e => {
   e.preventDefault(); const b = document.querySelector(`#cbSel [data-mv="${k}"]`); if (b) b.click();
 });
 /* 合成一個模型（用家具配置網站同一套建模程式），給 3D 預覽和 AR */
+/* 把一組家具建成一個 3D 模型（公分 → 公尺）；原點＝房間中心或整組外框中心 */
+function itemsBox(items) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const i of items) for (const [x, z] of corners(i)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return items.length ? { x0, x1, z0, z1 } : null; }
+async function comboRoot(items, room, withFrame, stale) {
+  const E = await eng(), T3 = E.THREE, F = await import('./frame.js');
+  const b = itemsBox(items), cx = room ? 0 : (b.x0 + b.x1) / 2, cz = room ? 0 : (b.z0 + b.z1) / 2, content = new T3.Group();
+  for (const i of items) { const g = await makeGroup(E, i.k, { w: i.w, d: i.d, h: i.h }, i.c, i.m, i.o); if (!g) continue; g.position.set(i.x - cx, i.e || 0, i.z - cz); g.rotation.y = -i.r * Math.PI / 180; content.add(g); }
+  if (stale && stale()) return {};
+  if (withFrame) content.add(F.makeComboFrame(T3, items.filter(i => !(i.e > 0)).map(i => corners({ ...i, x: i.x - cx, z: i.z - cz })), { x0: b.x0 - cx, x1: b.x1 - cx, z0: b.z0 - cz, z1: b.z1 - cz }, room));
+  const root = new T3.Group(); root.scale.setScalar(0.01); root.add(content); root.updateMatrixWorld(true); fixNeg(T3, root);
+  return { E, root, cx, cz };
+}
+async function comboGLB(items) {
+  const { E, root } = await comboRoot(items, null, false);
+  const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
+  return URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+}
+/* 整組進 iPhone AR 時的「中心」：選到的那件，沒選就用佔地最大的那件。iPhone 會把中心放在鏡頭對準的地板上 */
+function cbArBase() { return CB.items.find(i => i.id === CB.sel) || CB.items.reduce((a, b) => (b.w * b.d > a.w * a.d ? b : a), CB.items[0]); }
+function cbArOff() { const i = CB.items.length > 1 && CB.c0 ? cbArBase() : null; return i ? { x: (i.x - CB.c0.cx) / 100, z: (i.z - CB.c0.cz) / 100 } : null; }
+function cbTip() {
+  const el = $('cbTip'); if (!el) return;
+  if (CB.items.length < 2) { el.innerHTML = '整組較大時，AR 會放得比較遠：<b>一根手指往自己拖近</b>就會落地。'; return; }
+  const n = esc((cbArBase().n || cbArBase().k).replace(/[（(].*$/, ''));
+  el.innerHTML = `進 AR 時以「<b>${n}</b>」為中心：<b>先站好、鏡頭對準要放${n}的地板</b>再按。點平面圖上別的家具可以換中心。`;
+}
 function cbBuildSoon(ms = 500) { clearTimeout(CB.timer); CB.timer = setTimeout(cbBuild, ms); $('cbBusy').classList.toggle('show', CB.items.length > 0); }
 async function cbBuild() {
   const seq = ++CB.seq;
   if (!CB.items.length) { $('cbBusy').classList.remove('show'); $('cv').removeAttribute('src'); CB.url = ''; return; }
   CB.busyAt = Date.now();
   try {
-    const E = await eng(), T3 = E.THREE, F = await import('./frame.js');
-    const b = cbBox(), cx = CB.room ? 0 : (b.x0 + b.x1) / 2, cz = CB.room ? 0 : (b.z0 + b.z1) / 2, content = new T3.Group();
-    for (const i of CB.items) { const g = await makeGroup(E, i.k, { w: i.w, d: i.d, h: i.h }, i.c, i.m, i.o); if (!g) continue; g.position.set(i.x - cx, i.e || 0, i.z - cz); g.rotation.y = -i.r * Math.PI / 180; content.add(g); }
-    if (seq !== CB.seq) return;
-    if (frameOn) content.add(F.makeComboFrame(T3, CB.items.filter(i => !(i.e > 0)).map(i => corners({ ...i, x: i.x - cx, z: i.z - cz })), { x0: b.x0 - cx, x1: b.x1 - cx, z0: b.z0 - cz, z1: b.z1 - cz }, CB.room));
-    const root = new T3.Group(); root.scale.setScalar(0.01); root.add(content); root.updateMatrixWorld(true); fixNeg(T3, root);
+    const { E, root, cx, cz } = await comboRoot(CB.items, CB.room, frameOn, () => seq !== CB.seq);
+    if (!root) return;
+    const c0 = { cx, cz };
     const buf = await new E.GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
     if (seq !== CB.seq) return;
     const old = CB.url; CB.url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
-    $('cv').addEventListener('load', () => { if (IS_IOS) setTimeout(() => usdzOf($('cv'), ORI.cv).catch(() => {}), 300); if (seq === CB.seq) $('cbBusy').classList.remove('show'); if (old) setTimeout(() => URL.revokeObjectURL(old), 3000); }, { once: true });
+    $('cv').addEventListener('load', () => { if (seq === CB.seq) { CB.c0 = c0; cbTip(); } if (IS_IOS) setTimeout(() => usdzOf($('cv'), ORI.cv, cbArOff()).catch(() => {}), 300); if (seq === CB.seq) $('cbBusy').classList.remove('show'); if (old) setTimeout(() => URL.revokeObjectURL(old), 3000); }, { once: true });
     $('cv').src = CB.url;
   } catch (e) { console.error(e); if (seq === CB.seq) { $('cbBusy').classList.remove('show'); toast('3D 更新失敗'); } }
 }
@@ -1620,7 +1827,7 @@ $('cbAR').onclick = () => {
   const cv = $('cv');
   if (!CB.items.length) { toast('先加入家具'); return; }
   if ($('cbBusy').classList.contains('show') || !cv.loaded) { toast('3D 還在更新，請稍等一下'); return; }
-  if (cv.canActivateAR) { if (IS_IOS) iosAR(cv, null, ORI.cv); else cv.activateAR(); return; }
+  if (cv.canActivateAR) { if (IS_IOS) iosAR(cv, null, ORI.cv, cbArOff()); else cv.activateAR(); return; }
   if (isMobile) { toast(IN_APP ? '請用 Safari 或 Chrome 開啟才能用 AR' : '這支手機不支援 AR'); return; }
   const link = CB.link || location.href.split('#')[0] + '#combo=';
   if (link.length > 2300) { toast('組合太大，QR Code 放不下，請用「分享」把連結傳到手機'); return; }
@@ -1660,6 +1867,20 @@ let glLost = false;
 const reloadIfLost = () => { if (glLost && document.visibilityState === 'visible') location.reload(); };
 for (const v of [mv, $('cv')]) v.addEventListener('error', e => { if (e.detail && e.detail.type === 'webglcontextlost') { glLost = true; reloadIfLost(); } });
 document.addEventListener('visibilitychange', reloadIfLost);
+/* 預先下載全部商品（模型、縮圖、建模程式）到快取，網路不好時也能開 */
+function offUrls() { const u = ['./', 'engine.js', 'frame.js']; for (const p of P) u.push(`thumbs/${p.k}.webp`, `models/${p.k}.glb`, `models/${p.k}-f.glb`); return u.map(x => new URL(x, location.href).href); }
+async function offCount() { try { const c = await caches.open('ar-rt'), us = offUrls(); let n = 0; for (const u of us) if (await c.match(u, { ignoreSearch: true })) n++; return [n, us.length]; } catch (e) { return [0, 1]; } }
+async function offStatus() { if (!window.caches) { $('offBtn').parentNode.style.display = 'none'; return; } const [n, t] = await offCount(); if (n >= t) { $('offBtn').textContent = '已下載全部商品 ✓'; $('offTxt').textContent = '網路不好時也能開；按一下可以檢查更新'; } }
+$('offBtn').onclick = async () => {
+  if (!window.caches) return; const b = $('offBtn'); if (b.disabled) return; b.disabled = true;
+  const c = await caches.open('ar-rt'), us = offUrls(); let done = 0, fail = 0;
+  const one = async u => { try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await c.put(u, r); else fail++; } catch (e) { fail++; } b.textContent = `下載中⋯ ${++done}/${us.length}`; };
+  for (let i = 0; i < us.length; i += 4) await Promise.all(us.slice(i, i + 4).map(one));
+  b.disabled = false;
+  if (fail) { b.textContent = '再試一次'; $('offTxt').textContent = `有 ${fail} 個檔案沒下載到，網路穩定時再按一次`; }
+  else { b.textContent = '已下載全部商品 ✓'; $('offTxt').textContent = '網路不好時也能開；按一下可以檢查更新'; }
+};
+offStatus();
 renderChips(); renderGrid();
 customElements.whenDefined('model-viewer').then(route);
 </script>
